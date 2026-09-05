@@ -1,0 +1,83 @@
+[project]
+name = "transit-stream"
+version = "0.1.0"
+description = "Real-time King County Metro GTFS-RT telemetry pipeline — Kafka ingest, spatial enrichment, stateful stream processing."
+requires-python = ">=3.12,<3.13"
+
+# Direct dependencies only — uv.lock pins the full resolved tree.
+#
+# 3.12, not the 3.11 the parcel project pins. Nothing here is held back by
+# geopandas/pyogrio wheel availability, which is what set that floor over
+# there. Not 3.13 either: confluent-kafka ships manylinux wheels per minor
+# version and lagging one behind the newest release is the difference between
+# `uv sync` taking four seconds and it trying to compile librdkafka from
+# source against a system libssl.
+#
+# NOT listed here, deliberately:
+#
+#   dbt-core / dbt-postgres  Phase 4. Adding them now drags in a resolver
+#                            constraint set that has nothing to do with
+#                            ingest, and the parcel project already
+#                            demonstrated they fight Airflow in a shared
+#                            environment. They arrive when there are models
+#                            to run.
+#
+#   faust / apache-flink     Phase 3, and the choice between them is an open
+#                            question the proposal defers until Phase 2 is
+#                            done. Pinning either now would be pre-deciding
+#                            it by way of a lockfile.
+dependencies = [
+    # --- feed acquisition ---
+    "requests>=2.32",
+
+    # --- GTFS-RT decoding ---
+    # gtfs-realtime-bindings is the generated Python for the official
+    # gtfs-realtime.proto. It declares an unpinned `protobuf` dependency, and
+    # so does confluent-kafka's protobuf extra, so the two do not fight —
+    # worth having checked, because a protobuf major-version conflict between
+    # a decoder and a serializer is the classic way this stack fails to
+    # install.
+    "gtfs-realtime-bindings>=2.2",
+    "protobuf>=5.0",
+
+    # --- Kafka ---
+    # The extras are not optional for this project: `protobuf` pulls the
+    # ProtobufSerializer, `schemaregistry` pulls the registry client. Plain
+    # confluent-kafka is producer/consumer only and Phase 2 needs both.
+    "confluent-kafka[protobuf,schemaregistry]>=2.15",
+
+    # --- raw archive ---
+    # MinIO speaks S3, so boto3 would also work. The minio client is a much
+    # smaller dependency and this project never touches a non-S3 AWS service.
+    "minio>=7.2",
+
+    # --- serving layer ---
+    # psycopg 3, not psycopg2. [binary] ships the libpq wheel so there is no
+    # system postgresql-devel requirement.
+    "psycopg[binary]>=3.2",
+
+    # --- config ---
+    "python-dotenv>=1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.uv]
+# No build backend: this is a workspace of services and a dbt project, not an
+# installable library. Same call as the parcel project.
+package = false
+
+[tool.pytest.ini_options]
+markers = [
+    "contract: executable spec for producer stubs that are not implemented yet",
+]
+# Contract tests are EXCLUDED by default, so `make test` and CI stay green
+# while Phase 1 is in progress. They are not skipped and not deleted -- they
+# are the spec, and `make contract` runs them.
+#
+# A command-line -m overrides this one, which is what makes `make contract`
+# work without fighting the config.
+addopts = "-m 'not contract'"

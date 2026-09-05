@@ -1,0 +1,242 @@
+# transit-stream — local development stack
+#
+# ${VAR} below is substituted from .env in this directory, which Compose reads
+# implicitly. See .env.example for the required keys. Substitution only: these
+# values reach the containers via `environment:`, not by injecting the file.
+#
+# --- TWO CONSTRAINTS SHAPE THIS WHOLE FILE ---
+#
+# 1. EVERY persistent volume is a HOST BIND MOUNT under /mnt/F/docker-data,
+#    never a named volume. Named volumes live under /var/lib/docker on the
+#    root filesystem, which is a 293G partition sitting at 96% with ~15G free.
+#    This stack's whole purpose is to accumulate event data continuously; a
+#    24-hour Phase 1 collection run pointed at /var/lib/docker would fill the
+#    root partition and take the desktop down with it. /mnt/F is 3.6T of ext4.
+#
+#    The parcel project hit this first and moved its warehouse the same way.
+#    Only the volumes move, not Docker's data-root -- relocating the daemon's
+#    storage would mean dropping nosuid,nodev from /mnt/F in fstab, and nodev
+#    breaks image extraction for images shipping device nodes.
+#
+#    Image LAYERS still land on the root partition. That is the argument for
+#    the `connect` profile below, not just tidiness.
+#
+# 2. PORTS ROUTE AROUND THE PARCEL PROJECT, which may be running at the same
+#    time. It holds 5433 (its warehouse) and 8080 (its Airflow webserver).
+#    Nothing here may claim either. The external-port convention is to prefix
+#    the conventional port with 1 (9092 -> 19092, 8081 -> 18081), which keeps
+#    them mnemonic while guaranteeing no clash with a default-configured
+#    Kafka or Schema Registry a tutorial might have you start.
+
+name: transit-stream
+
+services:
+  # --- event bus ------------------------------------------------------------
+  # Redpanda, not Kafka. Rationale is in docs/decisions/0001-redpanda-over-kafka.md;
+  # the short version is one binary, no ZooKeeper, no separate KRaft controller,
+  # and a Kafka-API-compatible wire protocol so every client library is unchanged.
+  #
+  # It also ships a Schema Registry ON THE SAME BINARY (port 8081 internally).
+  # That removes an entire Confluent container from this file. Phase 2 registers
+  # protobuf schemas against it with the ordinary confluent-kafka client -- the
+  # registry API is compatible, so this is a deployment simplification and not
+  # a capability compromise.
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v25.2.1
+    container_name: transit_redpanda
+    restart: unless-stopped
+    command:
+      - redpanda
+      - start
+      # Two listeners, and BOTH are load-bearing. `internal` is what other
+      # containers use (redpanda:9092). `external` is what processes on the
+      # host use (localhost:19092). A single listener cannot serve both:
+      # Kafka clients bootstrap by connecting once, then RECONNECT to whatever
+      # address the broker advertises. Advertise `redpanda:9092` and a producer
+      # running on the host resolves nothing; advertise `localhost:19092` and
+      # a container connects to itself. This is the single most common way a
+      # local Kafka stack appears to work and then hangs on first produce.
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+      - --schema-registry-addr=internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --pandaproxy-addr=internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr=internal://redpanda:8082,external://localhost:18082
+      - --rpc-addr=redpanda:33145
+      - --advertise-rpc-addr=redpanda:33145
+      # dev-container mode: single node, no fsync-per-write, relaxed memory
+      # checks. Correct for a laptop and WRONG for anything real -- it trades
+      # the durability guarantee for not needing a tuned host. Named here so
+      # the trade is visible rather than inherited from a tutorial.
+      - --mode=dev-container
+      - --smp=1
+      - --default-log-level=info
+    ports:
+      - "${REDPANDA_KAFKA_PORT:-19092}:19092"
+      - "${REDPANDA_REGISTRY_PORT:-18081}:18081"
+      - "${REDPANDA_PROXY_PORT:-18082}:18082"
+      - "${REDPANDA_ADMIN_PORT:-19644}:9644"
+    volumes:
+      - /mnt/F/docker-data/transit-redpanda:/var/lib/redpanda/data
+    healthcheck:
+      # `rpk cluster health` reports the cluster as a whole, not just that the
+      # process is up. Connect and the producers both gate on this, because a
+      # broker accepting TCP before it has a leader for the controller
+      # partition will reject topic creation.
+      test: ["CMD-SHELL", "rpk cluster health | grep -qE 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # --- broker UI ------------------------------------------------------------
+  # Not decoration. Phase 1's exit criterion is 24 hours of uninterrupted
+  # collection, and the thing that makes that verifiable at a glance is a
+  # consumer-lag and partition view. Reading it out of `rpk` works but is a
+  # worse feedback loop when the question is "did anything stall overnight".
+  console:
+    image: docker.redpanda.com/redpandadata/console:v3.11.0
+    container_name: transit_console
+    restart: unless-stopped
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      # Console reads a YAML config; every key is also settable as an env var
+      # by upper-snake-casing its path. Both the v2 (`KAFKA_SCHEMAREGISTRY_*`)
+      # and v3 (`SCHEMAREGISTRY_*`) spellings are set because the key moved to
+      # the top level in v3 and pinning one spelling silently disables the
+      # schema view on the other major version -- the UI still loads, it just
+      # shows protobuf payloads as raw bytes, which looks like a serializer bug.
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
+      SCHEMAREGISTRY_ENABLED: "true"
+      SCHEMAREGISTRY_URLS: http://redpanda:8081
+    ports:
+      # 8085, because 8080 is the parcel project's Airflow webserver.
+      - "${CONSOLE_PORT:-8085}:8080"
+
+  # --- serving layer --------------------------------------------------------
+  # Same image as the parcel project deliberately: the container patterns,
+  # the initdb convention, and the shm_size lesson all transfer, and there is
+  # no reason for two projects on one machine to debug two Postgres versions.
+  warehouse:
+    image: postgis/postgis:16-3.4
+    container_name: transit_warehouse
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      # 5434 on the host: 5433 is the parcel warehouse, 5432 is a native
+      # install if one ever appears.
+      - "${WAREHOUSE_PORT:-5434}:5432"
+    volumes:
+      # chown 999:999, chmod 700 before first start or postgres refuses to
+      # initialize -- it checks PGDATA ownership against its own uid. `make
+      # dirs` does this.
+      - /mnt/F/docker-data/transit-warehouse:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    shm_size: 1gb  # spatial joins and large sorts exhaust the 64mb default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # --- raw archive ----------------------------------------------------------
+  # Every poll response lands here untouched before it is decoded. This is the
+  # replay story, and per the proposal it is also the insurance policy: the
+  # Terms of Use explicitly reserve King County's right to modify or
+  # discontinue access without notice, so the archive is what makes the
+  # project survive the feed disappearing.
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: transit_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - /mnt/F/docker-data/transit-minio:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # One-shot bucket creation. Runs to completion and exits; `docker compose up`
+  # will show it as Exited(0), which is success, not a crash. Creating the
+  # bucket from the producer instead would mean every producer start carries
+  # admin credentials, which is the wrong place for them.
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    container_name: transit_minio_init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      RAW_BUCKET: ${RAW_BUCKET:-transit-raw}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
+      mc mb --ignore-existing local/$$RAW_BUCKET &&
+      mc ls local &&
+      echo 'bucket ready'
+      "
+    restart: "no"
+
+  # --- sink -----------------------------------------------------------------
+  # BEHIND A PROFILE, so `docker compose up -d` does not pull it.
+  #
+  # cp-kafka-connect is ~1.5 GB of image layers, and image layers land on the
+  # root partition that is already at 96%. Phase 1 needs Redpanda, MinIO and
+  # the warehouse running for a 24-hour collection; it does not need Connect
+  # until there is something worth sinking. Start it explicitly:
+  #
+  #     docker compose --profile connect up -d
+  #
+  # It talks to Redpanda over the Kafka protocol like any other client -- that
+  # Connect is a Confluent image pointed at a non-Confluent broker is exactly
+  # the API-compatibility claim in ADR 0001, tested rather than asserted.
+  connect:
+    profiles: ["connect"]
+    image: confluentinc/cp-kafka-connect:7.7.1
+    container_name: transit_connect
+    restart: unless-stopped
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      warehouse:
+        condition: service_healthy
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: redpanda:9092
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      CONNECT_GROUP_ID: transit-connect
+      CONNECT_CONFIG_STORAGE_TOPIC: _connect_configs
+      CONNECT_OFFSET_STORAGE_TOPIC: _connect_offsets
+      CONNECT_STATUS_STORAGE_TOPIC: _connect_status
+      # Single broker, so the internal topics cannot be replicated. Defaults
+      # are 3 and Connect refuses to start against a one-node cluster.
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.protobuf.ProtobufConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://redpanda:8081
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+    ports:
+      - "${CONNECT_PORT:-8083}:8083"
+    volumes:
+      - ./connect:/etc/transit-connect:ro
+
+# No named volumes, by design. See the header.

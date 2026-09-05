@@ -1,0 +1,721 @@
+{
+  "captured_at": "2026-09-04T04:47:39.413723+00:00",
+  "feeds": {
+    "vehicle_positions": {
+      "topic": "raw.vehicle_positions",
+      "pb": {
+        "url": "https://s3.amazonaws.com/kcm-alerts-realtime-prod/vehiclepositions.pb",
+        "status": 200,
+        "bytes": 27284,
+        "etag": "\"7a8117833a208c438942adaca2f0b5a0\"",
+        "last_modified": "Fri, 04 Sep 2026 04:47:37 GMT",
+        "content_type": "application/x-protobuf",
+        "elapsed_ms": 321
+      },
+      "enhanced": {
+        "url": "https://s3.amazonaws.com/kcm-alerts-realtime-prod/vehiclepositions_enhanced.json",
+        "status": 200,
+        "bytes": 194803,
+        "etag": "\"72e5281eccd0cf83865e715a75a40e6f\"",
+        "last_modified": "Fri, 04 Sep 2026 04:47:37 GMT",
+        "content_type": "application/json",
+        "elapsed_ms": 490
+      },
+      "entities": 280,
+      "header": {
+        "version": "2.0",
+        "incrementality": "FULL_DATASET",
+        "timestamp": 1788497253,
+        "timestamp_iso": "2026-09-04T04:47:33+00:00"
+      },
+      "field_population": {
+        "id": {
+          "count": 280,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "1788497253_4365",
+            "1788497253_4322",
+            "1788497253_6956"
+          ]
+        },
+        "vehicle": {
+          "count": 280,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "vehicle.current_status": {
+          "count": 76,
+          "pct_of_entities": 27.1,
+          "samples": [
+            "STOPPED_AT"
+          ]
+        },
+        "vehicle.current_stop_sequence": {
+          "count": 279,
+          "pct_of_entities": 99.6,
+          "samples": [
+            7,
+            2,
+            15
+          ]
+        },
+        "vehicle.occupancy_status": {
+          "count": 279,
+          "pct_of_entities": 99.6,
+          "samples": [
+            "EMPTY",
+            "MANY_SEATS_AVAILABLE",
+            "FEW_SEATS_AVAILABLE"
+          ]
+        },
+        "vehicle.position": {
+          "count": 280,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "vehicle.position.bearing": {
+          "count": 6,
+          "pct_of_entities": 2.1,
+          "samples": [
+            92.0,
+            261.0,
+            148.0
+          ]
+        },
+        "vehicle.position.latitude": {
+          "count": 280,
+          "pct_of_entities": 100.0,
+          "samples": [
+            47.6059684753418,
+            47.632633209228516,
+            47.585933685302734
+          ]
+        },
+        "vehicle.position.longitude": {
+          "count": 280,
+          "pct_of_entities": 100.0,
+          "samples": [
+            -122.33432006835938,
+            -122.31248474121094,
+            -122.32752990722656
+          ]
+        },
+        "vehicle.position.speed": {
+          "count": 5,
+          "pct_of_entities": 1.8,
+          "samples": [
+            10.0,
+            6.0,
+            2.0
+          ]
+        },
+        "vehicle.stop_id": {
+          "count": 279,
+          "pct_of_entities": 99.6,
+          "samples": [
+            "558",
+            "11390",
+            "99264"
+          ]
+        },
+        "vehicle.timestamp": {
+          "count": 279,
+          "pct_of_entities": 99.6,
+          "samples": [
+            1788497228,
+            1788497225,
+            1788497231
+          ]
+        },
+        "vehicle.trip": {
+          "count": 280,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "vehicle.trip.direction_id": {
+          "count": 280,
+          "pct_of_entities": 100.0,
+          "samples": [
+            0,
+            1
+          ]
+        },
+        "vehicle.trip.route_id": {
+          "count": 280,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "100001",
+            "100002",
+            "100003"
+          ]
+        },
+        "vehicle.trip.start_date": {
+          "count": 280,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "20260903"
+          ]
+        },
+        "vehicle.trip.trip_id": {
+          "count": 280,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "800581411",
+            "846336611",
+            "693748091"
+          ]
+        },
+        "vehicle.vehicle": {
+          "count": 280,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "vehicle.vehicle.id": {
+          "count": 280,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "4365",
+            "4322",
+            "6956"
+          ]
+        },
+        "vehicle.vehicle.label": {
+          "count": 280,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "4365",
+            "4322",
+            "6956"
+          ]
+        }
+      },
+      "shape_diff": {
+        "json_only": [
+          "entity",
+          "vehicle.block_id",
+          "vehicle.trip.schedule_relationship"
+        ],
+        "pb_only": [
+          "id",
+          "vehicle.position.bearing",
+          "vehicle.position.speed"
+        ],
+        "shared_count": 17
+      },
+      "json_inflation_x": 7.1
+    },
+    "trip_updates": {
+      "topic": "raw.trip_updates",
+      "pb": {
+        "url": "https://s3.amazonaws.com/kcm-alerts-realtime-prod/tripupdates.pb",
+        "status": 200,
+        "bytes": 628560,
+        "etag": "\"adcd766e195fcfee7c237d3a42f8d946\"",
+        "last_modified": "Fri, 04 Sep 2026 04:47:37 GMT",
+        "content_type": "application/x-protobuf",
+        "elapsed_ms": 546
+      },
+      "enhanced": {
+        "url": "https://s3.amazonaws.com/kcm-alerts-realtime-prod/tripupdates_enhanced.json",
+        "status": 200,
+        "bytes": 6773180,
+        "etag": "\"a218b4434dd992b5fec9abf5561e296c\"",
+        "last_modified": "Fri, 04 Sep 2026 04:47:37 GMT",
+        "content_type": "application/json",
+        "elapsed_ms": 847
+      },
+      "entities": 612,
+      "header": {
+        "version": "2.0",
+        "incrementality": "FULL_DATASET",
+        "timestamp": 1788497253,
+        "timestamp_iso": "2026-09-04T04:47:33+00:00"
+      },
+      "field_population": {
+        "id": {
+          "count": 612,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "1788497253_562520601",
+            "1788497253_562520911",
+            "1788497253_800581411"
+          ]
+        },
+        "trip_update": {
+          "count": 612,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "trip_update.stop_time_update": {
+          "count": 612,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "trip_update.stop_time_update.arrival": {
+          "count": 18435,
+          "pct_of_entities": 3012.3,
+          "samples": []
+        },
+        "trip_update.stop_time_update.arrival.delay": {
+          "count": 18435,
+          "pct_of_entities": 3012.3,
+          "samples": [
+            0,
+            223,
+            -685
+          ]
+        },
+        "trip_update.stop_time_update.arrival.time": {
+          "count": 18435,
+          "pct_of_entities": 3012.3,
+          "samples": [
+            1788499380,
+            1788499408,
+            1788499438
+          ]
+        },
+        "trip_update.stop_time_update.departure": {
+          "count": 18435,
+          "pct_of_entities": 3012.3,
+          "samples": []
+        },
+        "trip_update.stop_time_update.departure.delay": {
+          "count": 18435,
+          "pct_of_entities": 3012.3,
+          "samples": [
+            0,
+            223,
+            579
+          ]
+        },
+        "trip_update.stop_time_update.departure.time": {
+          "count": 18435,
+          "pct_of_entities": 3012.3,
+          "samples": [
+            1788499380,
+            1788499408,
+            1788499438
+          ]
+        },
+        "trip_update.stop_time_update.schedule_relationship": {
+          "count": 188,
+          "pct_of_entities": 30.7,
+          "samples": [
+            "SKIPPED"
+          ]
+        },
+        "trip_update.stop_time_update.stop_id": {
+          "count": 18623,
+          "pct_of_entities": 3043.0,
+          "samples": [
+            "2010",
+            "2020",
+            "2030"
+          ]
+        },
+        "trip_update.stop_time_update.stop_sequence": {
+          "count": 18623,
+          "pct_of_entities": 3043.0,
+          "samples": [
+            1,
+            2,
+            3
+          ]
+        },
+        "trip_update.timestamp": {
+          "count": 279,
+          "pct_of_entities": 45.6,
+          "samples": [
+            1788497228,
+            1788497225,
+            1788497231
+          ]
+        },
+        "trip_update.trip": {
+          "count": 612,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "trip_update.trip.direction_id": {
+          "count": 612,
+          "pct_of_entities": 100.0,
+          "samples": [
+            1,
+            0
+          ]
+        },
+        "trip_update.trip.route_id": {
+          "count": 612,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "100001",
+            "100002",
+            "100003"
+          ]
+        },
+        "trip_update.trip.start_date": {
+          "count": 612,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "20260903"
+          ]
+        },
+        "trip_update.trip.trip_id": {
+          "count": 612,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "562520601",
+            "562520911",
+            "800581411"
+          ]
+        },
+        "trip_update.vehicle": {
+          "count": 612,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "trip_update.vehicle.id": {
+          "count": 280,
+          "pct_of_entities": 45.8,
+          "samples": [
+            "4365",
+            "4322",
+            "6956"
+          ]
+        },
+        "trip_update.vehicle.label": {
+          "count": 280,
+          "pct_of_entities": 45.8,
+          "samples": [
+            "4365",
+            "4322",
+            "6956"
+          ]
+        }
+      },
+      "shape_diff": {
+        "json_only": [
+          "entity",
+          "trip_update.trip.schedule_relationship"
+        ],
+        "pb_only": [
+          "id"
+        ],
+        "shared_count": 20
+      },
+      "json_inflation_x": 10.8
+    },
+    "service_alerts": {
+      "topic": "raw.service_alerts",
+      "pb": {
+        "url": "https://s3.amazonaws.com/kcm-alerts-realtime-prod/alerts.pb",
+        "status": 200,
+        "bytes": 38523,
+        "etag": "\"d66f72720792e3a6a6c56070a84aadd5\"",
+        "last_modified": "Fri, 04 Sep 2026 04:47:24 GMT",
+        "content_type": "application/x-protobuf",
+        "elapsed_ms": 359
+      },
+      "enhanced": {
+        "url": "https://s3.amazonaws.com/kcm-alerts-realtime-prod/alerts_enhanced.json",
+        "status": 200,
+        "bytes": 171797,
+        "etag": "\"c347b9c381226fa3de81e256666145e7\"",
+        "last_modified": "Fri, 04 Sep 2026 04:47:24 GMT",
+        "content_type": "application/json",
+        "elapsed_ms": 400
+      },
+      "entities": 53,
+      "header": {
+        "version": "2.0",
+        "incrementality": "FULL_DATASET",
+        "timestamp": 1788497242,
+        "timestamp_iso": "2026-09-04T04:47:22+00:00"
+      },
+      "field_population": {
+        "alert": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "alert.active_period": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "alert.active_period.end": {
+          "count": 47,
+          "pct_of_entities": 88.7,
+          "samples": [
+            1798804740,
+            1790373600,
+            1819796340
+          ]
+        },
+        "alert.active_period.start": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": [
+            1770638400,
+            1776273060,
+            1776459600
+          ]
+        },
+        "alert.cause": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "OTHER_CAUSE",
+            "CONSTRUCTION",
+            "UNKNOWN_CAUSE"
+          ]
+        },
+        "alert.cause_detail": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "alert.cause_detail.translation": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "alert.cause_detail.translation.language": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "en"
+          ]
+        },
+        "alert.cause_detail.translation.text": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "A_ROAD_CLOSURE",
+            "CONSTRUCTION",
+            "UNKNOWN_CAUSE"
+          ]
+        },
+        "alert.description_text": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "alert.description_text.translation": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "alert.description_text.translation.language": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "en"
+          ]
+        },
+        "alert.description_text.translation.text": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "Affected stops:\r\nStop #47275 S 240th St & 18th Pl S (WB)\r\nStop #47280 S 240th St & 16th Ave S (WB)\r\nStop #48972 16th Ave S & 17th Pl S (NB)\r\nStop #48974 Kent Des Moines Rd & 20th Ave S (EB)\r\nStop #50466 Kent Des Moines Rd & 20th Ave S (WB)\r\nStop #50468 16th Ave S & 17th Pl S (SB)\r\nStop #48920 S 240th St & 17th Ave S (EB)\r\nStop #48925 S 240th St & 18th Pl S (EB)\r\n\nFor Route 156 to Southcenter get on/off at:\r\nStop #47270 S 240th St & 21st Ave S (WB)\r\nThe temporary stop on 20th Ave S just south of Kent Des Moines Rd (NB)\r\n\nFor Route 156 to Highline CC get on/off at:\r\nThe temporary stop on 20th Ave S just south of Kent Des Moines Rd (SB)\r\nStop #48930 S 240th St & 21st Ave S (EB)\r\n",
+            "Affected routes:\r\n168\r\n\nGet on/off:\r\nThe temporary stop on SE Kent-Kangley Rd just west of 235th Ave SE (EB)",
+            "Westbound transit riders who require the use of an elevator can plan ahead to board or exit SR 520 transit service at the Clyde Hill/Yarrow Point Freeway Station instead. Transit passengers who need to get to Evergreen Point Station can transfer to eastbound routes 271 or ST 542 from the stop on NE Pacific St & Montlake Blvd NE - Bay 1 (EB) and use the elevator at the eastbound stop.\r\n\nThe Clyde Hill/Yarrow Point Freeway station elevators in both directions have resumed operation."
+          ]
+        },
+        "alert.effect": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "DETOUR",
+            "STOP_MOVED",
+            "ACCESSIBILITY_ISSUE"
+          ]
+        },
+        "alert.effect_detail": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "alert.effect_detail.translation": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "alert.effect_detail.translation.language": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "en"
+          ]
+        },
+        "alert.effect_detail.translation.text": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "SINGLE_ROUTE_REROUTE",
+            "STOP_RELOCATION",
+            "ELEVATOR_CLOSURE"
+          ]
+        },
+        "alert.header_text": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "alert.header_text.translation": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "alert.header_text.translation.language": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "en"
+          ]
+        },
+        "alert.header_text.translation.text": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "Route 156 will be rerouted off portions of Kent Des Moines Rd, S 240th St and 16th Ave S from Mon Feb 9 to Thu Dec 31 due to a road closure.",
+            "Stop #62319 SE Kent-Kangley Rd & 235th Ave SE (EB) relocated Wed Apr 15 to Fri Sep 25 from 8:00 AM to 3:00 PM daily due to construction.",
+            "The elevator at SR 520 & Evergreen Point Rd (WB) is out of service until further notice."
+          ]
+        },
+        "alert.informed_entity": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "alert.informed_entity.agency_id": {
+          "count": 144,
+          "pct_of_entities": 271.7,
+          "samples": [
+            "1",
+            "40"
+          ]
+        },
+        "alert.informed_entity.direction_id": {
+          "count": 5,
+          "pct_of_entities": 9.4,
+          "samples": [
+            0,
+            1
+          ]
+        },
+        "alert.informed_entity.route_id": {
+          "count": 152,
+          "pct_of_entities": 286.8,
+          "samples": [
+            "100489",
+            "100060",
+            "100146"
+          ]
+        },
+        "alert.informed_entity.route_type": {
+          "count": 152,
+          "pct_of_entities": 286.8,
+          "samples": [
+            3
+          ]
+        },
+        "alert.informed_entity.stop_id": {
+          "count": 151,
+          "pct_of_entities": 284.9,
+          "samples": [
+            "48920",
+            "48925",
+            "50466"
+          ]
+        },
+        "alert.severity_level": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "SEVERE",
+            "WARNING"
+          ]
+        },
+        "alert.url": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "alert.url.translation": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": []
+        },
+        "alert.url.translation.language": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "en"
+          ]
+        },
+        "alert.url.translation.text": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/156/W",
+            "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/168/E/",
+            "https://tripplanner.kingcounty.gov/#/app/nextdepartures"
+          ]
+        },
+        "id": {
+          "count": 53,
+          "pct_of_entities": 100.0,
+          "samples": [
+            "82885",
+            "86627",
+            "86755"
+          ]
+        }
+      },
+      "shape_diff": {
+        "json_only": [
+          "alert.alert_lifecycle",
+          "alert.created_timestamp",
+          "alert.duration_certainty",
+          "alert.informed_entity.activities",
+          "alert.informed_entity.facility_id",
+          "alert.last_modified_timestamp",
+          "alert.last_push_notification_timestamp",
+          "alert.service_effect_text",
+          "alert.service_effect_text.translation",
+          "alert.service_effect_text.translation.language",
+          "alert.service_effect_text.translation.text",
+          "alert.severity",
+          "alert.short_header_text",
+          "alert.short_header_text.translation",
+          "alert.short_header_text.translation.language",
+          "alert.short_header_text.translation.text",
+          "alert.timeframe_text",
+          "alert.timeframe_text.translation",
+          "alert.timeframe_text.translation.language",
+          "alert.timeframe_text.translation.text",
+          "entity"
+        ],
+        "pb_only": [
+          "alert.cause_detail.translation",
+          "alert.cause_detail.translation.language",
+          "alert.cause_detail.translation.text",
+          "alert.effect_detail.translation",
+          "alert.effect_detail.translation.language",
+          "alert.effect_detail.translation.text",
+          "id"
+        ],
+        "shared_count": 27
+      },
+      "json_inflation_x": 4.5
+    }
+  },
+  "static": {
+    "url": "https://metro.kingcounty.gov/GTFS/google_transit.zip",
+    "status": 200,
+    "bytes": 10966815,
+    "last_modified": "Sat, 29 Aug 2026 14:29:15 GMT",
+    "etag": "\"682c87c4c237dd1:0\""
+  }
+}

@@ -1,0 +1,96 @@
+# What CI can honestly check without a broker or a warehouse.
+#
+# There is no Redpanda service here and no attempt to fake one. Standing up a
+# broker to produce and consume a message would test the client library, not
+# this project, and it would report success against zero real feed data.
+#
+# There is also no network call to the King County endpoints. A CI job that
+# fetches a live feed fails when the agency has an outage, which trains people
+# to ignore red builds, and it puts an unauthenticated public endpoint on a
+# schedule it did not agree to.
+#
+# So this validates what is true independently of infrastructure:
+#
+#   * the dependency set installs from the lockfile
+#   * the GTFS-RT wire semantics the schema is designed around still hold,
+#     asserted against committed fixtures
+#   * the recon instrument imports and its CLI parses
+#   * the warehouse DDL is syntactically valid Postgres
+#
+# The wire-semantics tests are the substantive ones. Each corresponds to a
+# decision in docs/findings.md or docker/initdb/01-schema.sql -- a failure
+# means a design assumption needs revisiting, which is exactly the signal
+# worth having.
+#
+# Anything needing the stack belongs in `make check` and the Phase 1
+# 24-hour collection run.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install (locked)
+        # --frozen, so a pyproject.toml edited without re-locking FAILS here
+        # rather than silently resolving to something the lockfile never saw.
+        run: uv sync --frozen
+
+      - name: Wire-semantics regression tests
+        run: uv run pytest tests/ -v
+
+      - name: Recon instrument imports and parses its CLI
+        run: |
+          uv run python recon/probe.py --help > /dev/null
+          uv run python -c "
+          import recon.probe as p
+          assert set(p.FEEDS) == {'vehicle_positions','trip_updates','service_alerts'}
+          for name, spec in p.FEEDS.items():
+              assert spec['pb'].endswith('.pb'), name
+              assert spec['topic'].startswith('raw.'), name
+          print(f'{len(p.FEEDS)} feeds configured')
+          "
+
+      - name: Warehouse DDL is valid Postgres
+        # A real server, because `psql -f` against a live instance is the only
+        # honest syntax check for DDL -- there is no offline parser that
+        # agrees with Postgres about partitioning and plpgsql. This asserts
+        # the schema APPLIES; it asserts nothing about data, because there
+        # isn't any.
+        env:
+          PGPASSWORD: ci
+        run: |
+          docker run -d --name ci-pg \
+            -e POSTGRES_USER=ci -e POSTGRES_PASSWORD=ci -e POSTGRES_DB=ci \
+            -p 5432:5432 postgis/postgis:16-3.4
+          for i in $(seq 1 30); do
+            docker exec ci-pg pg_isready -U ci -d ci && break
+            sleep 2
+          done
+          docker exec -i ci-pg psql -U ci -d ci -v ON_ERROR_STOP=1 \
+            < docker/initdb/01-schema.sql
+          # Partition maintenance has to be idempotent -- Airflow will call it
+          # on a schedule and a second call must not error.
+          docker exec ci-pg psql -U ci -d ci -v ON_ERROR_STOP=1 -tAc \
+            "select raw.ensure_partition('raw.vehicle_positions', current_date);"
+          docker exec ci-pg psql -U ci -d ci -v ON_ERROR_STOP=1 -tAc \
+            "select raw.ensure_partition('raw.vehicle_positions', current_date);"
+          docker rm -f ci-pg
+
+      - name: Compose file is valid
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+          echo "compose config parses"

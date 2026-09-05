@@ -1,0 +1,711 @@
+{
+  "measured_at": "2026-09-04T04:58:16.720028+00:00",
+  "poll_interval_s": 5.0,
+  "duration_min": 11.0,
+  "summary": {
+    "vehicle_positions": {
+      "polls": 132,
+      "not_modified": 96,
+      "changes": 35,
+      "intervals_s": [
+        5.0,
+        15.1,
+        20.0,
+        20.0,
+        20.0,
+        20.0,
+        15.1,
+        20.0,
+        20.0,
+        20.0,
+        15.0,
+        20.0,
+        20.0,
+        20.0,
+        20.0,
+        15.0,
+        20.0,
+        20.0,
+        20.0,
+        14.9,
+        20.0,
+        20.0,
+        20.0,
+        15.0,
+        20.0,
+        20.0,
+        15.0,
+        20.0,
+        20.0,
+        20.0,
+        15.0,
+        20.0,
+        20.0,
+        20.0,
+        15.0
+      ],
+      "min_s": 5.0,
+      "median_s": 20.0,
+      "max_s": 20.0,
+      "pct_304": 72.7
+    },
+    "trip_updates": {
+      "polls": 132,
+      "not_modified": 96,
+      "changes": 35,
+      "intervals_s": [
+        5.0,
+        15.0,
+        20.0,
+        20.0,
+        20.0,
+        20.0,
+        15.0,
+        20.0,
+        20.0,
+        20.0,
+        15.0,
+        20.0,
+        20.0,
+        20.0,
+        20.0,
+        15.0,
+        20.0,
+        20.0,
+        20.1,
+        14.9,
+        20.0,
+        20.0,
+        15.6,
+        19.4,
+        20.0,
+        20.0,
+        15.0,
+        20.0,
+        20.0,
+        20.1,
+        15.0,
+        20.0,
+        20.1,
+        14.9,
+        20.2
+      ],
+      "min_s": 5.0,
+      "median_s": 20.0,
+      "max_s": 20.2,
+      "pct_304": 72.7
+    },
+    "service_alerts": {
+      "polls": 132,
+      "not_modified": 120,
+      "changes": 11,
+      "intervals_s": [
+        9.6,
+        60.0,
+        60.0,
+        60.4,
+        60.0,
+        59.6,
+        60.0,
+        60.0,
+        60.4,
+        60.1,
+        59.5
+      ],
+      "min_s": 9.6,
+      "median_s": 60.0,
+      "max_s": 60.4,
+      "pct_304": 90.9
+    }
+  },
+  "changes": [
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:47:17.066461+00:00",
+      "etag": "\"de1c41afdc227b53652f4294d3460771\"",
+      "bytes": 28038,
+      "last_modified": "Fri, 04 Sep 2026 04:46:59 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:47:17.614874+00:00",
+      "etag": "\"3616a51b77fd7c937c08d3b2b6a47dad\"",
+      "bytes": 626486,
+      "last_modified": "Fri, 04 Sep 2026 04:46:59 GMT"
+    },
+    {
+      "feed": "service_alerts",
+      "at": "2026-09-04T04:47:17.940205+00:00",
+      "etag": "\"8b098f8e9260e5021b4db146b38b08e0\"",
+      "bytes": 38523,
+      "last_modified": "Fri, 04 Sep 2026 04:46:24 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:47:22.018632+00:00",
+      "etag": "\"72b3a23196a9ab575ce31e1522ed14e7\"",
+      "bytes": 27377,
+      "last_modified": "Fri, 04 Sep 2026 04:47:19 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:47:22.593675+00:00",
+      "etag": "\"9f1589b4b7a9ec4ffaaa8270bb223f3a\"",
+      "bytes": 629723,
+      "last_modified": "Fri, 04 Sep 2026 04:47:18 GMT"
+    },
+    {
+      "feed": "service_alerts",
+      "at": "2026-09-04T04:47:27.569541+00:00",
+      "etag": "\"d66f72720792e3a6a6c56070a84aadd5\"",
+      "bytes": 38523,
+      "last_modified": "Fri, 04 Sep 2026 04:47:24 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:47:37.069389+00:00",
+      "etag": "\"7a8117833a208c438942adaca2f0b5a0\"",
+      "bytes": 27284,
+      "last_modified": "Fri, 04 Sep 2026 04:47:37 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:47:37.633982+00:00",
+      "etag": "\"adcd766e195fcfee7c237d3a42f8d946\"",
+      "bytes": 628560,
+      "last_modified": "Fri, 04 Sep 2026 04:47:37 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:47:57.046926+00:00",
+      "etag": "\"eb50221977bbbe4b3cdfa20c52255269\"",
+      "bytes": 27283,
+      "last_modified": "Fri, 04 Sep 2026 04:47:57 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:47:57.598542+00:00",
+      "etag": "\"433b420a4522a2a265c909f702b9c7df\"",
+      "bytes": 628560,
+      "last_modified": "Fri, 04 Sep 2026 04:47:57 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:48:17.073487+00:00",
+      "etag": "\"cf5a064d2337703fdec987dfb3166d45\"",
+      "bytes": 27564,
+      "last_modified": "Fri, 04 Sep 2026 04:48:16 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:48:17.629628+00:00",
+      "etag": "\"64958c586d2ff1ceddaeaaa24108113b\"",
+      "bytes": 626856,
+      "last_modified": "Fri, 04 Sep 2026 04:48:16 GMT"
+    },
+    {
+      "feed": "service_alerts",
+      "at": "2026-09-04T04:48:27.545644+00:00",
+      "etag": "\"d663ec9465b511cd5b3e9dc866a07608\"",
+      "bytes": 38523,
+      "last_modified": "Fri, 04 Sep 2026 04:48:24 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:48:37.037948+00:00",
+      "etag": "\"81a754446dadedee8be436029355613d\"",
+      "bytes": 27088,
+      "last_modified": "Fri, 04 Sep 2026 04:48:35 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:48:37.608411+00:00",
+      "etag": "\"3ad9386f74941d2ad26852dfe548da43\"",
+      "bytes": 623732,
+      "last_modified": "Fri, 04 Sep 2026 04:48:35 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:48:57.026791+00:00",
+      "etag": "\"a197f54e173ea45c2cd170ed25710010\"",
+      "bytes": 27081,
+      "last_modified": "Fri, 04 Sep 2026 04:48:53 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:48:57.603556+00:00",
+      "etag": "\"655c56a367d6cddae2bcf5f1a748f850\"",
+      "bytes": 623055,
+      "last_modified": "Fri, 04 Sep 2026 04:48:53 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:49:12.077881+00:00",
+      "etag": "\"8009d7eb94d4e31b00cf4b57bdb19f0d\"",
+      "bytes": 27247,
+      "last_modified": "Fri, 04 Sep 2026 04:49:12 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:49:12.629851+00:00",
+      "etag": "\"adf067fc186c03c3cf9a5a7743ced05a\"",
+      "bytes": 619741,
+      "last_modified": "Fri, 04 Sep 2026 04:49:12 GMT"
+    },
+    {
+      "feed": "service_alerts",
+      "at": "2026-09-04T04:49:27.553354+00:00",
+      "etag": "\"340ecd6672c690d681231a249f7aba55\"",
+      "bytes": 38523,
+      "last_modified": "Fri, 04 Sep 2026 04:49:24 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:49:32.060735+00:00",
+      "etag": "\"634984500220be296e818edce5f2ec7c\"",
+      "bytes": 26749,
+      "last_modified": "Fri, 04 Sep 2026 04:49:31 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:49:32.611474+00:00",
+      "etag": "\"d0249be76accc8e8f779390765ed702e\"",
+      "bytes": 615069,
+      "last_modified": "Fri, 04 Sep 2026 04:49:31 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:49:52.030450+00:00",
+      "etag": "\"f42b4f384b8d05f03f1ec973cdceeeb7\"",
+      "bytes": 27350,
+      "last_modified": "Fri, 04 Sep 2026 04:49:50 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:49:52.607303+00:00",
+      "etag": "\"73c41802182e5c0d84a603b7b28af8a5\"",
+      "bytes": 612984,
+      "last_modified": "Fri, 04 Sep 2026 04:49:50 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:50:12.041672+00:00",
+      "etag": "\"e7be072ff9a6bae5a60ae764f6f64301\"",
+      "bytes": 27154,
+      "last_modified": "Fri, 04 Sep 2026 04:50:09 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:50:12.599186+00:00",
+      "etag": "\"646da60489b7dd72d971a7ad5d2ac0f1\"",
+      "bytes": 611389,
+      "last_modified": "Fri, 04 Sep 2026 04:50:09 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:50:27.058863+00:00",
+      "etag": "\"d1eebfaeb7139aef404e84b4cf96584a\"",
+      "bytes": 26972,
+      "last_modified": "Fri, 04 Sep 2026 04:50:27 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:50:27.596548+00:00",
+      "etag": "\"9ac4cb8be2a824ab998d7da6e8af483b\"",
+      "bytes": 613260,
+      "last_modified": "Fri, 04 Sep 2026 04:50:27 GMT"
+    },
+    {
+      "feed": "service_alerts",
+      "at": "2026-09-04T04:50:27.920594+00:00",
+      "etag": "\"2f93ff343d029ac3ce21f3054c11a074\"",
+      "bytes": 38523,
+      "last_modified": "Fri, 04 Sep 2026 04:50:24 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:50:47.065092+00:00",
+      "etag": "\"9d6380fbc44b82af38562665006e720d\"",
+      "bytes": 26967,
+      "last_modified": "Fri, 04 Sep 2026 04:50:46 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:50:47.624384+00:00",
+      "etag": "\"1902545267ddd2cd06960a182249f446\"",
+      "bytes": 613260,
+      "last_modified": "Fri, 04 Sep 2026 04:50:46 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:51:07.051483+00:00",
+      "etag": "\"25f32a65811892d6dd2fb4e9c66d1be7\"",
+      "bytes": 27288,
+      "last_modified": "Fri, 04 Sep 2026 04:51:05 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:51:07.596325+00:00",
+      "etag": "\"b34d9d656aa43fff595749ae047a191c\"",
+      "bytes": 608910,
+      "last_modified": "Fri, 04 Sep 2026 04:51:04 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:51:27.042941+00:00",
+      "etag": "\"1d775066069b54503bf35e842482ffa3\"",
+      "bytes": 26586,
+      "last_modified": "Fri, 04 Sep 2026 04:51:24 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:51:27.619308+00:00",
+      "etag": "\"64442d6be9bea287bb4e4669c2c04fa4\"",
+      "bytes": 608098,
+      "last_modified": "Fri, 04 Sep 2026 04:51:24 GMT"
+    },
+    {
+      "feed": "service_alerts",
+      "at": "2026-09-04T04:51:27.939537+00:00",
+      "etag": "\"5fac5370101b57f3f17e71a6fb7468d6\"",
+      "bytes": 38523,
+      "last_modified": "Fri, 04 Sep 2026 04:51:24 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:51:47.062744+00:00",
+      "etag": "\"c711667671de142ffcdd60e140c4dcf7\"",
+      "bytes": 26681,
+      "last_modified": "Fri, 04 Sep 2026 04:51:43 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:51:47.621208+00:00",
+      "etag": "\"a6cff2a93ccd23d22241ea68a97fe465\"",
+      "bytes": 606514,
+      "last_modified": "Fri, 04 Sep 2026 04:51:43 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:52:02.052476+00:00",
+      "etag": "\"cc265c5bff30e5de2e2c529928f6c8f4\"",
+      "bytes": 27102,
+      "last_modified": "Fri, 04 Sep 2026 04:52:02 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:52:02.613677+00:00",
+      "etag": "\"206a6e6160a9151c04059790dfdede10\"",
+      "bytes": 604966,
+      "last_modified": "Fri, 04 Sep 2026 04:52:01 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:52:22.045949+00:00",
+      "etag": "\"9db6c0872aeb4b00a5fd0f2a8d172707\"",
+      "bytes": 27071,
+      "last_modified": "Fri, 04 Sep 2026 04:52:21 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:52:22.597494+00:00",
+      "etag": "\"ecb6ddcf8b23a3a4629f399f585f62b7\"",
+      "bytes": 605513,
+      "last_modified": "Fri, 04 Sep 2026 04:52:21 GMT"
+    },
+    {
+      "feed": "service_alerts",
+      "at": "2026-09-04T04:52:27.562670+00:00",
+      "etag": "\"bf8bf9a13e379927833d57a66f84a3da\"",
+      "bytes": 38523,
+      "last_modified": "Fri, 04 Sep 2026 04:52:24 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:52:42.063446+00:00",
+      "etag": "\"100bfc3ed57b7011e3b2ffd5ee51d023\"",
+      "bytes": 27158,
+      "last_modified": "Fri, 04 Sep 2026 04:52:39 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:52:42.613175+00:00",
+      "etag": "\"9dd05a7e2dcfa0093fee01dc120fbddb\"",
+      "bytes": 604507,
+      "last_modified": "Fri, 04 Sep 2026 04:52:39 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:53:02.108265+00:00",
+      "etag": "\"24ab0f5acec4151f4ffa3b3c4bebb3db\"",
+      "bytes": 27564,
+      "last_modified": "Fri, 04 Sep 2026 04:52:58 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:53:02.691114+00:00",
+      "etag": "\"41cff822dec9c7a652fc04d53cc9d002\"",
+      "bytes": 603253,
+      "last_modified": "Fri, 04 Sep 2026 04:52:58 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:53:17.052754+00:00",
+      "etag": "\"239c67b120d27188411fcfada95a3dde\"",
+      "bytes": 27187,
+      "last_modified": "Fri, 04 Sep 2026 04:53:17 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:53:17.595643+00:00",
+      "etag": "\"b2e70339ae21705ac015ff927edb9a2d\"",
+      "bytes": 607254,
+      "last_modified": "Fri, 04 Sep 2026 04:53:17 GMT"
+    },
+    {
+      "feed": "service_alerts",
+      "at": "2026-09-04T04:53:27.553805+00:00",
+      "etag": "\"ba2e6558f9b784814a6ef9d6dc9b19df\"",
+      "bytes": 38523,
+      "last_modified": "Fri, 04 Sep 2026 04:53:24 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:53:37.032912+00:00",
+      "etag": "\"4d3f5d073447463639a00e64cf9506ae\"",
+      "bytes": 27159,
+      "last_modified": "Fri, 04 Sep 2026 04:53:35 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:53:37.598578+00:00",
+      "etag": "\"e9c6ef4ebd21696971b93fd7c316196c\"",
+      "bytes": 607254,
+      "last_modified": "Fri, 04 Sep 2026 04:53:35 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:53:57.033545+00:00",
+      "etag": "\"0c350c6759fcc451ad5ff23dec07377f\"",
+      "bytes": 27172,
+      "last_modified": "Fri, 04 Sep 2026 04:53:54 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:53:57.615703+00:00",
+      "etag": "\"27b0e8485ca26c9d3e040ef55e6177d2\"",
+      "bytes": 603887,
+      "last_modified": "Fri, 04 Sep 2026 04:53:54 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:54:13.221552+00:00",
+      "etag": "\"b1de5c773524edfbac8691adc0e6be42\"",
+      "bytes": 603155,
+      "last_modified": "Fri, 04 Sep 2026 04:54:12 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:54:17.041322+00:00",
+      "etag": "\"14d5607df33213a7bf1421e3c4544d32\"",
+      "bytes": 26976,
+      "last_modified": "Fri, 04 Sep 2026 04:54:13 GMT"
+    },
+    {
+      "feed": "service_alerts",
+      "at": "2026-09-04T04:54:27.577152+00:00",
+      "etag": "\"14230cdc1d0aa52e03077b0681144388\"",
+      "bytes": 38523,
+      "last_modified": "Fri, 04 Sep 2026 04:54:24 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:54:32.070741+00:00",
+      "etag": "\"52329d6b0d1b897592f9b1558ad97deb\"",
+      "bytes": 26384,
+      "last_modified": "Fri, 04 Sep 2026 04:54:31 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:54:32.626001+00:00",
+      "etag": "\"9c69957cac00c4b7b76e663e5eade6f0\"",
+      "bytes": 602124,
+      "last_modified": "Fri, 04 Sep 2026 04:54:31 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:54:52.058036+00:00",
+      "etag": "\"a60b262ac3cc27a6989fd0a9669c9a79\"",
+      "bytes": 26391,
+      "last_modified": "Fri, 04 Sep 2026 04:54:50 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:54:52.619208+00:00",
+      "etag": "\"0b4bcc1d74cb97f1669b9b60a3237c17\"",
+      "bytes": 600637,
+      "last_modified": "Fri, 04 Sep 2026 04:54:50 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:55:12.036727+00:00",
+      "etag": "\"83dd16af29111192d8c304afe8905a9c\"",
+      "bytes": 26480,
+      "last_modified": "Fri, 04 Sep 2026 04:55:08 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:55:12.585314+00:00",
+      "etag": "\"ddd06eff47991ce58960266f15a5e797\"",
+      "bytes": 597922,
+      "last_modified": "Fri, 04 Sep 2026 04:55:08 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:55:27.063170+00:00",
+      "etag": "\"4b73d8c1d91ef2ee207971c8ae4bf56a\"",
+      "bytes": 26272,
+      "last_modified": "Fri, 04 Sep 2026 04:55:27 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:55:27.600966+00:00",
+      "etag": "\"3ad08a067feab9417e8e5ee61f14c1ab\"",
+      "bytes": 610313,
+      "last_modified": "Fri, 04 Sep 2026 04:55:26 GMT"
+    },
+    {
+      "feed": "service_alerts",
+      "at": "2026-09-04T04:55:27.943164+00:00",
+      "etag": "\"e43fe0ee29afc3b2b5d65aa0e3b62683\"",
+      "bytes": 38523,
+      "last_modified": "Fri, 04 Sep 2026 04:55:24 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:55:47.040995+00:00",
+      "etag": "\"c997b9c77623a36f2d9c6d2b192110b0\"",
+      "bytes": 26272,
+      "last_modified": "Fri, 04 Sep 2026 04:55:45 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:55:47.598339+00:00",
+      "etag": "\"06fd0ce0656341e2dcebc31c0e32b203\"",
+      "bytes": 608727,
+      "last_modified": "Fri, 04 Sep 2026 04:55:45 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:56:07.048984+00:00",
+      "etag": "\"aed33549150ee91acc17cd24f4244b71\"",
+      "bytes": 27044,
+      "last_modified": "Fri, 04 Sep 2026 04:56:04 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:56:07.598007+00:00",
+      "etag": "\"c4254633576a16c1b258d3ba04a119b7\"",
+      "bytes": 607821,
+      "last_modified": "Fri, 04 Sep 2026 04:56:04 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:56:27.057065+00:00",
+      "etag": "\"6523cb8fbed278c1c582aa0fe628c11c\"",
+      "bytes": 27119,
+      "last_modified": "Fri, 04 Sep 2026 04:56:23 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:56:27.694956+00:00",
+      "etag": "\"539cf8426413de742b312d6ebedf6093\"",
+      "bytes": 606515,
+      "last_modified": "Fri, 04 Sep 2026 04:56:23 GMT"
+    },
+    {
+      "feed": "service_alerts",
+      "at": "2026-09-04T04:56:28.018068+00:00",
+      "etag": "\"9bfac081836e4ed20d8e73fcc5da9af1\"",
+      "bytes": 38523,
+      "last_modified": "Fri, 04 Sep 2026 04:56:24 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:56:42.081471+00:00",
+      "etag": "\"99343e4eba87bfda28fbcc4061f33248\"",
+      "bytes": 26915,
+      "last_modified": "Fri, 04 Sep 2026 04:56:42 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:56:42.647769+00:00",
+      "etag": "\"b66fda92c7d9afd0cff3dd28f57f3b83\"",
+      "bytes": 607976,
+      "last_modified": "Fri, 04 Sep 2026 04:56:42 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:57:02.074377+00:00",
+      "etag": "\"39cabaac756c168b4fd637be4aa600bb\"",
+      "bytes": 26932,
+      "last_modified": "Fri, 04 Sep 2026 04:57:01 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:57:02.639510+00:00",
+      "etag": "\"ddb76b56d3bd6b3c3edd32116c452e9f\"",
+      "bytes": 605137,
+      "last_modified": "Fri, 04 Sep 2026 04:57:00 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:57:22.075969+00:00",
+      "etag": "\"9f5ee21fe6128d3dbfb795c49f69fe6c\"",
+      "bytes": 27351,
+      "last_modified": "Fri, 04 Sep 2026 04:57:19 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:57:22.691101+00:00",
+      "etag": "\"569934ed873bb45cf02bd24889e63539\"",
+      "bytes": 605098,
+      "last_modified": "Fri, 04 Sep 2026 04:57:19 GMT"
+    },
+    {
+      "feed": "service_alerts",
+      "at": "2026-09-04T04:57:27.552025+00:00",
+      "etag": "\"a4bc82638e48cf9d7cd0504594535360\"",
+      "bytes": 38523,
+      "last_modified": "Fri, 04 Sep 2026 04:57:24 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:57:37.545572+00:00",
+      "etag": "\"9b093a8f5ff6b85c3e5e009b9505871e\"",
+      "bytes": 606787,
+      "last_modified": "Fri, 04 Sep 2026 04:57:37 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:57:42.047188+00:00",
+      "etag": "\"d9615c90cef4d6a658fbb97c494fb0ba\"",
+      "bytes": 26877,
+      "last_modified": "Fri, 04 Sep 2026 04:57:37 GMT"
+    },
+    {
+      "feed": "vehicle_positions",
+      "at": "2026-09-04T04:57:57.048873+00:00",
+      "etag": "\"b6d6ee20f926e5351ad68fdac35c1e0e\"",
+      "bytes": 27052,
+      "last_modified": "Fri, 04 Sep 2026 04:57:56 GMT"
+    },
+    {
+      "feed": "trip_updates",
+      "at": "2026-09-04T04:57:57.710081+00:00",
+      "etag": "\"277b9d3944323282a9a870bd04dda403\"",
+      "bytes": 605010,
+      "last_modified": "Fri, 04 Sep 2026 04:57:56 GMT"
+    }
+  ]
+}

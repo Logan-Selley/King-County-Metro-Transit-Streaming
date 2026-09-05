@@ -1,0 +1,5440 @@
+{
+  "header": {
+    "gtfs_realtime_version": "2.0",
+    "incrementality": "FULL_DATASET",
+    "timestamp": 1788497242
+  },
+  "entity": [
+    {
+      "id": "82885",
+      "alert": {
+        "effect": "DETOUR",
+        "effect_detail": "SINGLE_ROUTE_REROUTE",
+        "cause": "OTHER_CAUSE",
+        "cause_detail": "A_ROAD_CLOSURE",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Route 156 will be rerouted off portions of Kent Des Moines Rd, S 240th St and 16th Ave S from Mon Feb 9 to Thu Dec 31 due to a road closure.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected stops:\r\nStop #47275 S 240th St & 18th Pl S (WB)\r\nStop #47280 S 240th St & 16th Ave S (WB)\r\nStop #48972 16th Ave S & 17th Pl S (NB)\r\nStop #48974 Kent Des Moines Rd & 20th Ave S (EB)\r\nStop #50466 Kent Des Moines Rd & 20th Ave S (WB)\r\nStop #50468 16th Ave S & 17th Pl S (SB)\r\nStop #48920 S 240th St & 17th Ave S (EB)\r\nStop #48925 S 240th St & 18th Pl S (EB)\r\n\nFor Route 156 to Southcenter get on/off at:\r\nStop #47270 S 240th St & 21st Ave S (WB)\r\nThe temporary stop on 20th Ave S just south of Kent Des Moines Rd (NB)\r\n\nFor Route 156 to Highline CC get on/off at:\r\nThe temporary stop on 20th Ave S just south of Kent Des Moines Rd (SB)\r\nStop #48930 S 240th St & 21st Ave S (EB)\r\n",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "SEVERE",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/156/W",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Route 156 is rerouted through Thu Dec 31 due to a road closure",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Rt. 156 will be rerouted off portions of Kent Des Moines Rd, S 240 St & 16 Ave S from Mon Feb 9 to Thu Dec 31.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 7,
+        "created_timestamp": 1769389196,
+        "last_modified_timestamp": 1779995479,
+        "last_push_notification_timestamp": 1779995479,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "until January 2027",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1770638400,
+            "end": 1798804740
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100489",
+            "stop_id": "48920",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100489",
+            "stop_id": "48925",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100489",
+            "stop_id": "50466",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100489",
+            "stop_id": "50468",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100489",
+            "stop_id": "47275",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100489",
+            "stop_id": "47280",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100489",
+            "stop_id": "48972",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100489",
+            "stop_id": "48974",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "86627",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #62319 SE Kent-Kangley Rd & 235th Ave SE (EB) relocated Wed Apr 15 to Fri Sep 25 from 8:00 AM to 3:00 PM daily due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n168\r\n\nGet on/off:\r\nThe temporary stop on SE Kent-Kangley Rd just west of 235th Ave SE (EB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/168/E/",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #62319 SE Kent-Kangley Rd & 235th Ave SE (EB) relocated until Fri Sep 25 at 3:00 PM due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #62319 SE Kent-Kangley Rd & 235th Ave SE (EB) relocated Wed Apr 15 to Fri Sep 25 from 8AM to 3PM daily.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1776271981,
+        "last_modified_timestamp": 1788381893,
+        "last_push_notification_timestamp": 1776273139,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "through September 25",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1776273060,
+            "end": 1790373600
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100060",
+            "stop_id": "62319",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "86755",
+      "alert": {
+        "effect": "ACCESSIBILITY_ISSUE",
+        "effect_detail": "ELEVATOR_CLOSURE",
+        "cause": "UNKNOWN_CAUSE",
+        "cause_detail": "UNKNOWN_CAUSE",
+        "header_text": {
+          "translation": [
+            {
+              "text": "The elevator at SR 520 & Evergreen Point Rd (WB) is out of service until further notice.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Westbound transit riders who require the use of an elevator can plan ahead to board or exit SR 520 transit service at the Clyde Hill/Yarrow Point Freeway Station instead. Transit passengers who need to get to Evergreen Point Station can transfer to eastbound routes 271 or ST 542 from the stop on NE Pacific St & Montlake Blvd NE - Bay 1 (EB) and use the elevator at the eastbound stop.\r\n\nThe Clyde Hill/Yarrow Point Freeway station elevators in both directions have resumed operation.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Elevators at SR 520 & Evergreen Point Rd (WB) unavailable",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Elevators at SR 520 & Evergreen Point Rd (WB) are unavailable.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1776459661,
+        "last_modified_timestamp": 1777064461,
+        "last_push_notification_timestamp": 1776459661,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Ongoing",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "UNKNOWN",
+        "active_period": [
+          {
+            "start": 1776459600
+          }
+        ],
+        "informed_entity": [
+          {
+            "route_type": 3,
+            "route_id": "100146",
+            "stop_id": "71355",
+            "facility_id": "ele-711",
+            "activities": [
+              "USING_WHEELCHAIR"
+            ]
+          },
+          {
+            "route_type": 3,
+            "route_id": "100236",
+            "stop_id": "71355",
+            "facility_id": "ele-711",
+            "activities": [
+              "USING_WHEELCHAIR"
+            ]
+          },
+          {
+            "route_type": 3,
+            "route_id": "100341",
+            "stop_id": "71355",
+            "facility_id": "ele-711",
+            "activities": [
+              "USING_WHEELCHAIR"
+            ]
+          },
+          {
+            "route_type": 3,
+            "route_id": "102766",
+            "stop_id": "71355",
+            "facility_id": "ele-711",
+            "activities": [
+              "USING_WHEELCHAIR"
+            ]
+          },
+          {
+            "route_type": 3,
+            "route_id": "100511",
+            "stop_id": "71355",
+            "facility_id": "ele-711",
+            "activities": [
+              "USING_WHEELCHAIR"
+            ]
+          },
+          {
+            "route_type": 3,
+            "route_id": "102754",
+            "stop_id": "71355",
+            "facility_id": "ele-711",
+            "activities": [
+              "USING_WHEELCHAIR"
+            ]
+          },
+          {
+            "route_type": 3,
+            "route_id": "100344",
+            "stop_id": "71355",
+            "facility_id": "ele-711",
+            "activities": [
+              "USING_WHEELCHAIR"
+            ]
+          },
+          {
+            "route_type": 3,
+            "route_id": "100451",
+            "stop_id": "71355",
+            "facility_id": "ele-711",
+            "activities": [
+              "USING_WHEELCHAIR"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "87933",
+      "alert": {
+        "effect": "NO_SERVICE",
+        "effect_detail": "STOP_CLOSURE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #70666 NE 85th St & Kirkland Way (EB) closed through Tue Aug 31, 2027 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n239\r\n250\r\n\nGet on/off at:\r\nThe temporary stop on NE 85th St, just east of Kirkland Way (EB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/7423",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop #70666 NE 85th St & Kirkland Way (EB) closed through Tue Aug 31 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #70666 NE 85th St & Kirkland Way (EB) closed through Tue Aug 31, 2027 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1778524630,
+        "last_modified_timestamp": 1779138013,
+        "last_push_notification_timestamp": 1778532547,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "until September 2027",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1778530800,
+            "end": 1819796340
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102702",
+            "stop_id": "70666",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102704",
+            "stop_id": "70666",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "88423",
+      "alert": {
+        "effect": "NO_SERVICE",
+        "effect_detail": "STOP_CLOSURE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #82810 Main St & 112th Ave NE (WB) closed from Wed May 27 to Thu Dec 31 from 8:00 AM to 3:00 PM weekdays only due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n240\r\n\nGet on/off at:\r\nStop #82790 112th Ave SE & SE 4th St (NB)\r\nStop #85730 108th Ave NE & NE 2nd St (NB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/240/N/",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop #82810 Main St & 112th Ave NE (WB) closed until Thu Dec 31 at 3:00 PM due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #82810 Main St & 112th Ave NE closed from Wed May 27 to Thu Dec 31 from 8AM to 3PM weekdays only.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1779491232,
+        "last_modified_timestamp": 1788382010,
+        "last_push_notification_timestamp": 1779807601,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "until December",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1779894000,
+            "end": 1798758000
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100133",
+            "stop_id": "82810",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "88629",
+      "alert": {
+        "effect": "DETOUR",
+        "effect_detail": "SINGLE_ROUTE_REROUTE",
+        "cause": "DEMONSTRATION",
+        "cause_detail": "AN_EVENT",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Route 21 will be affected in both directions after all Mariners home games; stops on portions of 1st Ave S will not be served; use alternate stops on 4th Ave S instead.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Reroute will be in effect on each of the games noted below:\r\n\nFriday, September 4 at 9:30 PM-10:30 PM\r\n\nAffected stops:\r\nStop #15206 1st Ave S & S Stacy St (NB)\r\nStop #15212 1st Ave S & S Walker St (NB)\r\nStop #15207 1st Ave S & S Holgate St (NB)\r\nStop #15204 Edgar Martinez Dr S & Occidental Ave S (EB)\r\nStop #15201 1st Ave S & S Atlantic St (SB)\r\nStop #15202 1st Ave S & S Holgate St (SB)\r\nStop #15211 1st Ave S & S Walker St (SB)\r\nStop #15203 1st Ave S & S Stacy St (SB)\r\n\nFor Route 21 to Downtown Seattle get on/off buses at:\r\nStop #15230 1st Ave S & S Lander St (NB)\r\nStop #30570 4th Ave S & S Lander St (NB)\r\nStop #30590 4th Ave S & S Walker St (NB)\r\nStop #30600 4th Ave S & S Holgate St (NB)\r\nStop #30635 4th Ave S & S Royal Brougham Way (NB)\r\n\nFor Route 21 to Westwood Village get on/off buses at:\r\nStop #30636 4th Ave S & I-90 Ramp\r\nStop #30670 4th Ave S & Edgar Martinez Dr S (SB)\r\nStop #30690 4th Ave S & S Holgate St (SB)\r\nStop #30700 4th Ave S & S Walker St (SB)\r\nStop #15380 1st Ave S & S Lander St (SB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "SEVERE",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/21/N/",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Route 21 is rerouted from 9:30 PM to 10:30 PM on Fri Sep 4 due to an event",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Rt21 will be rerouted off 1st Ave S during afternoon Mariners games; use alternate stops on 4th Ave S instead.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 7,
+        "created_timestamp": 1779907979,
+        "last_modified_timestamp": 1788476401,
+        "last_push_notification_timestamp": 1788476401,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Tomorrow",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "UPCOMING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788582600,
+            "end": 1788586200
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100101",
+            "stop_id": "15201",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100101",
+            "stop_id": "15202",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100101",
+            "stop_id": "15203",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100101",
+            "stop_id": "15211",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100101",
+            "stop_id": "15204",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100101",
+            "stop_id": "15206",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100101",
+            "stop_id": "15207",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100101",
+            "stop_id": "15212",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "88962",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #25202 NE 45th St & University Village (WB) relocated from Thu Jun 4 through Fri Mar 27, 2027 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n31\r\n32\r\n45\r\n67\r\n\nGet on/off at:\r\nThe temporary stop on NE 45th St just east of the University Village main driveway (WB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/75083",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #25202 NE 45th St & University Village (WB) relocated through Sat Mar 27 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #25202 NE 45th St & University Village (WB) relocated from Thu Jun 4 through Fri Mar 27, 2027.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1780428134,
+        "last_modified_timestamp": 1787711730,
+        "last_push_notification_timestamp": 1780513202,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "until March 2027",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1780570800,
+            "end": 1806231540
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100184",
+            "stop_id": "25202",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100193",
+            "stop_id": "25202",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100225",
+            "stop_id": "25202",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100259",
+            "stop_id": "25202",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "89925",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #60022 116th Ave SE & SE 160th St (SB) relocated from Mon Jun 22 to Wed Sep 30 from 7:00 AM to 5:00 PM daily due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n102\r\n148\r\n\nGet on/off: \r\nThe temporary stop on 116th Ave SE just south of SE 160th St (SB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/3637",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #60022 116th Ave SE & SE 160th St (SB) relocated from Mon Jun 22 at 7:00 AM to Wed Sep 30 at 5:00 PM due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #60022 116th Ave SE & SE 160th St (SB) relocated from Mon Jun 22 to Wed Sep 30 from 7AM to 5PM daily.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1781878371,
+        "last_modified_timestamp": 1782975602,
+        "last_push_notification_timestamp": 1782050402,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through September 30",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1782136800,
+            "end": 1790812800
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100042",
+            "stop_id": "60022",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100487",
+            "stop_id": "60022",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "90381",
+      "alert": {
+        "effect": "NO_SERVICE",
+        "effect_detail": "STOP_CLOSURE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #71371 NE 24th St & 151st Pl NE (EB) closed until further notice due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n223\r\n\nGet on/off at:\r\nStop #74482 148th Ave NE & NE 20th St (NB)\r\nStop #71326 152nd Ave NE & Overlake P&R (NB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/223/N",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop #71371 NE 24th St & 151st Pl NE (EB) closed due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #71371 NE 24th St & 151st Pl NE (EB) closed until further notice due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1782511909,
+        "last_modified_timestamp": 1783604414,
+        "last_push_notification_timestamp": 1783604414,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "ongoing",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "UNKNOWN",
+        "active_period": [
+          {
+            "start": 1782511860
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102752",
+            "stop_id": "71371",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "90782",
+      "alert": {
+        "effect": "DETOUR",
+        "effect_detail": "SINGLE_ROUTE_REROUTE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Route 70 to University District is rerouted off Eastlake Ave E between E Allison St & Fuhrman Ave E from Mon Jul 6 through Wed Jun 30, 2027, due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected stops:\r\nStop #9550 Eastlake Ave E & E Allison St (NB)\r\n\nGet on/off at:\r\nThe temporary stop on Eastlake Ave E, just south of E Allison St (NB)\r\nStop #10915 Harvard Ave E & Eastlake Ave E (NB)\r\n\nTo learn more about the construction impacts that are part of the upgrade of Route 70 into the RapidRide J Line please visit SDOT’s website link:\r\n\nhttps://www.seattle.gov/transportation/projects-and-programs/programs/transit-program/transit-plus-multimodal-corridor-program/rapidride-roosevelt",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "SEVERE",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/5378",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Route 70 to University District is rerouted through Wed Jun 30 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Route 70 to University District is rerouted from Mon Jul 6 through Wed Jun 30, 2027, due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 7,
+        "created_timestamp": 1783040703,
+        "last_modified_timestamp": 1788288084,
+        "last_push_notification_timestamp": 1783285202,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "until July 2027",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1783335600,
+            "end": 1814439540
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100264",
+            "stop_id": "9550",
+            "direction_id": 0,
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "91625",
+      "alert": {
+        "effect": "NO_SERVICE",
+        "effect_detail": "STOP_CLOSURE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #58210 Central Ave S & S 266th St (SB) and Stop #57960 Central Ave S & S 266th St (NB) closed through Fri Oct 2 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n160\r\n\nFor Route 160 to Auburn Station get on/off at:\r\nTemporary stop on Central Ave S, just south of S 266th St, (SB)\r\nStop #58190 Central Ave S & S 262nd St (SB)\r\n\nFor Route 160 to Renton get on/off at:\r\nTemporary stop on Central Ave S, just north of the closed stop. (NB)\r\nStop #57950 Auburn Way N & S 277th St (NB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/160/S",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop #58210 Central Ave S & S 266th St (SB) and Stop #57960 Central Ave S & S 266th St (NB) closed through Fri Oct 2 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #58210 Central Ave S & S 266th St & Stop #57960 Central Ave S & S 266th St closed through Fri Oct 2.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1784291695,
+        "last_modified_timestamp": 1784291695,
+        "last_push_notification_timestamp": 1784291695,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "through October 3",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1784291640,
+            "end": 1791025140
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102720",
+            "stop_id": "58210",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102720",
+            "stop_id": "57960",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "91685",
+      "alert": {
+        "effect": "NO_SERVICE",
+        "effect_detail": "STOP_CLOSURE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #56373 Renton Ave S & 68th Ave S (SB) relocated from Mon Jul 20 through Mon Oct 26 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n106\r\n\nGet on/off at:\r\nThe temporary stop on Renton Ave S just north of the affected stop (SB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/106/S",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop #56373 Renton Ave S & 68th Ave S (SB) closed from Mon Jul 20 through Mon Oct 26 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #56373 Renton Ave S & 68th Ave S (SB) relocated from Mon Jul 20 through Mon Oct 26 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1784340277,
+        "last_modified_timestamp": 1785308401,
+        "last_push_notification_timestamp": 1784491202,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through October 27",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1784545200,
+            "end": 1793098740
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100005",
+            "stop_id": "56373",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "91686",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "UNKNOWN_CAUSE",
+        "cause_detail": "UNKNOWN_CAUSE",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #55371 68th Ave S & S 118th St (SB) and Stop #55378 68th Ave S & S 118th St (NB) relocated from Mon Jul 20 through Mon Oct 26.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n107\r\n\nFor Route 107 to Beacon Hill Station get on/off at:\r\nThe temporary stop on 68th Ave S just south of the affected stop (SB)\r\n\nFor Route 107 to Renton TC get on/off at:\r\nThe temporary stop on 68th Ave S just south of the affected stop (NB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/107/N",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #55371 68th Ave S & S 118th St (SB) and Stop #55378 68th Ave S & S 118th St (NB) relocated through Mon Oct 26",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #55371 68 Av S & S 118 St & Stop #55378 68 Av S & S 118 St relocated from Mon Jul 20 through Mon Oct 26.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1784340536,
+        "last_modified_timestamp": 1788383767,
+        "last_push_notification_timestamp": 1784491202,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "through October 27",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1784545200,
+            "end": 1793098740
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100006",
+            "stop_id": "55378",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100006",
+            "stop_id": "55371",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "91687",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #55373 68th Ave S & S 122nd St (SB) and Stop #55376 68th Ave S & S 122nd St (NB) relocated from Mon Jul 20 through Mon Oct 26 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n107\r\n\nFor Route 107 to Beacon Hill Station get on/off at:\r\nThe temporary stop on 68th Ave S just south of the affected stop (SB)\r\n\nFor Route 107 to Renton TC get on/off at:\r\nThe temporary stop on 68th Ave S just north of the affected stop (NB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/107/N",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #55373 68th Ave S & S 122nd St (SB) and Stop #55376 68th Ave S & S 122nd St (NB) relocated from Mon Jul 20 through Mon Oct 26 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #55373 68 Av S & S 122 St & Stop #55376 68 Av S & S 122 St relocated from Mon Jul 20 through Mon Oct 26.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1784340654,
+        "last_modified_timestamp": 1785308401,
+        "last_push_notification_timestamp": 1784491202,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through October 27",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1784545200,
+            "end": 1793098740
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100006",
+            "stop_id": "55376",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100006",
+            "stop_id": "55373",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "91688",
+      "alert": {
+        "effect": "NO_SERVICE",
+        "effect_detail": "STOP_CLOSURE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #55375 S 124th St & 67th Ave S (WB) and Stop #55374 S 124th St & 67th Ave S (EB) relocated from Mon Jul 20 through Mon Oct 26 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n107\r\n\nFor Route 107 to Beacon Hill Station get on/off at:\r\nThe temporary stop on S 124th St just east of the affected stop (EB)\r\n\nFor Route 107 to Renton TC get on/off at:\r\nThe temporary stop on S 124th St just east of the affected stop (WB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/107/N",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop #55375 S 124th St & 67th Ave S (WB) and Stop #55374 S 124th St & 67th Ave S (EB) closed from Mon Jul 20 through Mon Oct 26 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #55375 S 124 St & 67 Av S & Stop #55374 S 124 St & 67 Av S relocated from Mon Jul 20 through Mon Oct 26.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1784341077,
+        "last_modified_timestamp": 1785308401,
+        "last_push_notification_timestamp": 1784491202,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through October 27",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1784545200,
+            "end": 1793098740
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100006",
+            "stop_id": "55374",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100006",
+            "stop_id": "55375",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "91830",
+      "alert": {
+        "effect": "NO_SERVICE",
+        "effect_detail": "STOP_CLOSURE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #9670 NE 125th St & Lake City Way NE (EB) closed beginning Thu Jul 23 until further notice due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n65\r\n75\r\n\nGet on/off at:\r\nFor Route 65 to University District:\r\nStop #38110 30th Ave NE & NE 127th St (SB)\r\nStop #9680 NE 125th St & 33rd Ave NE (EB)\r\n\nFor Route 75 to University District:\r\nStop #35440 NE 125th St & 30th Ave NE (EB)\r\nStop #9680 NE 125th St & 33rd Ave NE (EB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/3739",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop #9670 NE 125th St & Lake City Way NE (EB) closed beginning Thu Jul 23 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #9670 NE 125th St & Lake City Way NE (EB) closed beginning Thu Jul 23 until further notice.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1784586866,
+        "last_modified_timestamp": 1785409201,
+        "last_push_notification_timestamp": 1784736002,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Ongoing",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "UNKNOWN",
+        "active_period": [
+          {
+            "start": 1784804400
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100254",
+            "stop_id": "9670",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100269",
+            "stop_id": "9670",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "92121",
+      "alert": {
+        "effect": "NO_SERVICE",
+        "effect_detail": "STOP_CLOSURE",
+        "cause": "UNKNOWN_CAUSE",
+        "cause_detail": "UNKNOWN_CAUSE",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #6840 Greenwood Ave N & N 134th St (NB) closed from Mon Jul 27 through Thu Oct 22 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n5\r\n345\r\n77\r\n\nGet on/off at:\r\nStop #6820 Greenwood Ave N & N 130th St (NB)\r\nStop #6850 Greenwood Ave N & N 137th St (NB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/5732",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop #6840 Greenwood Ave N & N 134th St (NB) closed through Thu Oct 22",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #6840 Greenwood Ave N & N 134th St (NB) closed from Mon Jul 27 through Thu Oct 22 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1784928555,
+        "last_modified_timestamp": 1788447915,
+        "last_push_notification_timestamp": 1788447915,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "through October 23",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1785150000,
+            "end": 1792753140
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100202",
+            "stop_id": "6840",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100229",
+            "stop_id": "6840",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100271",
+            "stop_id": "6840",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "92239",
+      "alert": {
+        "effect": "DETOUR",
+        "effect_detail": "SINGLE_ROUTE_REROUTE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Route 118 is rerouted in both directions off Vashon Hwy SW and 99th Ave SW between SW 216th St and SW 228th St from Thu Aug 6 at 8:00 AM to Tue Sep 22 at 4:00 PM due to bridge construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "There are no missed stops, however all passengers may flag down route 118 drivers along the reroute for drop off and pickups.\r\n\nPlease also expect at least 10-minute delays.\r\n\n",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "SEVERE",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/118/N/",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Route 118 is rerouted from Thu Aug 6 at 8:00 AM to Tue Sep 22 at 4:00 PM due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Rt. 118 is rerouted off Vashon Hwy SW & 99 Av SW between SW 216 St & SW 228 St frm Aug 6, 8AM to Sep 22, 4PM.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 7,
+        "created_timestamp": 1785181715,
+        "last_modified_timestamp": 1786026601,
+        "last_push_notification_timestamp": 1785866401,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through September 22",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1786028400,
+            "end": 1790118000
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100016",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "92342",
+      "alert": {
+        "effect": "NO_SERVICE",
+        "effect_detail": "STOP_CLOSURE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #59841 SR 515 & South Grady Way (WB) closed from Wed July 29 through Fri Oct 9 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n101\r\n102\r\n148\r\n153\r\n160\r\n\nGet on/off at:\r\nStop #59839 Lake Ave S & S Grady Way - Bay 4 (NB)\r\nStop #55938 South Renton P&R - Bay 2 (EB)\r\n\n\r\n*This is an update to a previous Alert.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/tripplanning",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop #59841 SR 515 & South Grady Way (WB) closed through Fri Oct 9 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #59841 SR 515 & South Grady Way (WB) closed through Fri Oct 9 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1785335216,
+        "last_modified_timestamp": 1786040419,
+        "last_push_notification_timestamp": 1786040419,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "through October 10",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1785335160,
+            "end": 1791629940
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100003",
+            "stop_id": "59841",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100042",
+            "stop_id": "59841",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100048",
+            "stop_id": "59841",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100487",
+            "stop_id": "59841",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102720",
+            "stop_id": "59841",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "92363",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #58180 Central Ave S & S 259th St (SB) relocated from Wed July 29 through Fri Oct 9 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n160\r\n\nGet on/off:\r\nThe temporary stop on Central Ave S just south of S 259th St (SB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/160/S/",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #58180 Central Ave S & S 259th St (SB) relocated from 1:00 PM today through Fri Oct 9 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #58180 Central Ave S & S 259th St (SB) relocated from Wed July 29 through Fri Oct 9 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1785347002,
+        "last_modified_timestamp": 1785355202,
+        "last_push_notification_timestamp": 1785355202,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through October 10",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1785355200,
+            "end": 1791629940
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102720",
+            "stop_id": "58180",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "92364",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #57990 Central Ave S & S 259th St (NB) relocated from Wed July 29 through Fri Oct 9 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n160\r\n\nGet on/off:\r\nThe temporary stop on Central Ave S just south of 259th St (NB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/160/N/",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #57990 Central Ave S & S 259th St (NB) relocated from 1:00 PM today through Fri Oct 9 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #57990 Central Ave S & S 259th St (NB) relocated from Wed July 29 through Fri Oct 9 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1785347146,
+        "last_modified_timestamp": 1785355202,
+        "last_push_notification_timestamp": 1785355202,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through October 10",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1785355200,
+            "end": 1791629940
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102720",
+            "stop_id": "57990",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "92654",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #35230 NE 125th St & Lake City Way NE (WB) relocated due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n65\r\n75\r\n\nGet on/off at: \r\nFor Route 65 to Shoreline South 148th Station:\r\nThe temporary stop on 30th Ave NE just north of NE 125th St (NB)\r\nStop #10870 NE 125th St & 33rd Ave NE (WB)\r\n\nFor Route 75 to Northgate Station:\r\nThe temporary stop on NE 125th St just west of 30th Ave NE (WB)\r\nStop #10870 NE 125th St & 33rd Ave NE (WB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/3738",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #35230 NE 125th St & Lake City Way NE (WB) relocated due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #35230 NE 125th St & Lake City Way NE (WB) relocated due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1785776810,
+        "last_modified_timestamp": 1788298848,
+        "last_push_notification_timestamp": 1785870002,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "ongoing",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "UNKNOWN",
+        "active_period": [
+          {
+            "start": 1785927600
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100254",
+            "stop_id": "35230",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100269",
+            "stop_id": "35230",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "92819",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #58083 S 212th St & 76th Ave S (WB) relocated from Thu Aug 13 to Tue Sep 15 from 7:00 AM to 7:00 PM daily due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n161\r\n\nGet on/off:\r\nThe temporary stop on S 212th St just east of 77th Ave S (WB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/4351",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #58083 S 212th St & 76th Ave S (WB) relocated from 7:00 AM today to Tue Sep 15 at 7:00 PM due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #58083 S 212th St & 76th Ave S (WB) relocated from Thu Aug 13 to Tue Sep 15 from 7AM to 7PM daily.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1786030850,
+        "last_modified_timestamp": 1786627801,
+        "last_push_notification_timestamp": 1786623772,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through September 15",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1786629600,
+            "end": 1789524000
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102719",
+            "stop_id": "58083",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93035",
+      "alert": {
+        "effect": "NO_SERVICE",
+        "effect_detail": "STOP_CLOSURE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #74885 8th Ave NW & NW Richmond Beach Rd (NB) closed from Wed Aug 12 through Thu Dec 31 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n348\r\n\nFor Route 348 to Hillwood Park get off at:\r\nStop #75565 NW Richmond Beach Rd & 8th Ave NW (WB)\r\n\nFor Route 348 to Northgate get on at:\r\nStop #74886 8th Ave NW & NW 195th St (NB)\r\nStop #75000 NW Richmond Beach Rd & 8th Ave NW (EB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/77520",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop #74885 8th Ave NW & NW Richmond Beach Rd (NB) closed from Wed Aug 12 through Thu Dec 31 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #74885 8th Ave NW & NW Richmond Beach Rd (NB) closed from Wed Aug 12 through Thu Dec 31.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1786390102,
+        "last_modified_timestamp": 1786530601,
+        "last_push_notification_timestamp": 1786404606,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Until January 2027",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1786532400,
+            "end": 1798804740
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100205",
+            "stop_id": "74885",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93259",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #62228 Canyon Dr SE & 94th Ave S (EB) relocated from Mon Aug 17 through Fri Oct 9 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n160\r\n168\r\nDART 914\r\n\nGet on/off at:\r\nThe temporary stop on SR 516 (Canyon Drive), just east of 94th Ave S (EB)\r\nStop #62230 Canyon Dr SE & S 252nd St (EB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/12627",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #62228 Canyon Dr SE & 94th Ave S (EB) relocated through Fri Oct 9 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #62228 Canyon Dr SE & 94th Ave S (EB) relocated from Mon Aug 17 through Fri Oct 9 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1786724923,
+        "last_modified_timestamp": 1787963452,
+        "last_push_notification_timestamp": 1787963452,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "through October 10",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1786964400,
+            "end": 1791629940
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100060",
+            "stop_id": "62228",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100297",
+            "stop_id": "62228",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102720",
+            "stop_id": "62228",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93282",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #9510 Eastlake Ave E & E Louisa St (NB) relocated from Mon Aug 17 through Sun Sep 13 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n70\r\n\nGet on/off at:\r\nStop #9480 Eastlake Ave E & E Howe St (NB)\r\nThe temporary stop on Eastlake Ave E, just south of E Edgar St (NB)\r\n\nTo learn more about the construction impacts that are part of the upgrade of Route 70 into the RapidRide J Line please visit SDOT’s website link:\r\n\nhttps://www.seattle.gov/transportation/projects-and-programs/programs/transit-program/transit-plus-multimodal-corridor-program/rapidride-roosevelt",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/5372",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #9510 Eastlake Ave E & E Louisa St (NB) relocated from Mon Aug 17 through Sun Sep 13 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #9510 Eastlake Ave E & E Louisa St (NB) relocated from Mon Aug 17 through Sun Sep 13 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1786739867,
+        "last_modified_timestamp": 1786962601,
+        "last_push_notification_timestamp": 1786809601,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through September 14",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1786964400,
+            "end": 1789383540
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100264",
+            "stop_id": "9510",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93468",
+      "alert": {
+        "effect": "NO_SERVICE",
+        "effect_detail": "STOP_CLOSURE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #36800 23rd Ave & E Cherry St (NB) closed Mon Aug 24 to Thu Sep 24 from 9:00 AM to 3:00 PM daily due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n48\r\n\nGet on/off at:\r\nStop #36791 23rd Ave & E Jefferson St (NB)\r\nStop #36830 23rd Ave & E Union St (NB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/65602",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop #36800 23rd Ave & E Cherry St (NB) closed until Thu Sep 24 at 3:00 PM due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #36800 23rd Ave & E Cherry St (NB) closed Mon Aug 24 to Thu Sep 24 from 9AM to 3PM daily.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1787160780,
+        "last_modified_timestamp": 1788381848,
+        "last_push_notification_timestamp": 1787500801,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "through September 24",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1787587200,
+            "end": 1790287200
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100228",
+            "stop_id": "36800",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93490",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #9150 Eastlake Ave E & E Allison St (SB) relocated through Thu Dec 31 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n70\r\n\nGet on/off at:\r\nStop #9140 University Bridge & NE 40th St (SB)\r\nThe temporary stop on Eastlake Ave E, just south of E Shelby St (SB)\r\n\nTo learn more about the construction impacts that are part of the upgrade of Route 70 into the RapidRide J Line please visit SDOT’s website link:\r\n\nhttps://www.seattle.gov/transportation/projects-and-programs/programs/transit-program/transit-plus-multimodal-corridor-program/rapidride-roosevelt",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/5377",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #9150 Eastlake Ave E & E Allison St (SB) relocated through Thu Dec 31 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #9150 Eastlake Ave E & E Allison St (SB) relocated through Thu Dec 31 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1787169864,
+        "last_modified_timestamp": 1787257490,
+        "last_push_notification_timestamp": 1787169864,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "until January 2027",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1787169840,
+            "end": 1798804740
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100264",
+            "stop_id": "9150",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93543",
+      "alert": {
+        "effect": "DETOUR",
+        "effect_detail": "MULTI_ROUTE_REROUTE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Routes 220, 240, ST 556 and ST 566 will be rerouted around Bellevue Transit Center from Sat Aug 29 through Sun Dec 20 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected stops:\r\nStop #68005 Bellevue Transit Center - Bay 5 (EB)\r\nStop #67652 Bellevue Transit Center - Bay 9 (WB)\r\nStop #67655 Bellevue Transit Center - Bay 8 (WB)\r\nStop #68006 Bellevue Transit Center - Bay 6\r\n\nGet on/off at:\r\nFor Route 220 to Bellevue TC and to Eastgate P&R, and ST 556 to Bellevue:\r\nStop #68007 Bellevue Transit Center BAY 12 (NB)\r\n\nFor ST 566 to Auburn and ST 556 to Issaquah:\r\nStop #85630 Bellevue Transit Center BAY 1 (SB)\r\n\nFor Route 240 to Renton and to Bellevue TC:\r\nThe temporary stop on NE 6th St, just east of 110th Ave NE (WB)\r\n\nFor ST 560 to Westwood Village:\r\nThe temporary stop on 110th Ave NE, just south of NE 6th St (SB)\r\n\nFor ST 532 to Everett, ST 535 to Lynnwood, and Route 908 to Snohomish P&R:\r\nThe temporary stop on 110th Ave NE, just south of NE 6th St (NB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "SEVERE",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/tripplanning",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Routes 220, 240, ST 556 and ST 566 are rerouted through Sun Dec 20 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Rts. 220, 240, ST 556 & ST 566 will be rerouted around BTC frm Sat Aug 29 through Sun Dec 20.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 7,
+        "created_timestamp": 1787259175,
+        "last_modified_timestamp": 1788356723,
+        "last_push_notification_timestamp": 1788189605,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "until December",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788001200,
+            "end": 1797854340
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100133",
+            "stop_id": "67652",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "40",
+            "route_type": 3,
+            "route_id": "100451",
+            "stop_id": "67655",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "40",
+            "route_type": 3,
+            "route_id": "100451",
+            "stop_id": "68005",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "40",
+            "route_type": 3,
+            "route_id": "102734",
+            "stop_id": "68006",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102764",
+            "stop_id": "68005",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93582",
+      "alert": {
+        "effect": "NO_SERVICE",
+        "effect_detail": "STOP_CLOSURE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #30160 S Henderson St & Renton Ave S (WB) closed from Sun Aug 30 to Fri Sep 4 from 8:00 AM to 6:00 PM daily due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n106\r\n107\r\n\nGet on/off at:\r\nFor Route 106 to Downtown Seattle:\r\nStop #55583 Martin L King Jr Way S & S Henderson St (NB)\r\n\nFor Route 107 to Beacon Hill Station:\r\nStop #30170 S Henderson St & Martin L King Jr Way S (WB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/5788",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop #30160 S Henderson St & Renton Ave S (WB) closed from Sun Aug 30 at 8:00 AM to Fri Sep 4 at 6:00 PM due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #30160 S Henderson St & Renton Ave S (WB) closed from Sun Aug 30 to Fri Sep 4 from 8AM to 6PM daily.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1787324441,
+        "last_modified_timestamp": 1788418801,
+        "last_push_notification_timestamp": 1787936401,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through Tomorrow",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788102000,
+            "end": 1788570000
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100005",
+            "stop_id": "30160",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100006",
+            "stop_id": "30160",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93713",
+      "alert": {
+        "effect": "DETOUR",
+        "effect_detail": "SINGLE_ROUTE_REROUTE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Route 223 will be rerouted off Lake Hills Blvd between SE 16th St and 156th Ave SE from Sat Aug 29 through Tue Feb 2 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected stops:\r\nStop #68510 Lake Hills Blvd & 154th Ave SE (WB)\r\nStop #68530 Lake Hills Blvd & SE 12th Pl (WB)\r\nStop #68540 148th Ave SE & Lake Hills Blvd (SB)\r\nStop #68630 148th Ave SE & SE 16th St (NB)\r\nStop #68640 Lake Hills Blvd & 148th Ave SE (EB)\r\nStop #68650 Lake Hills Blvd & SE 12th Pl (EB)\r\nStop #68670 Lake Hills Blvd & 154th Ave SE (EB)\r\n\nFor Route 223 to Eastgate P&R get on/off at:\r\nStop #68502 156th Ave SE & Lake Hills Blvd (SB)\r\nThe temporary stop on 156th Ave SE, just north of SE 8th St (SB)\r\nThe temporary stop on SE 16th St, just west of 156th Ave SE (WB)\r\nStop #68550 148th Ave SE & SE 16th St (SB)\r\n\nFor Route 223 to Downtown Redmond Station get on/off at:\r\nStop #68620 148th Ave SE & SE 22nd St (NB)\r\nThe temporary stop on SE 16th Ave St, just east of 148th Ave SE (EB)\r\nThe temporary stop on SE 16th Ave St, just west of 156th Ave SE (EB)\r\nStop #68680 156th Ave SE & Lake Hills Blvd (NB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "SEVERE",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/223/N/",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Route 223 is rerouted from Sat Aug 29 through Tue Feb 2 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Rt. 223 will be rerouted off Lake Hills Blvd between SE 16 St & 156 Ave SE from Sat Aug 29 through Tue Feb 2.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 7,
+        "created_timestamp": 1787529077,
+        "last_modified_timestamp": 1787999401,
+        "last_push_notification_timestamp": 1787939101,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Until February 2027",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788001200,
+            "end": 1801655940
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102752",
+            "stop_id": "68510",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102752",
+            "stop_id": "68530",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102752",
+            "stop_id": "68540",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102752",
+            "stop_id": "68630",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102752",
+            "stop_id": "68640",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102752",
+            "stop_id": "68650",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102752",
+            "stop_id": "68670",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93716",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #10305 Fairview Ave N & Harrison St (NB) relocated from Sat Aug 29 to Fri Sep 4 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n70\r\n\nGet on/off:\r\nThe temporary stop on Fairview Ave N, just south of Republican St (NB)\r\n\nTo learn more about the construction impacts that are part of the upgrade of Route 70 into the RapidRide J Line please visit SDOT’s website link:\r\n\nhttps://www.seattle.gov/transportation/projects-and-programs/programs/transit-program/transit-plus-multimodal-corridor-program/rapidride-roosevelt",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/70/N/",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #10305 Fairview Ave N & Harrison St (NB) relocated from Sat Aug 29 through Fri Sep 4 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #10305 Fairview Ave N & Harrison St (NB) relocated from Sat Aug 29 to Fri Sep 4 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1787578240,
+        "last_modified_timestamp": 1788433261,
+        "last_push_notification_timestamp": 1787929201,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through Saturday",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788001200,
+            "end": 1788605940
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100264",
+            "stop_id": "10305",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93717",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #10225 Fairview Ave N & Thomas St (SB) relocated from Sat Aug 29 to Fri Sep 4 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n70\r\n\nGet on/off:\r\nThe temporary stop on Fairview Ave N, just south of John St (SB)\r\n\nTo learn more about the construction impacts that are part of the upgrade of Route 70 into the RapidRide J Line please visit SDOT’s website link:\r\n\nhttps://www.seattle.gov/transportation/projects-and-programs/programs/transit-program/transit-plus-multimodal-corridor-program/rapidride-roosevelt",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/70/S/",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #10225 Fairview Ave N & Thomas St (SB) relocated from Sat Aug 29 through Fri Sep 4 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #10225 Fairview Ave N & Thomas St (SB) relocated from Sat Aug 29 to Fri Sep 4 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1787578535,
+        "last_modified_timestamp": 1788433261,
+        "last_push_notification_timestamp": 1787925601,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through Saturday",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788001200,
+            "end": 1788605940
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100264",
+            "stop_id": "10225",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93780",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #60750 Pacific Hwy S & S 272nd St (NB) relocated from Mon Aug 31 to Mon Sep 28 from 9:00 AM to 3:00 PM daily due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\nRapidRide A Line\r\n\nGet on/off at:\r\nThe temporary stop on Pacific Hwy S, just south of S 272nd St (NB)\r\nStop #60752 Pacific Hwy S & S 268th St (NB)\r\n",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/6814",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #60750 Pacific Hwy S & S 272nd St (NB) relocated from Mon Aug 31 at 9:00 AM to Mon Sep 28 at 3:00 PM due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #60750 Pacific Hwy S & S 272nd St (NB) relocated from Mon Aug 31 to Mon Sep 28 from 9AM to 3PM daily.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1787671653,
+        "last_modified_timestamp": 1788190201,
+        "last_push_notification_timestamp": 1788019201,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through September 28",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788192000,
+            "end": 1790632800
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100512",
+            "stop_id": "60750",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93783",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #58126 S 180th St & Southcenter Pkwy (EB) relocated until Fri Sep 11 from 7:00 AM to 5:00 PM daily due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\nDART 906\r\n\nGet on/off:\r\nThe temporary stop on S 180th St, just east of Southcenter Pkwy (EB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/4259",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #58126 S 180th St & Southcenter Pkwy (EB) relocated from 9:26 AM today to Fri Sep 11 at 5:00 PM due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #58126 S 180th St & Southcenter Pkwy (EB) relocated until Fri Sep 11 from 7AM to 5PM daily.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1787675179,
+        "last_modified_timestamp": 1787675542,
+        "last_push_notification_timestamp": 1787675542,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "through September 11",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "ONGOING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1787675160,
+            "end": 1789171200
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102593",
+            "stop_id": "58126",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93786",
+      "alert": {
+        "effect": "NO_SERVICE",
+        "effect_detail": "STOP_CLOSURE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #481 3rd Ave & Columbia St (SB) closed Mon Aug 31 to Fri Sep 4 from 7:00 AM to 5:00 PM daily weekdays only due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n21\r\n56\r\n57\r\n125\r\nRapidRide C Line\r\nRapidRide H Line\r\n\nGet on/off at:\r\nFor Routes 21 to Arbor Heights Express, 56 to Alki, 57 to Alaska Junction, 125 to Westwood Village, RapidRide C Line to West Seattle, and RapidRide H Line to Burien TC:\r\nStop #468 3rd Ave & Seneca St (SB)\r\nStop #1558 Columbia St & Alaskan Way (WB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/74509",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop #481 3rd Ave & Columbia St (SB) closed until Fri Sep 4 at 5:00 PM due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #481 3rd Ave & Columbia St (SB) closed Mon Aug 31 to Fri Sep 4 from 7AM to 5PM daily weekdays only.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1787678186,
+        "last_modified_timestamp": 1788418801,
+        "last_push_notification_timestamp": 1787760002,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through Tomorrow",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788184800,
+            "end": 1788566400
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100024",
+            "stop_id": "481",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100101",
+            "stop_id": "481",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100242",
+            "stop_id": "481",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100246",
+            "stop_id": "481",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102576",
+            "stop_id": "481",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102736",
+            "stop_id": "481",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93789",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #57903 Auburn Way N & 9th St NE (SB) relocated from Mon Aug 31 through Fri Oct 30 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n160\r\n\nGet on/off at:\r\nStop #57901 Auburn Way N & 15th St NE (SB)\r\nThe temporary stop on Auburn Way N, just south of the closed stop (SB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/74999",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #57903 Auburn Way N & 9th St NE (SB) relocated from Mon Aug 31 through Fri Oct 30 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #57903 Auburn Way N & 9th St NE (SB) relocated from Mon Aug 31 through Fri Oct 30 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1787678876,
+        "last_modified_timestamp": 1788172201,
+        "last_push_notification_timestamp": 1788019201,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through October 31",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788174000,
+            "end": 1793444340
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102720",
+            "stop_id": "57903",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93812",
+      "alert": {
+        "effect": "DETOUR",
+        "effect_detail": "SINGLE_ROUTE_REROUTE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Route 77 will be rerouted off 30th Ave NE between NE 125th St and Lake City Way NE from Sat Aug 29 through Sat Mar 27 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected stops:\r\nStop #35237 30th Ave NE & Lake City Way NE\r\nStop #35236 30th Ave NE & Lake City Way NE\r\n\nGet on/off at:\r\nFor Route 77 to Bitter Lake:\r\nStop #38650 Lake City Way NE & NE 120th St (NB)\r\nStop #35231 NE 125th St & 28th Ave NE (WB)\r\n\nFor Route 77 to University District:\r\nStop #35440 NE 125th St & 30th Ave NE (EB)\r\nStop #38145 Lake City Way NE & NE 120th St (SB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "SEVERE",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/77/S/",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Route 77 is rerouted from Sat Aug 29 through Sat Mar 27 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Rt. 77 will be rerouted off 30 Ave NE between NE 125 St & Lake City Way NE from Sat Aug 29 through Sat Mar 27.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 7,
+        "created_timestamp": 1787694664,
+        "last_modified_timestamp": 1787999401,
+        "last_push_notification_timestamp": 1787936659,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Until March 2027",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788001200,
+            "end": 1806231540
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100271",
+            "stop_id": "35237",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100271",
+            "stop_id": "35236",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93860",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #76870 NE Bothell Way & 68th Ave NE (EB) and Stop #76880 NE Bothell Way & 73rd Ave NE (EB) relocated from Wed Apr 22, 2026 through Thu April 22, 2027 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n322\r\n331\r\n981\r\nST 522\r\n\nGet on/off:\r\nRoutes 331 to UW Bothell, 981 to Mercer Island and ST 522 to Woodinville:\r\nThe temporary stop on NE Bothell Way, just east of the regular stop (EB)\r\n\nRoute 322 to Kenmore P&R:\r\nStop #70022 68th Ave Ne & Ne Bothell Way (NB)\r\nStop #76376 Kenmore Park & Ride & 73rd Ave Ne (EB)\r\n",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/tripplanning",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #76870 NE Bothell Way & 68th Ave NE (EB) and Stop #76880 NE Bothell Way & 73rd Ave NE (EB) relocated through Thu Apr 22 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #76870 NE Bothell Wy & 68 Av NE & Stop #76880 NE Bothell Wy & 73 Av NE closed Apr 22, 2026-Apr 22, 2027.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1787764920,
+        "last_modified_timestamp": 1788025047,
+        "last_push_notification_timestamp": 1787875201,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "until April 2027",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788001200,
+            "end": 1808477940
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100196",
+            "stop_id": "76870",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100196",
+            "stop_id": "76880",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "40",
+            "route_type": 3,
+            "route_id": "100232",
+            "stop_id": "76870",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "40",
+            "route_type": 3,
+            "route_id": "100232",
+            "stop_id": "76880",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100473",
+            "stop_id": "76870",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102729",
+            "stop_id": "76870",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93864",
+      "alert": {
+        "effect": "OTHER_EFFECT",
+        "effect_detail": "SERVICE_REVISION",
+        "cause": "OTHER_CAUSE",
+        "cause_detail": "RIDER_ALERT",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Beginning Sat Aug 29, the new Route 270 starts service but will not use stops #71359 SR 520 & 92nd Ave NE (EB) and #71356 SR 520 & 92nd Ave NE (WB).",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected stops:\r\nStop #71359 SR 520 & 92nd Ave NE (EB)\r\nStop #71356 SR 520 & 92nd Ave NE (WB)\r\n\nFor Route 270 Bellevue TC get on/off at:\r\nStop #71348 SR 520 & Evergreen Point Rd (EB)\r\nStop #68930 Bellevue Way NE & NE 30th Pl (SB)\r\n\nFor Route 270 University District get on/off at:\r\nStop #69402 Bellevue Way NE & 103rd Ave NE (NB)\r\nStop #71355 SR 520 & Evergreen Point Rd (WB)\r\n\nThis scheduling data change will be available in Metro’s Trip Planner and third party transit planning applications after Saturday, September 12. We apologize for the confusion regarding this new service and appreciate your patience as the updated information becomes available.\r\n",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/270/w",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Route 270 notice: from Sat Aug 29 through Sat Sep 12 due to rider alert",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Beginning Sat Aug 29, Rt. 270 will not service stops #71359 SR 520 & 92 Ave NE & #71356 SR 520 & 92 Ave NE.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1787769640,
+        "last_modified_timestamp": 1787999401,
+        "last_push_notification_timestamp": 1787853601,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through September 13",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788001200,
+            "end": 1789297140
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102766",
+            "stop_id": "71359",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102766",
+            "stop_id": "71356",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93867",
+      "alert": {
+        "effect": "DETOUR",
+        "effect_detail": "SINGLE_ROUTE_REROUTE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Route 164 to Kent Station is rerouted off portions of W Smith St and W Meeker St between 4th Ave N and Washington Ave N from Sat Aug 29 through Fri Dec 24, 2027 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected stops:\r\nStop #57187 W Smith St & 4th Ave N (WB)\r\nStop #79215 W Smith St & 6th Ave N (WB)\r\n\nGet on/off at:\r\nStop #79248 4th Ave N & W Smith St (NB)\r\nStop #50755 W Meeker St & Washington Ave N (WB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "SEVERE",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/164/W/",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Route 164 to Kent Station is rerouted from Sat Aug 29 through Fri Dec 24 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Rt. 164 to Kent Sta is rerouted off W Smith St & W Meeker St between 4 Av N & Wa Av N frm Aug 29-Dec 24, 2027.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 7,
+        "created_timestamp": 1787772163,
+        "last_modified_timestamp": 1787999401,
+        "last_push_notification_timestamp": 1787939101,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Until December 2027",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788001200,
+            "end": 1829735940
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100057",
+            "stop_id": "57187",
+            "direction_id": 1,
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100057",
+            "stop_id": "79215",
+            "direction_id": 1,
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93875",
+      "alert": {
+        "effect": "DETOUR",
+        "effect_detail": "SINGLE_ROUTE_REROUTE",
+        "cause": "OTHER_CAUSE",
+        "cause_detail": "A_ROAD_CLOSURE",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Route 166 is rerouted off S 240th St between 16th Ave S and 20th Ave S from Sat Aug 29 through Thu Dec 31 due to a road closure.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected stops:\r\nStop #48920 S 240th St & 17th Ave S (EB)\r\nStop #48925 S 240th St & 18th Pl S (EB)\r\nStop #47275 S 240th St & 18th Pl S (WB)\r\nStop #47280 S 240th St & 16th Ave S (WB)\r\n\nFor Route 166 to Kent get on/off at:\r\nThe temporary stop on S 240th St & 14th Ave S (EB)\r\nStop #48930 S 240th St & 21st Ave S (EB)\r\n\nFor Route 166 to Burien TC get on/off at:\r\nStop #47270 S 240th St & 21st Ave S (WB)\r\nThe temporary stop on S 240th St & 14th Ave S (WB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "SEVERE",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/166/S/",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Route 166 is rerouted from Sat Aug 29 through Thu Dec 31 due to a road closure",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Route 166 is rerouted off S 240th St between 16th Ave S and 20th Ave S from Sat Aug 29 through Thu Dec 31.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 7,
+        "created_timestamp": 1787778284,
+        "last_modified_timestamp": 1787999401,
+        "last_push_notification_timestamp": 1787938780,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Until January 2027",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788001200,
+            "end": 1798804740
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100058",
+            "stop_id": "48920",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100058",
+            "stop_id": "48925",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100058",
+            "stop_id": "47275",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100058",
+            "stop_id": "47280",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93880",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "OTHER_CAUSE",
+        "cause_detail": "PERMANENT_BUS_STOP_CLOSURE",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #57188 W Meeker St & Washington Ave S (EB) relocated from Sat Aug 29 through Fri Apr 23, 2027 due to permanent bus stop closure.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n164\r\nDART 914\r\n\nGet on/off at:\r\nThe temporary stop on W Meeker St, just east of the closed stop (EB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/9326",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #57188 W Meeker St & Washington Ave S (EB) relocated through Fri Apr 23 due to permanent bus stop closure",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #57188 W Meeker St & Washington Ave S (EB) relocated from Sat Aug 29 through Fri Apr 23, 2027.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1787781324,
+        "last_modified_timestamp": 1788024867,
+        "last_push_notification_timestamp": 1787947201,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "until April 2027",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788001200,
+            "end": 1808564340
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100057",
+            "stop_id": "57188",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100297",
+            "stop_id": "57188",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93882",
+      "alert": {
+        "effect": "OTHER_EFFECT",
+        "effect_detail": "SERVICE_REVISION",
+        "cause": "OTHER_CAUSE",
+        "cause_detail": "RIDER_ALERT",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Beginning Sat Aug 29, Route 365 will operate on N 145th St and no longer service stops on N 155th St or stops on Meridian Ave N that are north of N 145th St.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected stops:\r\nStop #16329 Meridian Ave N & N 150th St (NB)\r\nStop #77611 N 155th St & Meridian Ave N (EB)\r\nStop #77616 NE 155th St & 1st Ave NE (EB)\r\nStop #97137 NE 155th St & 5th Ave NE (WB)\r\nStop #77613 N 155th St & 1st Ave NE (WB)\r\nStop #16327 Meridian Ave N & N 155th St (SB)\r\nStop #16330 Meridian Ave N & N 150th St (SB)\r\nStop #16331 Meridian Ave N & N 148th St (SB)\r\n\nFor Route 365 to Shoreline get on/off at:\r\nStop #16570 Meridian Ave N & N 145th St (NB)\r\nStop #77780 5th Ave NE & NE 155th St (NB)\r\n\nFor Route 365 to Northgate Station get on/off at:\r\nStop #81252 5th Ave NE & NE 155th St (SB)\r\nStop #16800 Meridian Ave N & N 145th St (SB)\r\n\nThis scheduling data and routing change will be available in Metro’s Trip Planner and third-party transit planning applications after Saturday, September 12. We apologize for the confusion regarding this new service and appreciate your patience as the updated information becomes available.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/365/s",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Route 365 notice: from Sat Aug 29 through Sat Sep 12 due to rider alert",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Sat Aug 29 Rt. 365 will operate on N 145 St & no longer service N 155 St or Meridian Ave N north of N 145 St.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1787783013,
+        "last_modified_timestamp": 1787999401,
+        "last_push_notification_timestamp": 1787853601,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through September 13",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788001200,
+            "end": 1789297140
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102744",
+            "stop_id": "16329",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102744",
+            "stop_id": "77611",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102744",
+            "stop_id": "77616",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102744",
+            "stop_id": "16327",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102744",
+            "stop_id": "16330",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102744",
+            "stop_id": "16331",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102744",
+            "stop_id": "77613",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102744",
+            "stop_id": "97137",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93887",
+      "alert": {
+        "effect": "OTHER_EFFECT",
+        "effect_detail": "SERVICE_REVISION",
+        "cause": "OTHER_CAUSE",
+        "cause_detail": "RIDER_ALERT",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Beginning Sat Aug 29, Route 333 will operate on N 145th St and no longer service stops on 5th Ave NE, N 155th St, or Meridian Ave N.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected stops:\r\nStop #81302 5th Ave NE & NE 152nd St (NB)\r\nStop #97137 NE 155th St & 5th Ave NE (WB)\r\nStop #77613 N 155th St & 1st Ave NE (WB)\r\nStop #16327 Meridian Ave N & N 155th St (SB)\r\nStop #16330 Meridian Ave N & N 150th St (SB)\r\nStop #16331 Meridian Ave N & N 148th St (SB)\r\nStop #16329 Meridian Ave N & N 150th St (NB)\r\nStop #77611 N 155th St & Meridian Ave N (EB)\r\nStop #77616 NE 155th St & 1st Ave NE (EB)\r\nStop #81252 5th Ave NE & NE 155th St (SB)\r\nStop #81254 5th Ave NE & NE 152nd St (SB)\r\n\nFor Route 333 to Mountlake Terrace Station get on/off at:\r\nStop #81301 Shoreline South/148th Station - Bay 2 (SB)\r\nStop #75340 N 145th St & Meridian Ave N (WB)\r\n\nFor Route 333 to Shoreline South/148th St Station get on/off at:\r\nStop #75210 N 145th St & Courtland Pl N (EB)\r\nStop #81299 Shoreline South/148th Station - Bay 1 (WB)\r\n\nThis scheduling data and routing change will be available in Metro’s Trip Planner and third-party transit planning applications after Saturday, September 12. We apologize for the confusion regarding this new service and appreciate your patience as the updated information becomes available.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/333/n",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Route 333 notice: from Sat Aug 29 through Sat Sep 12 due to rider alert",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Sat Aug 29 Route 333 will operate on N 145 St and no longer service 5 Ave NE, N 155 St, or Meridian Ave N.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1787785008,
+        "last_modified_timestamp": 1787999401,
+        "last_push_notification_timestamp": 1787853601,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through September 13",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788001200,
+            "end": 1789297140
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102746",
+            "stop_id": "16327",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102746",
+            "stop_id": "16330",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102746",
+            "stop_id": "16331",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102746",
+            "stop_id": "77613",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102746",
+            "stop_id": "81302",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102746",
+            "stop_id": "97137",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102746",
+            "stop_id": "16329",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102746",
+            "stop_id": "77611",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102746",
+            "stop_id": "77616",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102746",
+            "stop_id": "81252",
+            "activities": [
+              "BOARD",
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102746",
+            "stop_id": "81254",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93972",
+      "alert": {
+        "effect": "DETOUR",
+        "effect_detail": "SINGLE_ROUTE_REROUTE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Route 70 is rerouted off Fairview Ave N between Aloha St and Valley St from Sat Aug 29 at 3:30 AM to Sat Oct 31 at 3:30 AM due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected stops:\r\nStop #10190 Fairview Ave N & Aloha St (SB)\r\n\nGet on/off at:\r\nStop #10170 Fairview Ave E & E Nelson Pl (SB)\r\nStop #10328 Valley St & Fairview Ave N (WB)\r\nStop #10210 Fairview Ave N & Mercer St (SB)\r\n\nTo learn more about the construction impacts that are part of the upgrade of Route 70 into the RapidRide J Line please visit SDOT’s website link:\r\n\nhttps://www.seattle.gov/transportation/projects-and-programs/programs/transit-program/transit-plus-multimodal-corridor-program/rapidride-roosevelt",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "SEVERE",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/72764",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Route 70 is rerouted from 3:30 AM today to Sat Oct 31 at 3:30 AM due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Rt. 70 is rerouted off Fairview Av N between Aloha St & Valley St frm Aug 29 at 3:30AM to Oct 31 at 3:30AM.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 7,
+        "created_timestamp": 1787936917,
+        "last_modified_timestamp": 1787997602,
+        "last_push_notification_timestamp": 1787937877,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through October 31",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1787999400,
+            "end": 1793442600
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100264",
+            "stop_id": "10190",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93998",
+      "alert": {
+        "effect": "OTHER_EFFECT",
+        "effect_detail": "SERVICE_REVISION",
+        "cause": "OTHER_CAUSE",
+        "cause_detail": "RIDER_ALERT",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Beginning Sat Aug 29, Route ST 556 will not use the stops #80486 Front St S & E Sunset Way (SB) and #80484 Front St S & SE Andrews St (NB).",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected stops:\r\nStop #80486 Front St S & E Sunset Way (SB)\r\nStop #80484 Front St S & SE Andrews St (NB)\r\n\nFor ST 556 to Issaquah get on/off at:\r\nStop #80485 E Sunset Way & Rainier Blvd S (EB)\r\nStop #65140 E Sunset Way & 6th Ave NE (EB)\r\n\nFor ST 556 to Bellevue TC get on/off at:\r\nStop #64480 E Sunset Way & 6th Ave NE (WB)\r\nStop #64502 E Sunset Way & 1st Ave NE (WB)\r\n\nThis scheduling data change will be available in Metro’s Trip Planner and third-party transit planning applications after Saturday, September 26. We apologize for the confusion regarding this new service and appreciate your patience as the updated information becomes available.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/556/W/",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "ST 556 notice: from Sat Aug 29 through Sat Sep 26 due to rider alert",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Starting Aug 29, Rt.556 will not use stops #80486 Front St S & E Sunset Wy& #80484 Front St S & SE Andrews St.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1787956324,
+        "last_modified_timestamp": 1787999401,
+        "last_push_notification_timestamp": 1787959404,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through September 27",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788001200,
+            "end": 1790506740
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "40",
+            "route_type": 3,
+            "route_id": "100451",
+            "stop_id": "80484",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "40",
+            "route_type": 3,
+            "route_id": "100451",
+            "stop_id": "80486",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "93999",
+      "alert": {
+        "effect": "DETOUR",
+        "effect_detail": "MULTI_ROUTE_REROUTE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Routes 225, 239, 255, and DART 930 will be rerouted off NE 128th St between 120th Ave NE & 124th Ave NE from Mon Aug 31 at 7:00 AM to Wed Sep 30 at 6:00 PM due to the Totem Lake TC Closure.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected stops:\r\nStop #74232 Totem Lake Transit Center - Bay 2 (WB)\r\nStop #74222 NE 132nd St & 118th Ave NE (WB)\r\nStop #74234 Totem Lake Transit Center - Bay 1 (NB)\r\nStop #74230 Totem Lake Transit Center - Bay 3 (WB)\r\n\nGet on/off at:\r\nRoutes 225 to Kenmore P&R and to Overlake Village Station, 239 to UW Bothell, 255 to Totem Lake TC, and DART 930 to Redmond: \r\nStop #74226 NE 128th St & Totem Lake Blvd (EB)\r\nThe temporary stop on 120th Ave NE, just north of NE 128th St (NB)\r\n\nRoute 239 to Kirkland TC and DART 930 to Kingsgate P&R:\r\nStop #74220 NE 132nd St & 121st Ave NE (WB)\r\nStop #74731 NE 128th St & 120th Ave NE (WB)\r\n\nRoute 255 to University District:\r\nStop #74731 NE 128th St & 120th Ave NE (WB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "SEVERE",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/tripplanning",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Routes 225, 239, 255 and DART 930 are rerouted from Mon Aug 31 at 7:00 AM to Wed Sep 30 at 6:00 PM due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Rts. 225, 239, 255 & DART 930 will be rerouted off NE 128th St frm Aug 31, 7AM-Sep 30, 6PM.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 7,
+        "created_timestamp": 1787956447,
+        "last_modified_timestamp": 1788183001,
+        "last_push_notification_timestamp": 1788116401,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Through September 30",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788184800,
+            "end": 1790816400
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100146",
+            "stop_id": "74230",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100146",
+            "stop_id": "74232",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100496",
+            "stop_id": "74232",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100496",
+            "stop_id": "74234",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102701",
+            "stop_id": "74234",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102701",
+            "stop_id": "74222",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102701",
+            "stop_id": "74232",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102702",
+            "stop_id": "74234",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102702",
+            "stop_id": "74222",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102702",
+            "stop_id": "74232",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "94007",
+      "alert": {
+        "effect": "DETOUR",
+        "effect_detail": "SINGLE_ROUTE_REROUTE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Route 153 to Kent is rerouted off portions of Lind Ave SW and S 180th St between SW 41st St and E Valley Hwy until Thu Dec 31 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected stops:\r\nStop #80764 Lind Ave SW & SW 41st St (SB)\r\nStop #59358 SW 43rd St & Lind Ave SW (EB)\r\n\nGet on/off at:\r\nStop #80763 Lind Ave SW & SW 39th St (SB)\r\nThe temporary stop on SW 41st St, just east of Lind Ave SW (EB)\r\nStop #84362 E Valley Hwy & S 180th St (SB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "SEVERE",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/153/S/",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Route 153 to Kent is rerouted from Sat Aug 29 through Thu Dec 31 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Rt. 153 to Kent is rerouted off portions of Lind Av SW & S 180 St between SW 41 St & E Valley Hwy until Dec 31",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 7,
+        "created_timestamp": 1787966465,
+        "last_modified_timestamp": 1787999402,
+        "last_push_notification_timestamp": 1787966465,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Until January 2027",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788001200,
+            "end": 1798804740
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100048",
+            "stop_id": "59358",
+            "direction_id": 0,
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100048",
+            "stop_id": "80764",
+            "direction_id": 0,
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "94015",
+      "alert": {
+        "effect": "STOP_MOVED",
+        "effect_detail": "STOP_RELOCATION",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #64330 Bendigo Blvd N & Sidney Ave N (WB) relocated from Sat Aug 29 through Fri Mar 26 due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n215\r\n\nGet on/off at:\r\nStop #64341 Bendigo Blvd N & W 2nd St (NB)\r\nThe temporary stop on Bendigo Blvd N, just east of Sydney Ave N (WB)\r\nStop #85782 NW 14th St & Boalch Ave NW (WB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/582",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop Stop #64330 Bendigo Blvd N & Sidney Ave N (WB) relocated from Sat Aug 29 through Fri Mar 26 due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #64330 Bendigo Blvd N & Sidney Ave N (WB) relocated from Sat Aug 29 through Fri Mar 26.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1787968753,
+        "last_modified_timestamp": 1787999402,
+        "last_push_notification_timestamp": 1787979601,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Until March 2027",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788001200,
+            "end": 1806145140
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102769",
+            "stop_id": "64330",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "94096",
+      "alert": {
+        "effect": "NO_SERVICE",
+        "effect_detail": "STOP_CLOSURE",
+        "cause": "CONSTRUCTION",
+        "cause_detail": "CONSTRUCTION",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #71160 West Lk Sammamish Pkwy NE & 180th Ave NE (SB) closed from Fri Sep 4 to Thu Sep 10 from 9:30 AM to 3:30 PM daily due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n222\r\n\nGet on/off at:\r\nStop #71150 West Lk Sammamish Pkwy NE & 177th Ave NE (SB)\r\nStop #71514 180th Ave NE & NE 30th St",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/6167",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop #71160 West Lk Sammamish Pkwy NE & 180th Ave NE (SB) closed from Fri Sep 4 at 9:30 AM to Thu Sep 10 at 3:30 PM due to construction",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #71160 West Lk Sammamish Pkwy NE & 180th Ave NE closed from Fri Sep 4 to Thu Sep 10 9:30AM-3:30PM daily.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1788190639,
+        "last_modified_timestamp": 1788453000,
+        "last_push_notification_timestamp": 1788453000,
+        "timeframe_text": {
+          "translation": [
+            {
+              "text": "Tomorrow Through Thursday",
+              "language": "en"
+            }
+          ]
+        },
+        "alert_lifecycle": "UPCOMING",
+        "duration_certainty": "KNOWN",
+        "active_period": [
+          {
+            "start": 1788539400,
+            "end": 1789079400
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102753",
+            "stop_id": "71160",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "94195",
+      "alert": {
+        "effect": "DETOUR",
+        "effect_detail": "SINGLE_ROUTE_REROUTE",
+        "cause": "OTHER_CAUSE",
+        "cause_detail": "A_ROAD_CLOSURE",
+        "header_text": {
+          "translation": [
+            {
+              "text": "DART 224 is rerouted off 195th Ave NE between NE Novelty Hill Rd & NE Union Hill Rd due to a road closure.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected stops:\r\nStop #72279 196th Ave NE & NE Union Hill Rd (NB)\r\nStop #72282 195th Ave NE & NE 90th Pl (NB)\r\nStop #72283 195th Ave NE & NE 90th Pl (SB)\r\nStop #72281 196th Ave NE & NE Union Hill Rd (SB)\r\n\nFor DART 224 to Duvall get on/off at:\r\nStop #72277 NE Union Hill Rd & 192nd Ave NE (EB)\r\nStop #72545 NE Novelty Hill Rd & 208th Ct NE (EB)\r\n\nFor DART 224 to Redmond get on/off at:\r\nStop #72546 NE Novelty Hill Rd & 208th Ave NE (WB)\r\nStop #72278 NE Union Hill Rd & 192nd Ave NE (WB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "SEVERE",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/routeheadway/full/224/W/",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "DART 224 is rerouted due to a road closure",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "DART 224 is rerouted off 195th Ave NE between NE Novelty Hill Rd & NE Union Hill Rd due to a road closure.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 7,
+        "created_timestamp": 1788350414,
+        "last_modified_timestamp": 1788350414,
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "UNKNOWN",
+        "active_period": [
+          {
+            "start": 1788350400
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102653",
+            "stop_id": "72279",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102653",
+            "stop_id": "72282",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102653",
+            "stop_id": "72281",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "102653",
+            "stop_id": "72283",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "94196",
+      "alert": {
+        "effect": "NO_SERVICE",
+        "effect_detail": "STOP_CLOSURE",
+        "cause": "UNKNOWN_CAUSE",
+        "cause_detail": "UNKNOWN_CAUSE",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Stop #43029 NE 130th St & 1st Ave NE closed beginning Sat Aug 29 until further notice due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected routes:\r\n77\r\n\nGet on/off at:\r\nStop #43027 N 130th St & Meridian Ave N\r\nStop #43031 NE 130th St & 5th Ave NE",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "WARNING",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/nextdepartures/stoproutes/78030",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Stop #43029 NE 130th St & 1st Ave NE closed",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Stop #43029 NE 130th St & 1st Ave NE closed beginning Sat Aug 29 until further notice due to construction.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 3,
+        "created_timestamp": 1788351572,
+        "last_modified_timestamp": 1788351572,
+        "last_push_notification_timestamp": 1788351572,
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "UNKNOWN",
+        "active_period": [
+          {
+            "start": 1788351540
+          }
+        ],
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100271",
+            "stop_id": "43029",
+            "activities": [
+              "BOARD",
+              "EXIT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "94304",
+      "alert": {
+        "effect": "DETOUR",
+        "effect_detail": "MULTI_ROUTE_REROUTE",
+        "cause": "POLICE_ACTIVITY",
+        "cause_detail": "AN_EMERGENCY_RESPONSE",
+        "header_text": {
+          "translation": [
+            {
+              "text": "Routes 3 and 4 are rerouted eastbound off James St between 3rd Ave and 5th Ave due to an emergency response.",
+              "language": "en"
+            }
+          ]
+        },
+        "description_text": {
+          "translation": [
+            {
+              "text": "Affected stops:\r\nStop #500 3rd Ave & James St (SB)\r\nStop #1560 James St & 3rd Ave (EB)\r\n\nGet on/off at:\r\nStop #480 3rd Ave & Marion St (SB)\r\nStop #1570 James St & 5th Ave (EB)",
+              "language": "en"
+            }
+          ]
+        },
+        "severity_level": "SEVERE",
+        "url": {
+          "translation": [
+            {
+              "text": "https://tripplanner.kingcounty.gov/#/app/tripplanning",
+              "language": "en"
+            }
+          ]
+        },
+        "service_effect_text": {
+          "translation": [
+            {
+              "text": "Routes 3 and 4 are rerouted beginning at 8:55 PM due to an emergency response",
+              "language": "en"
+            }
+          ]
+        },
+        "short_header_text": {
+          "translation": [
+            {
+              "text": "Routes 3 and 4 are rerouted eastbound off James St between 3rd Ave and 5th Ave due to an emergency response.",
+              "language": "en"
+            }
+          ]
+        },
+        "severity": 0,
+        "created_timestamp": 1788494551,
+        "last_modified_timestamp": 1788497134,
+        "last_push_notification_timestamp": 1788497134,
+        "closed_timestamp": 1788497134,
+        "alert_lifecycle": "NEW",
+        "duration_certainty": "KNOWN",
+        "informed_entity": [
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100173",
+            "stop_id": "1560",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100173",
+            "stop_id": "500",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100219",
+            "stop_id": "1560",
+            "activities": [
+              "EXIT",
+              "RIDE"
+            ]
+          },
+          {
+            "agency_id": "1",
+            "route_type": 3,
+            "route_id": "100219",
+            "stop_id": "500",
+            "activities": [
+              "BOARD",
+              "RIDE"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+# --- secrets -----------------------------------------------------------------
+# .env holds the warehouse and MinIO passwords. .env.example is the tracked
+# template.
+.env
+.env.*
+!.env.example
+
+# --- python ------------------------------------------------------------------
+.venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+
+# --- generated protobuf ------------------------------------------------------
+# schemas/*.proto is the source of truth and IS tracked. The _pb2.py files
+# generated from it are build output: committing them means a schema change
+# and its generated code can drift, and Phase 2 is specifically about
+# schema evolution, so that drift would be actively misleading.
+schemas/**/*_pb2.py
+schemas/**/*_pb2.pyi
+
+# --- collected feed data -----------------------------------------------------
+# data/recon holds Phase 0 payload captures. The SUMMARIES are tracked --
+# snapshot.json and cadence.json are the evidence behind docs/findings.md and
+# they are small. The raw payloads are not: they are re-fetchable, they are
+# a moving target anyway, and the real archive is MinIO.
+#
+# Anchored to /data/ so this cannot also match a future site/data or dbt/data.
+/data/recon/*.pb
+/data/recon/*_enhanced.json
+/data/recon/*.log
+
+# --- dbt (Phase 4) -----------------------------------------------------------
+target/
+dbt_packages/
+logs/
+.user.yml
+
+# --- terraform (Phase 5) -----------------------------------------------------
+# State can contain resource attributes that amount to credentials, and a
+# local state file is not something to publish from a portfolio repo.
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+!*.tfvars.example
+
+# --- os / editors ------------------------------------------------------------
+.DS_Store
+.idea/
+.vscode/
+*.swp
