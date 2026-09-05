@@ -19,7 +19,7 @@ and is verified end to end; the producers are not written yet. See
 
 It exists to demonstrate event streaming honestly. A companion project
 (WA parcel reconciliation) covers batch orchestration, dbt, and PostGIS, and
-it cannot demonstrate streaming — county assessor data refreshes quarterly.
+it cannot demonstrate streaming, county assessor data refreshes quarterly.
 This one covers the other half: continuous ingest, partitioning and ordering
 semantics, schema evolution, stateful processing, and the streaming/batch
 boundary.
@@ -64,7 +64,7 @@ Requires Docker, [uv](https://docs.astral.sh/uv/), and `make`.
 
 ```bash
 uv sync
-cp .env.example .env      # then edit — the passwords are literally 'change-me'
+cp .env.example .env      # then edit: the passwords are literally 'change-me'
 make dirs                 # needs sudo, once (see below)
 make up
 make topics
@@ -87,7 +87,7 @@ Then:
 
 Every persistent volume is a **host bind mount** under `/mnt/F/docker-data`,
 not a Docker named volume, and bind-mounted data directories must be owned by
-the uid the container runs as — Docker creates the path as root and will not
+the uid the container runs as, Docker creates the path as root and will not
 fix ownership for you. `make dirs` creates the three directories and chowns
 them to postgres (999) and redpanda (101).
 
@@ -109,7 +109,7 @@ All host ports route around the parcel project, which holds **5433** and
 **Done**
 
 - Local stack: Redpanda v25.2.1 (with its built-in Schema Registry), Redpanda
-  Console, PostGIS 16-3.4, MinIO. Verified end to end — cluster healthy,
+  Console, PostGIS 16-3.4, MinIO. Verified end to end, cluster healthy,
   topics created with their intended configs, bucket created, warehouse schema
   applied, and a protobuf produce/consume round trip through the host listener.
 - Phase 0 reconnaissance, measured rather than assumed:
@@ -117,9 +117,9 @@ All host ports route around the parcel project, which holds **5433** and
 - Warehouse schema: partitioned raw tables, DLQ, partition-maintenance
   function ([`docker/initdb/01-schema.sql`](docker/initdb/01-schema.sql)).
 - Topic layout with real retention and compaction settings (`make topics`).
-- ADRs 0001–0004 for the decisions Phase 0 settled.
+- ADRs 0001-0004 for the decisions Phase 0 settled.
 - Regression tests asserting the wire semantics the schema depends on
-  (`make test` — 10 tests, no stack or network needed).
+  (`make test`, 10 tests, no stack or network needed).
 
 **Next (Phase 1)**
 
@@ -129,7 +129,7 @@ All host ports route around the parcel project, which holds **5433** and
 - Exit criterion: 24 hours of continuous uninterrupted collection across all
   three feeds.
 
-Phases 2–6 (schema evolution, stateful processing, dbt/Airflow, CI/Terraform,
+Phases 2-6 (schema evolution, stateful processing, dbt/Airflow, CI/Terraform,
 replay demo) are unstarted.
 
 ## Phase 0 headlines
@@ -137,21 +137,21 @@ replay demo) are unstarted.
 Full detail in [`docs/findings.md`](docs/findings.md). The findings that
 changed design decisions:
 
-- **Refresh cadence is 20.0 s**, not the estimated 15–30 s — and vehicle
+- **Refresh cadence is 20.0 s**, not the estimated 15-30 s, and vehicle
   positions and trip updates turn over *in lockstep*, from one upstream job.
   Alerts are 60.0 s, not irregular.
 - **`bearing` (2.1%) and `speed` (1.8%) are effectively unpopulated.** They
-  must be derived from consecutive positions — which independently reinforces
+  must be derived from consecutive positions, which independently reinforces
   `vehicle_id` as the partition key.
 - **An absent `current_status` means `IN_TRANSIT_TO`, not unknown.** The
   proto2 field carries `[default = IN_TRANSIT_TO]` and Metro omits it for 73%
   of vehicles. A decoder that tests presence and maps absence to `NULL`
   discards most of the column.
-- **`occupancy_status` is populated (99.6%) in the basic protobuf** — which
+- **`occupancy_status` is populated (99.6%) in the basic protobuf**, which
   answers the proposal's open question about enhanced-JSON extension fields
   more cheaply than expected.
 - **The prediction-accuracy join must key on `trip_id`, not `vehicle_id`.**
-  Only 45.8% of trip updates carry a vehicle — the rest are trips that have
+  Only 45.8% of trip updates carry a vehicle, the rest are trips that have
   not started, which is exactly the long-lead-time data the analysis needs.
 - **~70% of every trip-updates poll is byte-identical to the previous one**,
   so value-level dedup removes about two thirds of write volume at no
@@ -164,12 +164,12 @@ changed design decisions:
 docker-compose.yml       local stack; read the header before editing
 docker/initdb/           warehouse schema, applied once on first start
 recon/probe.py           Phase 0 instrument (snapshot + cadence)
-producer/                Phase 1 — not written yet
-consumers/               Phase 2-3 — enrichment, bunching
+producer/                Phase 1 -- the live collector
+consumers/               Phase 2-3 -- enrichment, bunching
 connect/                 Kafka Connect sink configs
 schemas/                 protobuf definitions (Phase 2)
 dbt/                     Phase 4
-airflow/dags/            Phase 4 — static refresh, dbt, partitions, DLQ report
+airflow/dags/            Phase 4 -- static refresh, dbt, partitions, DLQ report
 terraform/               Phase 5
 tests/                   wire-semantics regression tests + fixtures
 docs/findings.md         Phase 0 results
@@ -186,11 +186,11 @@ public S3 objects. No API key, no registration.
 
 Coverage includes Metro bus, Seattle Streetcar, King County Water Taxi, Sound
 Transit Link light rail, and some Sound Transit Express routes. The mixed-mode
-coverage is useful adversarially — a water taxi will not snap sensibly to a
+coverage is useful adversarially, a water taxi will not snap sensibly to a
 road-oriented route buffer.
 
 Redistribution and derivative works are explicitly permitted. **Attribution is
-mandatory and must be prominently displayed** — see the top of this README;
+mandatory and must be prominently displayed**, see the top of this README;
 it also belongs in any published chart. King County service marks and logos
 may not be used.
 

@@ -1,4 +1,4 @@
-# transit-stream — task runner
+# transit-stream -- task runner
 #
 # Recipes run under bash regardless of your login shell, so the bash-only
 # `set -a` idiom works even though the project shell is fish.
@@ -111,7 +111,7 @@ topic-describe:  ## Show config for one topic (T=raw.service_alerts)
 
 # --- reconnaissance (Phase 0) ------------------------------------------------
 
-recon:  ## Phase 0 snapshot — sizes, entity counts, field population census
+recon:  ## Phase 0 snapshot -- sizes, entity counts, field population census
 	@$(ENV) $(PY) $(ROOT)/recon/probe.py snapshot
 
 # --- producer (Phase 1) ------------------------------------------------------
@@ -125,7 +125,7 @@ produce-dry:  ## One tick per feed, fetch+archive+decode, publish nothing
 produce:  ## Run the producer (D=24h to bound it; default runs until stopped)
 	@$(ENV) $(PY) -m producer.run $(if $(D),--duration $(D))
 
-cadence:  ## Phase 0 cadence — measure real refresh interval (M=minutes)
+cadence:  ## Phase 0 cadence -- measure real refresh interval (M=minutes)
 	@$(ENV) $(PY) $(ROOT)/recon/probe.py cadence -m $(or $(M),10)
 
 # --- tests -------------------------------------------------------------------

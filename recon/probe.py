@@ -40,7 +40,7 @@ from google.transit import gtfs_realtime_pb2 as rt
 S3 = "https://s3.amazonaws.com/kcm-alerts-realtime-prod"
 
 # The proposal states each feed is served as basic protobuf, basic JSON, and
-# enhanced JSON. The basic JSON mirrors 403 — only the enhanced ones exist.
+# enhanced JSON. The basic JSON mirrors 403; only the enhanced ones exist.
 # So the "diff basic vs enhanced JSON" step in Phase 0 is not possible as
 # written; the real comparison is basic PB against enhanced JSON, which is
 # what compare_shapes() does.
@@ -315,7 +315,7 @@ def cmd_cadence(args) -> int:
 
     This is the measurement that the conditional-GET design rests on. If the
     feeds turn over every 20s, a 20s poll is right. If they turn over every
-    60s, a 20s poll is three 304s and one 200 — still correct, but the
+    60s, a 20s poll is three 304s and one 200, still correct, but the
     staleness alarm threshold in the feed-health mart has to know which.
     """
     OUT.mkdir(parents=True, exist_ok=True)
@@ -365,7 +365,7 @@ def cmd_cadence(args) -> int:
             if slept > 0:
                 time.sleep(slept)
     except KeyboardInterrupt:
-        print("\ninterrupted — reporting on what was collected")
+        print("\ninterrupted -- reporting on what was collected")
 
     summary = {}
     print("\n--- cadence ---")

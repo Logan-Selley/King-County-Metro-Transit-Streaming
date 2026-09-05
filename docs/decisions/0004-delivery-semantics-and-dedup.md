@@ -1,18 +1,18 @@
-# ADR 0004 — At-least-once with idempotent writes, and where dedup happens
+# ADR 0004: At-least-once with idempotent writes, and where dedup happens
 
 **Status:** Accepted (Phase 1)
 **Date:** 2026-09-04
 
 ## Context
 
-All three GTFS-RT feeds are `FULL_DATASET` snapshots — confirmed on the wire
+All three GTFS-RT feeds are `FULL_DATASET` snapshots, confirmed on the wire
 for each, and asserted in `tests/test_feed_semantics.py`. Every poll restates
 every active entity whether or not anything changed. Duplicates are therefore
 not an edge case produced by retries; they are the normal, dominant content of
 the stream.
 
 Phase 0 measured how dominant (`docs/findings.md` §6): across polls 45 s
-apart, **67–72% of trip-update stop predictions are byte-identical to the
+apart, **67-72% of trip-update stop predictions are byte-identical to the
 previous poll.**
 
 ## Decision
@@ -50,7 +50,7 @@ merely large.
 
 **The critical distinction: dedup on the VALUE, never on the key alone.**
 Deduping trip updates on `(trip_id, stop_id)` would collapse successive
-predictions for the same stop into one — and successive predictions for one
+predictions for the same stop into one, and successive predictions for one
 stop *are* the data that the prediction-accuracy-by-lead-time analysis
 (proposal §6.6) consumes. That dedup would silently delete the project's most
 interesting finding while looking like a sensible optimisation.
@@ -66,7 +66,7 @@ has not advanced has genuinely not reported anything new.
 **What at-least-once actually costs.** On consumer restart, records between
 the last commit and the failure are reprocessed. For the raw sink that is
 absorbed by the primary key. For the *stateful* processors in Phase 3 it is
-not automatically safe — a windowed bunching count that double-counts a
+not automatically safe, a windowed bunching count that double-counts a
 replayed record produces a wrong alert. Phase 3 therefore has to make its
 state updates idempotent or keyed on event identity. That obligation is
 recorded here rather than discovered later.

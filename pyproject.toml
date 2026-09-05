@@ -1,10 +1,10 @@
 [project]
 name = "transit-stream"
 version = "0.1.0"
-description = "Real-time King County Metro GTFS-RT telemetry pipeline — Kafka ingest, spatial enrichment, stateful stream processing."
+description = "Real-time King County Metro GTFS-RT telemetry pipeline: Kafka ingest, spatial enrichment, stateful stream processing."
 requires-python = ">=3.12,<3.13"
 
-# Direct dependencies only — uv.lock pins the full resolved tree.
+# Direct dependencies only -- uv.lock pins the full resolved tree.
 #
 # 3.12, not the 3.11 the parcel project pins. Nothing here is held back by
 # geopandas/pyogrio wheel availability, which is what set that floor over
@@ -33,7 +33,7 @@ dependencies = [
     # --- GTFS-RT decoding ---
     # gtfs-realtime-bindings is the generated Python for the official
     # gtfs-realtime.proto. It declares an unpinned `protobuf` dependency, and
-    # so does confluent-kafka's protobuf extra, so the two do not fight —
+    # so does confluent-kafka's protobuf extra, so the two do not fight:
     # worth having checked, because a protobuf major-version conflict between
     # a decoder and a serializer is the classic way this stack fails to
     # install.

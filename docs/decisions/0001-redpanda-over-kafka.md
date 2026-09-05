@@ -1,4 +1,4 @@
-# ADR 0001 — Redpanda instead of Apache Kafka for local development
+# ADR 0001: Redpanda instead of Apache Kafka for local development
 
 **Status:** Accepted (Phase 1)
 **Date:** 2026-09-04
@@ -27,7 +27,7 @@ Schema Registry container.
 **What is gained.** One container instead of three or four. No ZooKeeper and
 no KRaft controller to configure or babysit. The Schema Registry disappears as
 a separate deployment concern while remaining a first-class part of the
-project — it is the same API on port 8081 of the same binary, and the ordinary
+project, it is the same API on port 8081 of the same binary, and the ordinary
 `confluent-kafka` client talks to it unchanged.
 
 **What is preserved.** The Kafka wire protocol, so every client library,
@@ -48,8 +48,8 @@ demonstrate ISR behaviour, leader election, or partition reassignment. Those
 are genuinely out of reach and should not be claimed.
 
 **Why not just use Kafka anyway, for the résumé line?** Because the résumé line
-is identical either way — the API, the semantics, and the operational concepts
-are the same — and the difference is entirely in how much of the development
+is identical either way, the API, the semantics, and the operational concepts
+are the same, and the difference is entirely in how much of the development
 budget goes to container orchestration versus to the partition-key, schema
 evolution, and stateful-join work that the project actually exists to
 demonstrate. An interviewer asking "why not Kafka" gets this answer, which is

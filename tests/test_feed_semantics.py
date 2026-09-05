@@ -120,8 +120,8 @@ def test_bearing_and_speed_are_effectively_unpopulated(positions):
     bearing = sum(1 for e in positions.entity if e.vehicle.position.HasField("bearing"))
     speed = sum(1 for e in positions.entity if e.vehicle.position.HasField("speed"))
 
-    assert bearing / n < 0.10, f"bearing now {bearing / n:.1%} — revisit ADR 0003"
-    assert speed / n < 0.10, f"speed now {speed / n:.1%} — revisit ADR 0003"
+    assert bearing / n < 0.10, f"bearing now {bearing / n:.1%}; revisit ADR 0003"
+    assert speed / n < 0.10, f"speed now {speed / n:.1%}; revisit ADR 0003"
 
 
 def test_block_id_is_absent_from_the_protobuf(positions):

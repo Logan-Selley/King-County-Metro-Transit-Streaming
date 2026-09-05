@@ -41,7 +41,7 @@ log = logging.getLogger("producer")
 
 @dataclass
 class FeedCounters:
-    """Per-feed tallies for the periodic report. GIVEN."""
+    """Per-feed tallies for the periodic report."""
 
     fetched: int = 0
     unchanged: int = 0
@@ -55,7 +55,7 @@ class FeedCounters:
 
 @dataclass
 class Pipeline:
-    """Everything one process needs to run. GIVEN.
+    """Everything one process needs to run.
 
     Bundled rather than passed as six arguments so process_feed's signature
     stays readable and so adding a component later is not a cascade of
@@ -157,7 +157,7 @@ def process_feed(spec: FeedSpec, pipeline: Pipeline, dry_run: bool = False) -> N
     if not dry_run and pipeline.publisher is not None:
         counters.published += pipeline.publisher.publish(spec, fresh)
 
-# --- scheduling (GIVEN) -------------------------------------------------------
+# --- scheduling ----------------------------------------------------------------
 
 
 class Scheduler:
@@ -197,7 +197,7 @@ _stop = False
 
 
 def _handle_signal(signum, _frame) -> None:
-    """SIGINT/SIGTERM -> finish the current tick, then exit cleanly. GIVEN.
+    """SIGINT/SIGTERM -> finish the current tick, then exit cleanly.
 
     Important for a 24-hour run: a hard kill mid-publish leaves records in the
     local queue undelivered, and the flush in main() is what prevents that.
@@ -212,7 +212,7 @@ _MULTIPLIER = {"s": 1, "m": 60, "h": 3600, "d": 86400}
 
 
 def parse_duration(text: str) -> float:
-    """'24h' -> 86400.0. GIVEN."""
+    """'24h' -> 86400.0."""
     match = DURATION_RE.match(text.strip())
     if not match:
         raise argparse.ArgumentTypeError(f"{text!r} is not a duration (e.g. 90s, 30m, 24h)")
@@ -220,7 +220,7 @@ def parse_duration(text: str) -> float:
 
 
 def report(pipeline: Pipeline) -> None:
-    """Periodic health line. GIVEN."""
+    """Periodic health line."""
     for name, c in sorted(pipeline.counters.items()):
         cache = pipeline.caches.get(name)
         log.info(
@@ -233,7 +233,7 @@ def report(pipeline: Pipeline) -> None:
     log.info("feeds: %s", pipeline.fetcher.summary())
 
 
-# --- CLI (GIVEN) --------------------------------------------------------------
+# --- CLI ----------------------------------------------------------------------
 
 
 def main(argv: list[str] | None = None) -> int:

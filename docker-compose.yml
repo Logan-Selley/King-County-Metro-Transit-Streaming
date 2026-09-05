@@ -1,4 +1,4 @@
-# transit-stream — local development stack
+# transit-stream -- local development stack
 #
 # ${VAR} below is substituted from .env in this directory, which Compose reads
 # implicitly. See .env.example for the required keys. Substitution only: these

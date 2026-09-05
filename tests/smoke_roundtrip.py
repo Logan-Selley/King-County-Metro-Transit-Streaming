@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Produce and consume a protobuf round trip against the running stack.
 
-NOT a pytest test, deliberately — it needs a live broker, and a test suite
+NOT a pytest test, deliberately: it needs a live broker, and a test suite
 that fails when Docker is not running is a test suite people stop trusting.
 `make test` stays runnable anywhere; this is `make smoke`.
 
@@ -62,7 +62,7 @@ def _run(topic: str) -> int:
 
     for entity in entities:
         vehicle = entity.vehicle
-        # Keyed on vehicle_id per ADR 0002 — same keying the real producer uses.
+        # Keyed on vehicle_id per ADR 0002, same keying the real producer uses.
         producer.produce(
             topic,
             key=vehicle.vehicle.id.encode(),
@@ -95,7 +95,7 @@ def _run(topic: str) -> int:
             msg = consumer.poll(15.0)
             if msg is None:
                 print(
-                    f"FAILED: timed out after {consumed}/{len(entities)} — "
+                    f"FAILED: timed out after {consumed}/{len(entities)}; "
                     "check --advertise-kafka-addr for the external listener",
                     file=sys.stderr,
                 )

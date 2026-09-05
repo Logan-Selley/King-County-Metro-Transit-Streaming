@@ -1,4 +1,4 @@
-# ADR 0002 — `vehicle_id` as the partition key for position topics
+# ADR 0002: `vehicle_id` as the partition key for position topics
 
 **Status:** Accepted (Phase 1)
 **Date:** 2026-09-04
@@ -7,7 +7,7 @@
 
 Kafka guarantees ordering *within a partition*, not across a topic. The
 partition key therefore decides what the pipeline can compute correctly, and
-it is effectively irreversible once history exists — rekeying means
+it is effectively irreversible once history exists, rekeying means
 reprocessing.
 
 Three candidates, per the proposal:
@@ -22,7 +22,7 @@ Three candidates, per the proposal:
 
 Key `raw.vehicle_positions` and `enriched.vehicle_positions` on `vehicle_id`.
 
-Key `raw.trip_updates` on `trip_id` (see ADR 0004 — the trip-updates feed's
+Key `raw.trip_updates` on `trip_id` (see ADR 0004, the trip-updates feed's
 `vehicle.id` is populated on only ~46% of records).
 
 Key `raw.service_alerts` on `alert_id`, which is a compaction requirement
@@ -47,8 +47,8 @@ positions for one vehicle to arrive in order:
 that at peak, each emitting at the same ~20 s cadence. There is no equivalent
 of a hot route because the fleet is homogeneous at the vehicle level.
 
-**What is given up.** Route-level windowed aggregation — bus bunching being
-the obvious one — cannot rely on all vehicles of a route landing in one
+**What is given up.** Route-level windowed aggregation, bus bunching being
+the obvious one, cannot rely on all vehicles of a route landing in one
 partition. The bunching detector (Phase 3) must therefore either consume all
 partitions and key its own state store by `route_id`, or re-key through an
 intermediate topic. This is a genuine cost and it lands squarely on the
@@ -62,7 +62,7 @@ per-vehicle ordering after the fact is not possible.
 
 **Geohash prefix** balances load and preserves spatial locality, which is
 attractive for the neighbourhood join. It breaks per-vehicle ordering
-entirely — a vehicle crossing a cell boundary changes partition mid-trip —
+entirely, a vehicle crossing a cell boundary changes partition mid-trip,
 which rules it out for the same reason.
 
 ## Notes

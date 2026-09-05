@@ -1,4 +1,4 @@
-"""The feed manifest — what to poll, how often, where it goes.
+"""The feed manifest: what to poll, how often, where it goes.
 
 Declarative on purpose, and the same shape as ingest/manifest.py in the parcel
 project: frozen dataclasses with derived properties, so that every consumer of
