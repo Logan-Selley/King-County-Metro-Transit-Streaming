@@ -104,9 +104,11 @@ FEEDS: dict[str, FeedSpec] = {
         poll_interval_s=_interval("POLL_INTERVAL_VEHICLE_POSITIONS", 10),
         entity_field="vehicle",
         key_field="vehicle_id",
-        # Identity is vehicle_id, so cardinality is the fleet: 280 observed at
-        # an evening trough, low thousands at peak. 20k is ~7x the largest
-        # plausible peak fleet and costs a few MB.
+        # Identity is vehicle_id, so cardinality is the fleet: 280 at the
+        # evening trough and 423 at the measured daytime peak -- the proposal's
+        # "high hundreds to low thousands" was high. Occupancy over 24h peaked
+        # at 835 (the day's distinct vehicles, not the concurrent fleet), so
+        # 20k has ample headroom and costs a few MB.
         dedupe_maxsize=20_000,
     ),
     "trip_updates": FeedSpec(
@@ -121,10 +123,15 @@ FEEDS: dict[str, FeedSpec] = {
         # long-lead-time data the prediction analysis needs. findings.md §5.
         key_field="trip_id",
         # Identity is (trip_id, stop_id, stop_sequence) -- ~30 per trip, so
-        # cardinality is stop predictions, not trips. 18,623 measured at the
-        # evening trough (612 trips); ~67k projected at 1,000 vehicles and
-        # ~91k at 1,400. 300k holds roughly three peak polls, which is what
-        # the LRU needs to never evict an identity the next poll will read.
+        # cardinality is stop predictions, not trips: 18,623 at the evening
+        # trough, ~27,800 at the measured daytime peak.
+        #
+        # 300k is ~10x that concurrent peak, and the 24-hour run showed why
+        # the headroom is spent on something other than concurrency --
+        # occupancy climbs monotonically with CUMULATIVE identities over a
+        # service day (23k -> 300k, pinned at the ceiling from hour 21).
+        # Eviction at that point is discarding trips that ended hours ago,
+        # and suppression held at 78-85%. See dedupe.py's header.
         #
         # This is the number the old shared 60k default got wrong: fine all
         # night, thrashing from the morning peak onward.

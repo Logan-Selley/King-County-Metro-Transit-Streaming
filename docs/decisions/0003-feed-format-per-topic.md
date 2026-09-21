@@ -66,6 +66,32 @@ worth having, and because the protobuf drops `cause_detail` and
 `effect_detail`, so "just use protobuf everywhere" is not the lossless option
 it appears to be.
 
+## Revision, 2026-09-06 (Phase 2 scoping)
+
+**The `block_id` reasoning above is superseded, and the conclusion is
+unchanged.**
+
+This ADR deferred `block_id` because the only known source was the enhanced
+JSON positions feed at 7.1× payload on the highest-cadence feed. Inspecting
+the static GTFS zip for the Phase 2 enrichment showed that `trips.txt`
+publishes `block_id` directly, populated on **all 32,060 trips**.
+
+So the field costs nothing. It arrives from the static join the enrichment is
+already performing, and it appears on `enriched.vehicle_positions` (field 24)
+rather than requiring any change to the producer or the raw feed format.
+
+Two things follow:
+
+1. **The per-feed format decision stands.** Positions and trip updates stay
+   basic protobuf; alerts stay enhanced JSON. Nothing above changes.
+2. **The "revisit this if headway analysis needs trip linkage" clause is
+   resolved**, it needs no revisiting, because the static feed answers it.
+
+Worth recording as a small lesson rather than a footnote: the original
+analysis compared two *realtime* sources and concluded the field was
+expensive. It never asked whether the *static* feed had it. Comparing the
+options you noticed is not the same as comparing the options that exist.
+
 ## Note on the archive
 
 MinIO archives **the bytes actually fetched**, per feed, in whatever format

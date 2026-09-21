@@ -43,11 +43,30 @@ log = logging.getLogger("producer.dedupe")
 #     maxsize=1295 (=1295 records)   2nd pass: 0 passed
 #     maxsize= 800 (<1295 records)   2nd pass: 1295 passed   <-- total collapse
 #
-# There is no intermediate regime where suppression merely degrades. So the
-# per-feed sizes below are set against PEAK, not the measured evening trough:
-# dedup working all night and silently stopping at the 06:00 peak is the
-# worst possible shape for this bug, and it would look like a volume spike
-# rather than a cache problem.
+# There is no intermediate regime where suppression merely degrades, so the
+# per-feed sizes are set against peak rather than the evening trough. Dedup
+# working all night and silently stopping at the morning peak would look like
+# a volume spike rather than a cache problem.
+#
+# WHAT THE 24-HOUR RUN ACTUALLY SHOWED (2026-09-05, findings.md §8), because
+# the first version of this comment got the reason right and the mechanism
+# wrong:
+#
+#   * Concurrency is NOT the binding constraint. Peak was ~27,800 stop
+#     predictions per poll, against a projection of ~91,000 -- the trip
+#     updates feed is dominated by SCHEDULED trips, so it barely tracks the
+#     active fleet (which peaked at 423 vehicles, only 1.5x the trough).
+#
+#   * What actually fills the cache is CUMULATIVE distinct identities over a
+#     service day. Occupancy climbed monotonically 23k -> 300k and pinned at
+#     the ceiling around hour 21. That is expected and harmless: the LRU is
+#     evicting trips that finished hours ago, and with _touch() below keeping
+#     live identities fresh, the active working set is never the victim.
+#     Suppression held at 78-85% for the three hours it ran pinned.
+#
+# So 300k for trip updates is ~10x the concurrent need and roughly 11 hours
+# of accumulated identities. Both are fine. Sizing DOWN toward the concurrent
+# working set would still work; sizing below ~30k would not.
 DEFAULT_MAXSIZE = 60_000
 
 

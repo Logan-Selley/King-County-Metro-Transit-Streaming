@@ -49,9 +49,39 @@ class DlqReason(StrEnum):
     # Timestamp implausible -- far future, or before the service date.
     IMPLAUSIBLE_TIMESTAMP = "implausible_timestamp"
 
+    # A computed schedule deviation outside MAX_PLAUSIBLE_DEVIATION_S. NOT a
+    # record-rejection reason -- the position, neighborhood and shape distance
+    # on that record are all still good, so only the deviation is nulled and
+    # counted. Listed here so the counter has a name from the same closed set
+    # as everything else the pipeline reports on.
+    IMPLAUSIBLE_DEVIATION = "implausible_deviation"
+
 
 # Rough King County envelope in WGS84, generous enough not to reject a real
 # vehicle and tight enough to catch null island and transposed coordinates.
 # Transposition is the failure this actually catches: (-122.3, 47.6) swapped
 # lands in the Indian Ocean but is a perfectly valid coordinate pair.
 KING_COUNTY_BBOX = (-122.60, 47.10, -121.05, 47.85)  # (min_lon, min_lat, max_lon, max_lat)
+
+# Schedule deviations beyond this are not late buses, they are bugs.
+#
+# Same role as the bbox above, one layer up: a VALUE-DOMAIN bound on a
+# computed field, checked because the schema gate structurally cannot. ADR
+# 0005 measured what the Schema Registry lets through -- `int32 -> uint32` is
+# wire-compatible and turns every early bus into ~4.29e9 -- and this is the
+# guard that catches it.
+#
+# 3 hours, against a measured live distribution of -2,069s to +1,905s (34 min
+# early to 32 min late) over 1,204 enriched records. That is ~5x the observed
+# extreme, so a genuinely catastrophic delay still passes while every known
+# failure mode is well outside:
+#
+#     ~25,200 s   UTC-midnight origin instead of agency-local (7-8 h)
+#     ~86,400 s   anchored on the observation's calendar date, not the
+#                 trip's service date -- fires on the 4.5% of trips that
+#                 run past midnight
+#   ~4.29e9 s     int32 -> uint32 signedness change, wrapping negatives
+#
+# The schedule_deviation docstring names all three in prose. This is the
+# number that makes them detectable instead of merely documented.
+MAX_PLAUSIBLE_DEVIATION_S = 3 * 3600

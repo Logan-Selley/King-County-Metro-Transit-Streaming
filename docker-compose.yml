@@ -13,6 +13,13 @@
 #    24-hour Phase 1 collection run pointed at /var/lib/docker would fill the
 #    root partition and take the desktop down with it. /mnt/F is 3.6T of ext4.
 #
+# CORRECTION, 2026-09-20: the 96% figure above is HISTORICAL. The root
+# filesystem is now a different device (/dev/sdc2, 639G) with 414G free at
+# 36%. The bind mounts stay, because a stack that accumulates event data
+# continuously still does not belong on the OS partition and /mnt/F has 2.8T
+# -- but the emergency framing no longer applies, and the disk objection must
+# not be cited against new components (it was retired in ADR 0006).
+#
 #    The parcel project hit this first and moved its warehouse the same way.
 #    Only the volumes move, not Docker's data-root -- relocating the daemon's
 #    storage would mean dropping nosuid,nodev from /mnt/F in fstab, and nodev
@@ -194,6 +201,60 @@ services:
       echo 'bucket ready'
       "
     restart: "no"
+
+  # --- stateful processing (Phase 3) ---------------------------------------
+  # BEHIND A PROFILE, like connect. `make flink-up` starts them.
+  #
+  #     docker compose --profile flink up -d
+  #
+  # Two containers because that is Flink's actual topology: the JobManager
+  # coordinates and hosts the UI, TaskManagers execute. Running one combined
+  # process would hide the distinction the phase exists to demonstrate.
+  #
+  # Job code is NOT mounted from the project venv -- ADR 0006. apache-flink
+  # pins protobuf<6 through apache-beam, and the project runs protobuf 7.36.1;
+  # sharing the environment silently downgrades it and breaks recon/probe.py.
+  # Jobs are mounted as plain source and run against the image's own Python.
+  flink-jobmanager:
+    profiles: ["flink"]
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.flink
+    image: transit-pyflink:2.2.0
+    container_name: transit_flink_jm
+    command: jobmanager
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      # rpc.address must match the service name or TaskManagers cannot
+      # register, and the failure looks like "no slots available" rather than
+      # a connectivity error.
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        parallelism.default: 2
+        state.backend: hashmap
+        execution.checkpointing.interval: 30s
+    ports:
+      - "${FLINK_UI_PORT:-8086}:8081"
+    volumes:
+      - ./consumers:/opt/jobs/consumers:ro
+      - ./schemas:/opt/jobs/schemas:ro
+
+  flink-taskmanager:
+    profiles: ["flink"]
+    image: transit-pyflink:2.2.0
+    container_name: transit_flink_tm
+    command: taskmanager
+    depends_on:
+      - flink-jobmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+    volumes:
+      - ./consumers:/opt/jobs/consumers:ro
+      - ./schemas:/opt/jobs/schemas:ro
 
   # --- sink -----------------------------------------------------------------
   # BEHIND A PROFILE, so `docker compose up -d` does not pull it.

@@ -22,14 +22,15 @@ requires-python = ">=3.12,<3.13"
 #                            environment. They arrive when there are models
 #                            to run.
 #
-#   faust / apache-flink     Phase 3, and the choice between them is an open
-#                            question the proposal defers until Phase 2 is
-#                            done. Pinning either now would be pre-deciding
-#                            it by way of a lockfile.
+#   faust / apache-flink     Phase 3 chose PyFlink (ADR 0006), and the job
+#                            deliberately does NOT live in this venv:
+#                            apache-flink pins protobuf<6 through apache-beam,
+#                            which would silently downgrade the protobuf the
+#                            GTFS-RT decoders need. The job runs in its own
+#                            image (docker/Dockerfile.flink).
 dependencies = [
     # --- feed acquisition ---
     "requests>=2.32",
-
     # --- GTFS-RT decoding ---
     # gtfs-realtime-bindings is the generated Python for the official
     # gtfs-realtime.proto. It declares an unpinned `protobuf` dependency, and
@@ -39,25 +40,23 @@ dependencies = [
     # install.
     "gtfs-realtime-bindings>=2.2",
     "protobuf>=5.0",
-
     # --- Kafka ---
     # The extras are not optional for this project: `protobuf` pulls the
     # ProtobufSerializer, `schemaregistry` pulls the registry client. Plain
     # confluent-kafka is producer/consumer only and Phase 2 needs both.
     "confluent-kafka[protobuf,schemaregistry]>=2.15",
-
     # --- raw archive ---
     # MinIO speaks S3, so boto3 would also work. The minio client is a much
     # smaller dependency and this project never touches a non-S3 AWS service.
     "minio>=7.2",
-
     # --- serving layer ---
     # psycopg 3, not psycopg2. [binary] ships the libpq wheel so there is no
     # system postgresql-devel requirement.
     "psycopg[binary]>=3.2",
-
     # --- config ---
     "python-dotenv>=1.0",
+    "shapely>=2.1.2",
+    "grpcio-tools>=1.83.1",
 ]
 
 [dependency-groups]

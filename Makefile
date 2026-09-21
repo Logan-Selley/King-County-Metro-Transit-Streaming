@@ -128,6 +128,69 @@ produce:  ## Run the producer (D=24h to bound it; default runs until stopped)
 cadence:  ## Phase 0 cadence -- measure real refresh interval (M=minutes)
 	@$(ENV) $(PY) $(ROOT)/recon/probe.py cadence -m $(or $(M),10)
 
+# --- static reference + enrichment (Phase 2) ---------------------------------
+
+static-status:  ## Show loaded static GTFS versions
+	@$(ENV) $(PY) -m static.run --status
+
+static-load:  ## Load the GTFS zip into PostGIS (skips if the ETag is unchanged)
+	@$(ENV) $(PY) -m static.run --load
+
+static-hoods:  ## Load the King County neighborhood polygons
+	@$(ENV) $(PY) -m static.run --neighborhoods
+
+# Registration is DELIBERATELY a separate step from running a producer.
+# auto.register.schemas is off (ADR 0005) so a process cannot mutate a shared
+# subject as a side effect of starting.
+schema-gen:  ## Generate _pb2.py from the .proto (build output, gitignored)
+	@$(PY) -m grpc_tools.protoc -I$(ROOT)/schemas \
+	  --python_out=$(ROOT)/schemas --pyi_out=$(ROOT)/schemas \
+	  $(ROOT)/schemas/enriched_vehicle_position.proto
+	@echo "schemas/enriched_vehicle_position_pb2.py"
+
+schema-register:  ## Register the enriched protobuf schema
+	@$(ENV) $(PY) -m consumers.enrichment.register
+
+schema-status:  ## Show registered subjects, versions and compatibility
+	@$(ENV) $(PY) -m consumers.enrichment.run --status
+
+enrich-dry:  ## Consume + enrich, publish nothing
+	@$(ENV) $(PY) -m consumers.enrichment.run --dry-run -v
+
+enrich:  ## Run the enrichment consumer (V=2 for the spatial pass)
+	@$(ENV) $(PY) -m consumers.enrichment.run --schema-version $(or $(V),1)
+
+contract-p2:  ## Run the Phase 2 contract tests (the spec)
+	@$(PY) -m pytest $(ROOT)/tests/test_enrichment_contract.py -m contract \
+	  $(if $(K),-k $(K)) -v
+
+# --- stateful processing (Phase 3) -------------------------------------------
+# Flink runs behind a compose profile, like connect. The job does NOT use the
+# project venv -- apache-flink pins protobuf<6 and would silently downgrade
+# the 7.36.1 the decoders need (ADR 0006).
+
+flink-up: $(ROOT)/.env  ## Build the PyFlink image and start the cluster
+	@$(DC) --profile flink up -d --build
+	@echo "Flink UI -> http://localhost:$${FLINK_UI_PORT:-8086}"
+
+flink-down:  ## Stop the Flink cluster
+	@$(DC) --profile flink stop flink-jobmanager flink-taskmanager
+
+flink-ui:  ## Print the Flink web UI URL
+	@$(ENV) echo "http://localhost:$${FLINK_UI_PORT:-8086}"
+
+flink-smoke:  ## Prove the Flink->Kafka path works (bounded, terminates)
+	@$(DC) exec -T flink-jobmanager flink run -py /opt/jobs/consumers/bunching/smoke.py
+
+bunching:  ## Submit the bunching detection job to the cluster
+	@$(DC) exec -T flink-jobmanager flink run -py /opt/jobs/consumers/bunching/job.py
+
+flink-jobs:  ## List running Flink jobs
+	@$(DC) exec -T flink-jobmanager flink list
+
+flink-logs:  ## Tail TaskManager logs (where Python job errors surface)
+	@$(DC) logs -f flink-taskmanager
+
 # --- tests -------------------------------------------------------------------
 
 test:  ## Run the wire-semantics tests (no stack, no network needed)
@@ -140,10 +203,29 @@ contract:  ## Run the producer contract tests (the Phase 1 spec)
 	@$(PY) -m pytest $(ROOT)/tests/test_producer_contract.py -m contract \
 	  $(if $(K),-k $(K)) -v
 
+contract-schema:  ## Assert what the registry actually enforces (needs it running)
+	@$(ENV) $(PY) -m pytest $(ROOT)/tests/test_schema_compatibility.py -m contract -v
+
 smoke:  ## Produce + consume a protobuf round trip against the running stack
 	@$(ENV) $(PY) $(ROOT)/tests/smoke_roundtrip.py
 
 # --- diagnostics -------------------------------------------------------------
+
+# docker-entrypoint-initdb.d runs ONCE, on first creation of the data
+# directory. A .sql file added later never executes, which is how a schema
+# ends up in git and not in the database. Every file there is written to be
+# re-runnable (CREATE ... IF NOT EXISTS, CREATE OR REPLACE), so applying them
+# to a live warehouse is safe and is the non-destructive alternative to
+# `make nuke-warehouse`.
+migrate:  ## Apply docker/initdb/*.sql to the RUNNING warehouse (idempotent)
+	@for f in $(ROOT)/docker/initdb/*.sql; do \
+	  echo "applying $$(basename $$f)"; \
+	  $(ENV) docker exec -i transit_warehouse psql -q -v ON_ERROR_STOP=1 \
+	    -U $$POSTGRES_USER -d $$POSTGRES_DB < $$f || exit 1; \
+	done
+	@echo "schemas now present:"
+	@$(ENV) docker exec transit_warehouse psql -U $$POSTGRES_USER -d $$POSTGRES_DB \
+	  -tAc "select schema_name from information_schema.schemata where schema_name in ('raw','staging','marts','static') order by 1" | sed 's/^/  /'
 
 psql:  ## Open psql against the warehouse
 	@$(ENV) docker exec -it transit_warehouse psql -U $$POSTGRES_USER -d $$POSTGRES_DB
@@ -175,4 +257,7 @@ nuke-warehouse:  ## Drop the warehouse data dir so initdb re-runs (DESTRUCTIVE)
 	@$(MAKE) dirs
 
 .PHONY: help dirs up connect-up down ps logs topics topic-describe recon cadence \
-        feeds produce-dry produce test contract smoke psql check lag nuke-warehouse
+        feeds produce-dry produce static-status static-load static-hoods \
+        schema-gen schema-register schema-status enrich-dry enrich \
+        flink-up flink-down flink-ui flink-smoke bunching flink-jobs flink-logs \
+        migrate test contract contract-p2 contract-schema smoke psql check lag nuke-warehouse

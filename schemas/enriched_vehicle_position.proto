@@ -1,0 +1,131 @@
+// Schema for enriched.vehicle_positions.
+//
+// v1 carried the static GTFS join; the v2 bump added the spatial fields
+// (30-39 below) and is the schema-evolution exercise -- see ADR 0005.
+//
+// --- read this before editing ---
+//
+// FIELD NUMBERS ARE THE WIRE IDENTITY. The name is documentation; the number
+// is what a decoder matches on. Consequences, in the order they bite:
+//
+//   * Renaming a field is a NO-OP on the wire. Free, safe, and invisible to
+//     existing consumers.
+//   * Changing a field's NUMBER is a rename plus a delete plus an add. Every
+//     record ever written becomes unreadable for that field.
+//   * Reusing a retired number is the dangerous one: old data still on the
+//     topic decodes into the new field, silently, with plausible garbage.
+//     Hence `reserved` below rather than an eventual accident.
+//
+// proto3, unlike the GTFS-RT schemas this project decodes (which are proto2).
+// The difference that matters: `optional` here creates explicit presence, so
+// "absent" and "zero" are distinguishable. Without it a schedule deviation of
+// 0 seconds -- a bus exactly on time, which is the interesting case -- would
+// be indistinguishable from a deviation that could not be computed.
+
+syntax = "proto3";
+
+package transit;
+
+// v1: raw position plus the static GTFS join.
+//
+// Registered against the Redpanda schema registry under subject
+// `enriched.vehicle_positions-value` with BACKWARD compatibility (ADR 0005).
+message EnrichedVehiclePosition {
+
+  // --- identity, carried through from raw ---------------------------------
+  // 1-9 reserved for identity. These are the fields a consumer can rely on
+  // existing in every version, forever.
+  string vehicle_id          = 1;
+  int64  position_timestamp  = 2;  // epoch seconds, UTC
+  double latitude            = 3;
+  double longitude           = 4;
+
+  string trip_id             = 5;
+  string route_id            = 6;
+  int32  direction_id        = 7;
+  string start_date          = 8;  // YYYYMMDD, as published
+
+  // --- raw vehicle state ---------------------------------------------------
+  // 10-19. current_status is never absent: gtfs-realtime.proto declares it
+  // `[default = IN_TRANSIT_TO]` and Metro omits it for ~73% of vehicles, so
+  // the decoder resolves the default rather than writing a null. See
+  // docs/findings.md section 4.
+  string current_status        = 10;
+  optional string occupancy_status = 11;
+  optional string stop_id          = 12;
+  optional int32  current_stop_sequence = 13;
+
+  // Optional because they are effectively absent upstream: bearing is
+  // populated on 2.1% of entities and speed on 1.8%. Anything needing heading
+  // must derive it from consecutive positions.
+  optional double bearing = 14;
+  optional double speed   = 15;
+
+  // --- static GTFS join (this is what "enriched" means in v1) -------------
+  // 20-29. All optional: a trip_id that does not resolve against the current
+  // static version routes to the DLQ rather than publishing here, but a trip
+  // that resolves may still lack a headsign or a shape.
+  optional string route_short_name = 20;
+  optional string route_long_name  = 21;
+  optional int32  route_type       = 22;
+  optional string trip_headsign    = 23;
+
+  // The vehicle's day of work, linking consecutive trips run by one bus.
+  // 100% populated in trips.txt. ADR 0003 deferred this when the only source
+  // was the enhanced JSON positions feed at 7.1x payload; the static join
+  // supplies it for free.
+  optional string block_id  = 24;
+  optional string shape_id  = 25;
+  optional string service_id = 26;
+
+  // --- lineage -------------------------------------------------------------
+  // 40-49. Which static feed version this record was joined against, and
+  // which raw payload it came from. Without the first, a deviation figure
+  // cannot be reproduced after a service change; without the second, a record
+  // cannot be traced back to the archived bytes it was decoded from.
+  // The warehouse's surrogate key for the static load this was joined
+  // against. Precise, and meaningless outside this database.
+  int64  static_feed_version = 40;
+
+  optional string feed_etag  = 41;
+  int64  enriched_at         = 42;  // epoch seconds, UTC
+
+  // The AGENCY's version label, from feed_info.txt -- e.g. "FAL26-161.1".
+  //
+  // Carried alongside the surrogate key rather than instead of it, because
+  // they fail in opposite directions. static_feed_version is exact but only
+  // resolvable against this warehouse; gtfs_feed_version is portable and
+  // human-recognisable but is not guaranteed unique -- an agency can
+  // republish a corrected feed under the same label, which the ETag would
+  // catch and this would not.
+  //
+  // Optional: feed_info.txt is optional in the GTFS spec, and Metro only
+  // began publishing it at the 2026-09-14 service change. Records enriched
+  // against an earlier load legitimately have no label.
+  optional string gtfs_feed_version = 43;
+
+  // --- v2, Phase 2D: the spatial pass ---------------------------------------
+  // 30-39. All optional, and a null is NORMAL rather than a failure:
+  //   * no shape_id on the trip                        -> no distance, no deviation
+  //   * position outside the schedule's distance range -> no deviation
+  //   * outside every neighborhood polygon             -> no neighborhood, and
+  //     that is 16.6% of the fleet: water taxi routes, out-of-county Sound
+  //     Transit Express, and genuine gaps between boundaries.
+  //
+  // `optional` rather than plain proto3, so absent stays distinguishable from
+  // zero: a deviation of 0 seconds is a bus exactly on time, which is the
+  // interesting case, not a missing value.
+  optional double shape_dist_traveled        = 30;  // feed units, as published
+  optional int32  schedule_deviation_seconds = 31;  // positive = behind schedule
+  optional string neighborhood_name          = 32;
+  optional int32  neighborhood_num           = 33;
+  //
+  // Adding these as `optional` is BACKWARD compatible -- a v1 consumer skips
+  // unknown fields, a v2 consumer reads absent ones as unset. That is the
+  // bump ADR 0005 expects to succeed. The bump it expects to FAIL, and which
+  // is the more instructive half, is any attempt to remove or renumber one of
+  // the identity fields above.
+  //
+  // Nothing is `reserved` yet because nothing has been retired yet. The first
+  // field this schema drops must add its number here in the same commit.
+}

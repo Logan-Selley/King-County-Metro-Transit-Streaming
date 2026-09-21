@@ -457,3 +457,36 @@ class TestConditionalFetcher:
         for _ in range(3):
             fetcher.fetch(spec)
         assert fetcher.state_for(spec).consecutive_unchanged == 0
+
+
+class TestTransientFailureRetry:
+    """Phase 1's exit criterion is 24 hours of uninterrupted collection, and the
+    first 24-hour run finished with 75 failures. Every one was transient: 36 DNS
+    resolution failures for s3.amazonaws.com and the rest S3 dropping a pooled
+    keep-alive connection mid-response. Neither is a dead feed. Both are now
+    retried at the transport layer, so the policy is pinned here rather than
+    left on the urllib3 default, which is zero retries and a single attempt.
+    """
+
+    def test_the_default_session_retries_transport_failures(self):
+        from producer.fetch import build_session
+
+        retry = build_session().get_adapter("https://s3.amazonaws.com/x").max_retries
+        assert retry.total >= 3
+        assert retry.connect >= 3
+        assert retry.read >= 3
+        assert 503 in retry.status_forcelist
+
+    def test_retries_are_limited_to_idempotent_methods(self):
+        from producer.fetch import build_session
+
+        retry = build_session().get_adapter("https://s3.amazonaws.com/x").max_retries
+        assert "GET" in retry.allowed_methods
+        assert "POST" not in retry.allowed_methods
+
+    def test_an_injected_session_keeps_its_own_semantics(self, spec):
+        # The stub sessions the rest of this file uses are not real sessions,
+        # so injecting one must leave single-attempt behaviour untouched.
+        session = FakeSession([FakeResponse(200, b"x", {"ETag": '"abc"'})])
+        fetcher = ConditionalFetcher(session=session)
+        assert fetcher.session is session

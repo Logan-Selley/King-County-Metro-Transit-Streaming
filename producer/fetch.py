@@ -26,6 +26,8 @@ from datetime import datetime, timezone, time
 from time import monotonic
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from producer.errors import FeedError
 from producer.feeds import USER_AGENT, FeedSpec
@@ -36,6 +38,45 @@ log = logging.getLogger("producer.fetch")
 # objects with no SLA; a slow response is not the same as a dead feed, and
 # aborting early just turns a slow tick into a missed one.
 TIMEOUT_S = 45
+
+# Phase 1's exit criterion is 24 hours of uninterrupted collection. The first
+# 24-hour run finished with 75 failures, and every one of them was transient:
+# 36 DNS resolution failures for s3.amazonaws.com and the rest S3 closing a
+# pooled keep-alive connection mid-response
+# ('Connection aborted.', RemoteDisconnected(...)). Neither is a dead feed,
+# and neither should be counted as a missed poll. At a 10s interval a single
+# blip costs nothing, so the fetch is retried where the failure actually
+# happens, at the transport layer.
+#
+# The retry lives on the adapter rather than in fetch() for two reasons: it is
+# the layer that can see a DNS or connect failure, and a session-level policy
+# leaves the contract tests' stub session, which is not a real session, on its
+# existing single-attempt semantics.
+RETRY_TOTAL = 5
+RETRY_BACKOFF_S = 1.5
+
+
+def build_session() -> requests.Session:
+    """A session that survives the transient S3 faults the 24h run logged."""
+    session = requests.Session()
+    session.headers["User-Agent"] = USER_AGENT
+    retry = Retry(
+        total=RETRY_TOTAL,
+        connect=RETRY_TOTAL,
+        read=RETRY_TOTAL,
+        status=3,
+        backoff_factor=RETRY_BACKOFF_S,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=frozenset({"GET", "HEAD"}),
+        respect_retry_after_header=True,
+        # Return the final response instead of raising, so fetch() keeps sole
+        # ownership of what a status means and the contract still holds.
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry, pool_connections=4, pool_maxsize=4)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
 
 
 @dataclass(frozen=True)
@@ -104,7 +145,7 @@ class ConditionalFetcher:
     """
 
     def __init__(self, session: requests.Session | None = None) -> None:
-        self.session = session or requests.Session()
+        self.session = session or build_session()
         self.session.headers["User-Agent"] = USER_AGENT
         self.state: dict[str, FeedState] = {}
 
@@ -153,7 +194,10 @@ class ConditionalFetcher:
             r = self.session.get(spec.url, headers=headers, timeout=TIMEOUT_S)
         except requests.RequestException as exc:
             state.errors += 1
-            raise FeedError(f"[{spec.name}] fetch failed: {exc}") from exc
+            # No feed-name prefix here: run.py's handler logs "[%s] %s" with
+            # spec.name, so embedding it produced "[trip_updates]
+            # [trip_updates] fetch failed" for the whole 24h run.
+            raise FeedError(f"fetch failed: {exc}") from exc
         fetched_at = datetime.now(timezone.utc)
         elapsed_ms = int((monotonic() - started) * 1000)
 
@@ -185,7 +229,7 @@ class ConditionalFetcher:
             )
 
         state.errors += 1
-        raise FeedError(f"[{spec.name}] unexpected status {r.status_code}")
+        raise FeedError(f"unexpected status {r.status_code}")
 
     # ------------------------------------------------------------------------
 

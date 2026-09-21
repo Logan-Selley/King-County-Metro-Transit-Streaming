@@ -83,6 +83,13 @@ Then:
 `make check` reports container status, cluster health, topics, and disk.
 `make help` lists every target.
 
+> **Correction, 2026-09-20.** The 96%-full root filesystem described below is
+> historical. Root is now a different device with **414 GB free at 36%**. The
+> bind-mount design stays, a continuously-accumulating event store still does
+> not belong on the OS partition, but the disk constraint was retired as an
+> argument against new components in
+> [ADR 0006](docs/decisions/0006-flink-over-faust.md).
+
 ### Why `make dirs` needs sudo
 
 Every persistent volume is a **host bind mount** under `/mnt/F/docker-data`,
@@ -117,20 +124,34 @@ All host ports route around the parcel project, which holds **5433** and
 - Warehouse schema: partitioned raw tables, DLQ, partition-maintenance
   function ([`docker/initdb/01-schema.sql`](docker/initdb/01-schema.sql)).
 - Topic layout with real retention and compaction settings (`make topics`).
-- ADRs 0001-0004 for the decisions Phase 0 settled.
-- Regression tests asserting the wire semantics the schema depends on
-  (`make test`, 10 tests, no stack or network needed).
+- ADRs 0001-0006. Three carry dated corrections where measurement
+  contradicted the original reasoning, 0001 on the disk constraint, 0003 on
+  `block_id`'s real source, and 0005 on what the Schema Registry actually
+  enforces for protobuf.
+- **121 tests** across four suites: wire semantics (10), producer contract
+  (46), enrichment contract (42), and schema/semantic-gate (23). The contract
+  suites are the executable specs the implementations were written against.
 
-**Next (Phase 1)**
+**Phase 1, complete.** 24 hours of continuous collection, 16.3M messages,
+median gap 21 s, **zero gaps over 90 s**. 75 transient network faults, all
+absorbed by per-feed isolation; no decode, delivery or archive failures.
+Trip-update dedup sustained 81.9%. Results in
+[findings §8](docs/findings.md).
 
-- The producer: conditional GET, decode, value-level dedup, keying, MinIO
-  archive. `producer/` is scaffolded and empty.
-- Kafka Connect sink config into the partitioned raw tables (`connect/`).
-- Exit criterion: 24 hours of continuous uninterrupted collection across all
-  three feeds.
+**Phase 2, complete.** Static GTFS loaded into versioned PostGIS tables
+(31,688 trips / 1.1M stop_times / 424 shapes / 350 neighborhood polygons),
+enrichment consumer joining positions to schedule and geography, protobuf on
+the Schema Registry with a v1→v2 evolution. Verified live: 100% trip join
+rate, median schedule deviation **+105 s**, zero timezone or service-date
+anchor errors. Results in [findings §10](docs/findings.md).
 
-Phases 2-6 (schema evolution, stateful processing, dbt/Airflow, CI/Terraform,
-replay demo) are unstarted.
+**Next (Phase 3), stateful processing.** PyFlink, chosen over Faust in
+[ADR 0006](docs/decisions/0006-flink-over-faust.md). Windowed bunching
+detection first (`consumers/bunching/`, scaffolded), then the two-stream
+prediction-accuracy join. Exit: bunching alerts that survive spot-checking,
+and a prediction-error-by-lead-time curve.
+
+Phases 4-6 (dbt/Airflow, CI/Terraform, replay demo) are unstarted.
 
 ## Phase 0 headlines
 

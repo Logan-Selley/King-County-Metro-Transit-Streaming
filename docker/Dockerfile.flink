@@ -1,0 +1,68 @@
+# PyFlink image: the Flink runtime plus a Python environment for job code.
+#
+# SEPARATE FROM THE PROJECT VENV ON PURPOSE, and not as tidiness -- ADR 0006.
+# apache-flink pulls apache-beam<=2.61.0, which pins protobuf<6.0. The project
+# venv runs protobuf 7.36.1, and the downgrade is silent: `uv add apache-flink`
+# resolves without error and then recon/probe.py dies on `field.is_repeated`,
+# which does not exist below protobuf 6.
+#
+# Nothing here imports producer/ or consumers/. The job reads Kafka and writes
+# Kafka; that is the whole interface.
+
+# --- VERSION PINNING IS THE WHOLE GAME HERE ---
+#
+# Three versions must agree and they are published on different schedules:
+#
+#     flink runtime image      2.2.0
+#     apache-flink (PyFlink)   2.2.0
+#     flink-sql-connector-kafka 5.0.0-2.2   <- the "-2.2" suffix IS the
+#                                              Flink version it was built for
+#
+# NOT the newest runtime, deliberately. Flink 2.3.0 is released and has no
+# matching Kafka connector: the newest is 5.0.0-2.2. Pairing 2.3.0 with the
+# 1.20 connector produced, at job submit and not before:
+#
+#     java.lang.NoSuchMethodError:
+#       'void ...SingleThreadFetcherManager.<init>(FutureCompletingBlockingQueue,
+#        Supplier, Configuration, Consumer)'
+#
+# The Python imported fine, the job submitted fine, and the task crash-looped
+# in RESTARTING with 0 records read -- which is why consumers/bunching/smoke.py
+# exists and why it runs before any detection logic depends on this.
+#
+# CONNECTORS LAG THE RUNTIME. Pin the runtime to what has a connector, not to
+# the newest release. Bumping the runtime means checking
+# https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/
+# for a matching suffix FIRST.
+ARG FLINK_VERSION=2.2.0
+FROM flink:2.2.0-scala_2.12-java17
+
+# The base image ships a JRE and no Python. PyFlink needs both, and it needs
+# python3 reachable as `python` -- the Flink launcher invokes `python` by name
+# and fails with a confusing "Python process exited" otherwise.
+USER root
+RUN apt-get update -y \
+ && apt-get install -y --no-install-recommends python3 python3-pip python3-dev \
+ && ln -sf /usr/bin/python3 /usr/bin/python \
+ && rm -rf /var/lib/apt/lists/*
+
+# --no-cache-dir keeps the layer down; pyflink plus beam plus pyarrow is
+# several hundred MB unpacked and the wheel cache would double it.
+#
+# Pinned exactly rather than >=. A Flink cluster and its jobs must agree on
+# the runtime version, and a floating pin means a rebuilt image can silently
+# stop matching the JobManager it submits to.
+RUN pip3 install --no-cache-dir --break-system-packages \
+      apache-flink==2.2.0 \
+      confluent-kafka==2.15.0
+
+# The Kafka connector is a JAR, not a Python package. PyFlink's
+# KafkaSource/KafkaSink are thin wrappers over the Java connector, so without
+# this the job imports fine and then fails at submit with
+# ClassNotFoundException on KafkaSource -- which reads like a Python problem
+# and is not.
+ARG KAFKA_CONNECTOR=5.0.0-2.2
+RUN curl -fsSL -o /opt/flink/lib/flink-sql-connector-kafka-${KAFKA_CONNECTOR}.jar \
+      https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/${KAFKA_CONNECTOR}/flink-sql-connector-kafka-${KAFKA_CONNECTOR}.jar
+
+USER flink

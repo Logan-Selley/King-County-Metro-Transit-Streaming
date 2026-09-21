@@ -257,6 +257,283 @@ uneven lifetime, which is the kind of thing Flink's timers handle explicitly.
 **Q3 (cloud spend), Q4 (monorepo), Q5 (multi-agency)**, no Phase 0 evidence
 bears on these.
 
+---
+
+# 8. Phase 1: the 24-hour collection run
+
+*2026-09-05 04:10 UTC to 2026-09-06 04:10 UTC. Single process,
+`python -m producer.run --duration 24h`. Log: `logs/producer-20260904-2110.log`.*
+
+Phase 1's exit criterion was 24 hours of continuous uninterrupted collection
+across all three feeds. It was met, and the run corrected four numbers that
+§1-§7 above had to project rather than measure.
+
+## Throughput
+
+| Feed | Polls | Changed | 304s | Decoded | Published | Suppressed |
+|---|---:|---:|---:|---:|---:|---:|
+| vehicle positions | 8,096 | 4,629 | 3,455 | 1,215,136 | 1,107,028 | 8.9% |
+| trip updates | 8,097 | 4,625 | 3,435 | **83,499,895** | 15,156,319 | **81.9%** |
+| service alerts | 2,847 | 1,470 | 1,351 | 86,672 | 141 | 99.8% |
+| DLQ (out of bounds) | - | - | - | - | 18,941 | - |
+
+16,282,429 messages total. Raw archive **3.0 GiB across 10,741 objects**, trip
+updates 2.6 GiB, alerts 274 MiB, positions 115 MiB. Redpanda holds 1.3 GB on
+disk for the whole day, which is snappy doing its job.
+
+## Continuity
+
+4,629 archived position payloads spanning exactly 24.00 h. **Median gap 21 s,
+maximum 65 s, zero gaps over 90 s.**
+
+75 polls failed, all transient network faults, 36 DNS resolution failures and
+39 connection-aborted, scattered across the day rather than one outage. No
+decode failures, no delivery failures, no archive failures. Per-feed isolation
+absorbed every one.
+
+Worth stating why a failed poll costs so little here: the feeds are
+`FULL_DATASET` snapshots, so a missed poll loses an intermediate state, never
+an entity. The next successful poll restates everything current. This is the
+same property that makes dedup necessary, paying off in the other direction.
+
+## Corrections to §7's projections
+
+**Peak fleet is 423 vehicles.** The proposal estimated "high hundreds to low
+thousands"; §7 scaled the 280-vehicle trough by "several times". Actual peak
+was 423 at 15:07, trough **0** at 03:10, service genuinely stops overnight.
+Peak is only 1.5× the evening trough, not 3-5×.
+
+**Trip updates do not scale with fleet size.** §7 projected ~91,000 stop
+predictions per poll at peak. Actual peak was **~27,800**, the feed is
+dominated by *scheduled* trips, so its size tracks the timetable rather than
+the running fleet. This is why trip updates are 30× positions at the trough
+but only ~11× at peak.
+
+**Dedup beat the estimate.** §6 measured 67-72% churn suppression over 45 s
+spacing and §7 assumed ~70%; the run sustained **81.9%** at 20 s spacing,
+closer polling sees fewer changes. Naive volume was 83.5M rows/day against
+§7's ~80M projection (good), post-dedup 15.2M against ~24M (pessimistic).
+
+**Suppression held through the peak.** Worst 5-minute interval all day was
+74.4%; the 06:00-09:00 ramp averaged 85.0%. The dedupe cache is sized per feed
+(`FeedSpec.dedupe_maxsize`) precisely because this degrades as a cliff rather
+than a slope, see `producer/dedupe.py`.
+
+## A finding the DLQ produced for free
+
+18,956 positions were rejected for falling outside the King County bounding
+box, 1.54% of everything decoded. They are not spread across the fleet:
+
+- **199 distinct vehicles** produced all of them
+- the top 20% of those vehicles account for **92%** of the bad positions
+- median offender: 11 bad positions
+- worst: vehicle 7210 reported null island **2,172 times**
+
+That is not sensor noise, it is a small population of chronically broken GPS
+units. A vehicle reporting (0, 0) two thousand times in a day is a maintenance
+ticket, not a data-quality nuisance. The bounding-box check was written to stop
+transposed coordinates from corrupting spatial joins; it produced a fleet
+health signal as a side effect, which is the better half of the argument for
+routing rejects to a DLQ instead of dropping them.
+
+---
+
+---
+
+# 9. A service change happened mid-project
+
+*2026-09-14. Observed while scoping Phase 2, not simulated.*
+
+The static feed this project was scoped against was replaced while the work
+was in progress. That is the "static/realtime join staleness" problem the
+proposal calls its most realistic operational issue, and it arrived on its
+own schedule rather than being staged.
+
+| | 2026-08-29 | FAL26-161.1 (2026-09-14) |
+|---|---|---|
+| ETag | `682c87c4c237dd1:0` | `1895a7c83f44dd1:0` |
+| Size | 10,966,815 b | 10,663,540 b |
+| Members | **12** | **18** |
+| `trips` | 32,060 | 31,688 |
+| `stop_times` | 1,107,713 | 1,101,970 |
+| `shapes` | 172,617 | 167,088 |
+| `routes` | 144 | 142 |
+
+**The structure changed, not just the data.**
+
+- **Added:** `feed_info.txt`, `networks.txt`, `route_networks.txt`, and five
+  GTFS-Fares v2 files (`fare_leg_rules`, `fare_media`, `fare_products`,
+  `fare_transfer_rules`, `rider_categories`).
+- **Removed:** `block.txt` and `block_trip.txt`, the two non-standard Metro
+  extensions.
+
+## The unknown-trip rate measures staleness, not feed noise
+
+This is the finding that changes how the DLQ should be read.
+
+| Static feed | Live position `trip_id`s resolving |
+|---|---:|
+| 2026-08-29 (two weeks old) | 97.4% |
+| FAL26-161.1 (same day) | **100.0%** |
+
+The 2.6% miss was never a property of the feed. It was the *age of the static
+load*, trips scheduled under a version newer than the one held. So
+`UNKNOWN_TRIP_ID` has no acceptable baseline to tolerate. A healthy pipeline
+sits near zero and climbs as a service change approaches, which makes that DLQ
+rate the cheapest available alarm for "the static data needs refreshing".
+
+Phase 2's scoping documents previously stated a ~2.6% baseline as a property
+of the feed. That was wrong and has been corrected in `static/feed.py`,
+`static/load.py`, and `consumers/enrichment/reference.py`.
+
+## Two decisions this validated
+
+**Sourcing `block_id` from `trips.txt` (ADR 0003 revision).** `block_trip.txt`
+was deleted outright. Enrichment built on it would have broken on a Sunday;
+`block_id` in `trips.txt` survived untouched.
+
+**Naming required files rather than iterating the archive.** Six files
+appeared and two vanished, and nothing about whether the loader works changed,
+because the manifest declares what it needs and ignores the rest.
+
+## `feed_info.txt`: carry it alongside the ETag
+
+The new feed publishes the agency's own identity:
+
+```
+feed_version     FAL26-161.1
+feed_start_date  20260914
+feed_end_date    20270326
+```
+
+Both identifiers are now recorded on every static load, and both reach every
+enriched record (`static_feed_version` and `gtfs_feed_version`), because they
+answer different questions and fail in opposite directions:
+
+| | Answers | Fails when |
+|---|---|---|
+| **ETag** | "are these different bytes?" | An identical schedule is rebuilt, same data, new ETag |
+| **`feed_version`** | "which schedule is this?" | A corrected feed republishes under the same label |
+| **start/end dates** | "should an in-flight trip use the old version or the new one?" | Absent, it is optional in the spec |
+
+The ETag stays the unique key, because it is the only one guaranteed to exist
+and to differ per publish. `feed_info.txt` is optional in GTFS and Metro
+published none before this service change, so a loader that required it would
+have failed against every earlier feed.
+
+---
+
+---
+
+# 10. Phase 2: enrichment, and what the schema gate does not check
+
+*2026-09-16 to 2026-09-20, against FAL26-161.1.*
+
+## The enrichment works, measured live
+
+1,204 records through `enrich_v2` against a same-day static load:
+
+| | |
+|---|---:|
+| trip join rate | **100.0%** |
+| `shape_dist_traveled` populated | 100% |
+| `schedule_deviation_seconds` populated | 100% |
+| `neighborhood_name` populated | 84.7% *(projected 83.4%)* |
+| DLQ / errors | 0 / 0 |
+
+**Median schedule deviation +105 s**, the median Metro bus is 1.8 minutes
+behind schedule. p10 −270 s (4.5 min early), p90 +410 s (6.8 min late), range
+−2,069 s to +1,905 s. Zero records showed a ~7 h (timezone) or ~24 h
+(service-date) anchor error.
+
+A later v2 run over 33,474 records held: deviations 3 s to 196 s,
+`implausible=0`.
+
+## The service day starts at 06:00, and 4.5% of trips cross midnight
+
+From `stop_times` under FAL26-161.1:
+
+```
+offsets present          03:52:00 .. 29:30:00     (a 30-hour span)
+hours 00:00-02:59        ZERO rows
+trips with offset >=24h  1,433 of 31,688 = 4.5%
+```
+
+Metro publishes no offsets before 03:00, so **all pre-06:00 service is the
+previous service date's tail**. At 04:30 clock time two populations run
+simultaneously: new-day trips at offset 04:30:00 and previous-day trips at
+28:30:00, same instant, same clock, different service dates.
+
+Two consequences for schedule deviation, both load-bearing:
+
+1. **Never fold an offset modulo 24 h.** Normalising 29:30 to 05:30 moves a
+   trip a full day.
+2. **Anchor on the trip's `start_date`, not the observation's calendar date.**
+   The positions feed supplies it on 100% of records, and inferring it would
+   be ambiguous in exactly the 04:00-05:59 window where it matters.
+
+The origin is **noon minus 12 h in `America/Los_Angeles`**, per the GTFS spec's
+own phrasing, which exists so the two DST days come out at 23 and 25 hours.
+An earlier helper returned UTC midnight, which was 7 hours wrong every day.
+
+## Units: `shape_dist_traveled` is in feet, except once
+
+`ST_Length(geom::geography) / max_dist` = **0.3048** across 423 of 424 shapes: the foot-to-metre constant falling out of the data, which also proves the
+linestrings assembled in the right order. Shape `63424` publishes **metres**.
+
+Harmless only because of how the comparison is framed: `stop_times` agrees
+with its own shape's scale on all 31,688 trips (ratio 0.998-1.000), and the
+detector normalises per shape. Any mart that ranks or aggregates distances
+**across** routes must normalise first, or that one route is 3.3× wrong.
+
+## What the Schema Registry enforces, and what it cannot
+
+The substantive finding, measured against the live registry at BACKWARD.
+
+Redpanda implements **protobuf's own wire-compatibility table**. It answers
+*"can an old reader parse these bytes without error?"*, it does not and
+cannot answer *"do the values still mean the same thing?"*
+
+| Change | Verdict | Damage |
+|---|---|---|
+| `string → int32`, `int32 → sint32`, `double → float` | INCOMPATIBLE | n/a |
+| lat/lon **number swap** | COMPATIBLE | transposes every coordinate |
+| `int32 → bool` | COMPATIBLE | every nonzero deviation → `true` |
+| `int32 → uint32` | COMPATIBLE | early buses → ~4.29e9 |
+| **`optional` dropped** | COMPATIBLE | absence collapses into zero |
+| field removed / renumbered | COMPATIBLE | silent data loss |
+| `int32 → int64`, `string → bytes` | COMPATIBLE | benign |
+
+`optional` is the sharpest case. On the wire, an unset `optional int32` is
+**0 bytes** and one explicitly set to 0 is **3 bytes**, the zero *is*
+written. Dropping `optional` does not change the producer's output at all; it
+changes what a reader can recover, collapsing "could not compute" into
+"exactly on time". 18 fields in this schema are declared `optional`, six of
+them numeric where zero is legal and the collapse is therefore silent.
+
+ADR 0005 originally claimed removal and renumbering "fail at registration".
+They do not, that was an Avro intuition (Avro resolves by field *name*;
+protobuf resolves by *number* and skips unknowns). The ADR now carries the
+correction and an amendment on the Decision paragraph itself.
+
+**Two complements were built, because the registry structurally cannot
+provide them:**
+
+- `MAX_PLAUSIBLE_DEVIATION_S` (3 h), a value-domain bound catching the
+  `uint32` wrap (~4.29e9), a wrong service-date anchor (~86,400 s), and a UTC
+  origin (~25,200 s) with one predicate. Same role as `KING_COUNTY_BBOX`, one
+  layer up.
+- `consumers/enrichment/semantic_diff.py`, a three-way classifier
+  (wire-incompatible / semantic-hazard / benign) wired into
+  `register --check`. Three-way rather than two because a gate that blocks
+  safe widening is a gate people bypass.
+
+Worth sitting with: the lat/lon swap is caught by the project's **own bbox
+DLQ check**, not by the schema gate. The compatibility check does not protect
+the one field pair where a swap is both plausible and catastrophic.
+
+---
+
 ## Corrections to the proposal
 
 1. Basic JSON mirrors do not exist (403). Only enhanced JSON. §2's feed table

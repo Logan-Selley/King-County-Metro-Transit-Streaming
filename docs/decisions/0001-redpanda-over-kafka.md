@@ -55,6 +55,14 @@ evolution, and stateful-join work that the project actually exists to
 demonstrate. An interviewer asking "why not Kafka" gets this answer, which is
 a better answer than a shrug.
 
+## Revision, 2026-09-20
+
+The disk pressure cited above no longer holds: root is a different device with
+414 GB free at 36%. The single-container choice stands on its own merits (no
+ZooKeeper, no separate registry, less to configure), but **the disk argument
+must not be reused**, ADR 0006 explicitly retires it when weighing PyFlink,
+which would have been hard to justify under the original constraint.
+
 ## Alternatives considered
 
 - **Kafka + KRaft + Confluent Schema Registry.** Rejected on image size and
