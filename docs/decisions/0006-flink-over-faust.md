@@ -89,6 +89,54 @@ So the isolation is load-bearing rather than tidy. It also happens to be the
 normal Flink deployment model: a job is submitted to a cluster and runs inside
 the TaskManager's environment, not in the developer's.
 
+### The second-order cost, found 2026-09-21
+
+The isolation has a consequence this ADR did not anticipate: **the job cannot
+import the project's generated protobuf bindings at all.** The same pin that
+protects `recon/probe.py` also makes the image's runtime older than the
+gencode the project emits, and protobuf refuses that combination at import:
+
+```
+Flink image protobuf   5.29.6
+project bindings       gencode 7.35.1
+
+VersionError: Detected incompatible Protobuf Gencode/Runtime versions when
+loading enriched_vehicle_position.proto: gencode 7.35.1 runtime 5.29.6.
+Runtime version cannot be older than the linked gencode version.
+```
+
+That is protobuf behaving correctly. Its cross-version guarantee runs one way:
+gencode works against newer runtimes, never older ones. Isolating the
+environment therefore isolates the *message class* too, and the job needs
+another way to get one.
+
+**Resolved by shipping a descriptor rather than code.** `make schema-gen` now
+emits a serialized `FileDescriptorSet` from the same protoc invocation that
+produces the bindings, and `consumers/bunching/decode.py` builds the message
+class from it at startup. A FileDescriptorSet is protobuf's own wire format
+for a schema, so it is version-neutral where generated Python is not.
+Measured: a descriptor emitted by protoc 7.x builds a working class under
+runtime 5.29.6 with explicit presence intact, and the same module decodes the
+same fixture identically in both environments.
+
+One protoc call emits both artifacts deliberately. Two commands is how the
+descriptor ends up describing a different schema than the bindings the
+enrichment consumer produces with.
+
+**Generating a second set of bindings inside the image was the alternative.**
+It works, and it adds a fourth version that must agree with the other three
+(Flink runtime, PyFlink, Kafka connector, and now protoc). Given that this
+ADR's own subject is a version conflict, adding a version seemed like the
+wrong direction.
+
+**`ProtobufDeserializer` was the other alternative**, and it is not available:
+`confluent-kafka` is installed in the image but its registry client lives
+behind the `[schemaregistry]` extra and imports `httpx`, then `authlib`'s
+OAuth machinery. For a job whose real need is "skip six bytes of framing",
+that is a large dependency to add to an image the whole ADR exists to keep
+narrow. The framing is parsed in `decode.py` instead, in about fifteen lines,
+asserted against a committed fixture captured off the live topic.
+
 ## Consequences
 
 **Two Python environments, deliberately.** The project venv keeps protobuf

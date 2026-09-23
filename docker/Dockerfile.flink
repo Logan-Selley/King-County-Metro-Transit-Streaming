@@ -65,4 +65,18 @@ ARG KAFKA_CONNECTOR=5.0.0-2.2
 RUN curl -fsSL -o /opt/flink/lib/flink-sql-connector-kafka-${KAFKA_CONNECTOR}.jar \
       https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/${KAFKA_CONNECTOR}/flink-sql-connector-kafka-${KAFKA_CONNECTOR}.jar
 
+# S3 filesystem, for checkpoints on MinIO (see state.checkpoints.dir in
+# docker-compose.yml). The JAR already ships in the image under /opt/flink/opt
+# but is INERT there -- Flink only loads filesystems from plugins/, each in its
+# own directory, because they get an isolated classloader to keep Hadoop's
+# dependencies away from user code. Copying it to lib/ instead appears to work
+# and then collides.
+#
+# presto, not hadoop: it is the one Flink's own docs recommend for checkpoints
+# (lower latency on small writes), and it does not drag in the full Hadoop
+# client. The hadoop variant is the right pick only for writing final job
+# output to S3, which nothing here does.
+RUN mkdir -p /opt/flink/plugins/s3-fs-presto \
+ && cp /opt/flink/opt/flink-s3-fs-presto-*.jar /opt/flink/plugins/s3-fs-presto/
+
 USER flink

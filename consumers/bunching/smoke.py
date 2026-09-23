@@ -25,7 +25,12 @@ look like Python errors and are not:
      wrong does not error; the job starts, assigns no partitions, and waits
      forever looking healthy.
 
-  4. Records cross the Python/JVM boundary intact.
+  4. Records cross the Python/JVM boundary intact AND decode. This one was
+     added late, and the reason is the point: the first version mapped every
+     record to the constant 1. It passed for a week while the real job's
+     deserializer was wrong for the topic's format, because a count proves
+     arrival and says nothing about content. A smoke test that cannot fail
+     for the reason you are worried about is decoration.
 
 A bounded source on purpose: `set_bounded(latest())` makes this terminate
 instead of streaming forever, so it is usable as a check rather than something
@@ -37,12 +42,30 @@ from __future__ import annotations
 import os
 
 from pyflink.common import Types, WatermarkStrategy
-from pyflink.common.serialization import SimpleStringSchema
+from pyflink.common.serialization import ByteArraySchema
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream.connectors.kafka import KafkaOffsetsInitializer, KafkaSource
 
+from consumers.bunching.decode import decode
+
 BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_INTERNAL", "redpanda:9092")
 TOPIC = "enriched.vehicle_positions"
+
+
+def _probe(raw: bytes) -> str:
+    """One record -> a line saying whether it decoded, and to what.
+
+    The assertion this job exists to make, now that there IS a decode path.
+    An earlier version mapped every record to the constant 1, which proved
+    bytes arrived and nothing else -- and it kept passing while the job's
+    deserializer was wrong for the topic's format. A count is not a decode.
+    """
+    rec = decode(raw)
+    if rec is None:
+        return f"UNDECODED {len(raw)}B {raw[:8].hex(' ')}"
+    return (f"ok vehicle={rec.get('vehicle_id')} "
+            f"ts={rec.get('position_timestamp')} "
+            f"dist={rec.get('shape_dist_traveled')}")
 
 
 def main() -> None:
@@ -57,19 +80,16 @@ def main() -> None:
         .set_starting_offsets(KafkaOffsetsInitializer.earliest())
         # Bounded: stop at whatever the end of the log is when the job starts.
         .set_bounded(KafkaOffsetsInitializer.latest())
-        # Raw bytes as a string. The records are protobuf with a 5-byte
-        # Confluent prefix, so this is deliberately NOT a meaningful decode --
-        # it only proves bytes arrive. Decoding is 3B's problem.
-        .set_value_only_deserializer(SimpleStringSchema())
+        # BYTES, not SimpleStringSchema. The topic is Confluent-framed
+        # protobuf, and Java's String(bytes, charset) SUBSTITUTES U+FFFD for
+        # undecodable input rather than raising -- so a string deserializer
+        # here silently corrupts every record and still reports success.
+        .set_value_only_deserializer(ByteArraySchema())
         .build()
     )
 
     stream = env.from_source(source, WatermarkStrategy.no_watermarks(), "enriched")
-
-    # map to a constant and count: cheapest possible proof that records made
-    # it through the boundary without depending on their content.
-    counted = stream.map(lambda _: 1, output_type=Types.INT())
-    counted.print()
+    stream.map(_probe, output_type=Types.STRING()).print()
 
     env.execute("flink-smoke")
 

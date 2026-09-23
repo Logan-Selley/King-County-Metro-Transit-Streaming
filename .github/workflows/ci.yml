@@ -48,8 +48,36 @@ jobs:
         # rather than silently resolving to something the lockfile never saw.
         run: uv sync --frozen
 
-      - name: Wire-semantics regression tests
-        run: uv run pytest tests/ -v
+      - name: Generate protobuf bindings + descriptor
+        # Both are gitignored build output, and the tests need the descriptor:
+        # the decode suite SKIPS without it rather than failing, so leaving
+        # this out would look green while asserting nothing about the
+        # bytes-to-dict boundary. Compiling the .proto is also a real check in
+        # its own right -- a syntax error fails here rather than at job submit.
+        run: make schema-gen
+
+      - name: Tests (wire semantics + every implemented contract suite)
+        # `not wip` overrides the `not contract` default in pyproject.toml, so
+        # the contract suites run HERE as well as under `make contract`. They
+        # need no infrastructure: producer and enrichment contracts are pure,
+        # and the schema-compatibility suite skips itself when no registry
+        # answers.
+        #
+        # `wip` is the escape hatch for a spec written ahead of its
+        # implementation. No suite carries it now -- the Phase 3 detector was
+        # promoted to `contract` on 2026-09-21 -- but the marker stays, because
+        # excluding by marker rather than by filename makes promoting a suite
+        # into CI a one-line edit in the suite itself, not a change here that
+        # someone has to remember to make.
+        #
+        # Excluding ALL contract tests was the previous setting and it hid a
+        # real break: `make test` uses `python -m pytest`, which puts CWD on
+        # sys.path, while this step uses the console script, which does not.
+        # CI failed at COLLECTION with ModuleNotFoundError on `producer` and
+        # `consumers` while make stayed green, so the two contract suites ran
+        # nowhere but locally. `pythonpath` in pyproject.toml fixes the cause;
+        # running them here is what would have caught it.
+        run: uv run pytest tests/ -v -m 'not wip'
 
       - name: Recon instrument imports and parses its CLI
         run: |

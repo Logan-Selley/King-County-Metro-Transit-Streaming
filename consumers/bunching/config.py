@@ -19,6 +19,13 @@ physically close, continuously, without waiting for either to reach a stop.
 So the detector keys on (route_id, direction_id) and looks at gaps in
 shape_dist_traveled between consecutive vehicles. That is strictly more data
 than stop-based detection and it is available every 20 seconds per vehicle.
+
+CORRECTED 2026-09-20. An earlier version of this file claimed "a route's
+vehicles share a shape, so it stays on the safe side." Measured: 101 of 280
+(route, direction) pairs carry more than one shape, covering 44.4% of trips,
+and 92 shape pairs start over 500 m apart. The key is unchanged and the gap
+comparison is now confirmed against straight-line distance before it can
+alert -- see ADR 0007 and consumers/bunching/detect.py.
 """
 
 from __future__ import annotations
@@ -56,10 +63,34 @@ class BunchingConfig:
     # single dropped poll, short enough that a bus moves under 1 km within it.
     window_s: int = 60
 
-    # Watermark lateness. Phase 1 measured a 65s maximum gap between archived
-    # payloads across a 24-hour run, and stale-burst records can be minutes
-    # old. 120s admits the realistic tail without stalling the pipeline.
-    allowed_lateness_s: int = 120
+    # Watermark lateness.
+    #
+    # WAS 120s, sized from Phase 1's 65s maximum gap between archived
+    # payloads. That number measured the wrong thing. The gap between
+    # payloads is about the FEED; what this bound has to cover is the
+    # event-time skew the JOB sees, which is dominated by reading three Kafka
+    # partitions through one watermark (see watermark_strategy in job.py --
+    # PyFlink cannot do per-partition watermarks here).
+    #
+    # Measured on 60,000 steady-state records, interleaved as the job reads
+    # them:
+    #
+    #     p50   65s     p95  253s
+    #     p75  150s     p99  297s
+    #     p90  227s     max  342s
+    #
+    #     bound 120s -> keeps 67.7%      <- the old value
+    #     bound 240s -> keeps 93.9%
+    #     bound 360s -> keeps 100.0%
+    #
+    # Within a single partition the same data never exceeds 111s, so the
+    # disorder is an artifact of the interleaving rather than the feed.
+    #
+    # 120s was silently discarding 29.75% of records as late: 193,364 of
+    # 649,949 over one evening, with no error anywhere. The cost of 360s is
+    # that a window closes six minutes after its event time rather than two,
+    # which is the honest price of the watermark placement.
+    allowed_lateness_s: int = 360
 
     # Suppress repeat alerts for the same vehicle pair. Without this a pair
     # that stays bunched for ten minutes emits an alert every window, and the
@@ -91,10 +122,16 @@ CONFIG = BunchingConfig()
 #   UNSAFE  any threshold applied across routes, or any aggregate that sums
 #           or averages distances from different shapes
 #
-# The detector keys on (route_id, direction_id), and a route's vehicles share
-# a shape, so it stays on the safe side. A future mart that ranks routes by
-# distance MUST normalise first. ref.locate_on_shape() already returns feed
-# units per shape rather than metres, for the same reason.
+# The detector keys on (route_id, direction_id), which does NOT guarantee one
+# shape -- see the correction in the module docstring. For THIS anomaly it
+# does not need to: shape 63424 is the only shape on its (route 7994,
+# direction 1), so no pair can ever straddle the unit boundary. Measured, not
+# assumed, and it is the narrow version of the claim this comment used to
+# make about shapes in general.
+#
+# A future mart that ranks routes by distance MUST normalise first.
+# ref.locate_on_shape() already returns feed units per shape rather than
+# metres, for the same reason.
 UNIT_ANOMALY_SHAPE = "63424"
 
 

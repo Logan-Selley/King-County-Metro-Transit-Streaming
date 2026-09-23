@@ -71,12 +71,29 @@ package = false
 
 [tool.pytest.ini_options]
 markers = [
-    "contract: executable spec for producer stubs that are not implemented yet",
+    "contract: executable spec, written before the implementation it tests",
+    "wip: a contract suite whose implementation is not written YET -- expected to fail",
 ]
-# Contract tests are EXCLUDED by default, so `make test` and CI stay green
-# while Phase 1 is in progress. They are not skipped and not deleted -- they
-# are the spec, and `make contract` runs them.
+
+# The repo root on sys.path, so `from producer import feeds` resolves.
 #
-# A command-line -m overrides this one, which is what makes `make contract`
-# work without fighting the config.
+# Not decorative. `package = false` means nothing is installed, so imports
+# depend entirely on what puts the root on the path -- and the two ways of
+# invoking pytest disagree about that:
+#
+#   python -m pytest   prepends CWD to sys.path       (what `make test` uses)
+#   pytest / uv run    does NOT                        (what CI used)
+#
+# So `make test` passed while CI failed at COLLECTION with ModuleNotFoundError
+# on `producer` and `consumers` -- an error, not a test failure, and the two
+# contract suites never ran anywhere except through make. Setting it here
+# makes both invocations behave the same.
+pythonpath = ["."]
+
+# Contract tests are excluded by default so a quick `make test` stays fast.
+# They are not skipped and not deleted -- they are the spec, and both
+# `make contract` and CI run them with an explicit -m.
+#
+# A command-line -m overrides this one, which is what makes that work without
+# fighting the config.
 addopts = "-m 'not contract'"

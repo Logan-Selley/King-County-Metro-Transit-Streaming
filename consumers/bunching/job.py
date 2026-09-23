@@ -1,8 +1,11 @@
 """Flink job: windowed bunching detection over enriched.vehicle_positions.
 
->>> YOU IMPLEMENT: parse_record(), assign_route_key(), detect_in_window(),
-                   BunchingState.emit()
-    The environment setup, Kafka wiring and watermark strategy are given.
+WIRING ONLY. The detection logic lives in consumers/bunching/detect.py, which
+imports no pyflink and is therefore testable from the project venv against
+tests/test_bunching_contract.py. That includes BunchingState, the cross-window
+cooldown: it is a dataclass in detect.py with no Flink in it. This file holds
+the environment, the Kafka wiring, and the ValueState round-trip; the detection
+logic is not here.
 
 Submitted to the cluster, NOT run from the project venv:
 
@@ -42,7 +45,9 @@ import logging
 import os
 
 from pyflink.common import Duration, Types, WatermarkStrategy
-from pyflink.common.serialization import SimpleStringSchema
+from pyflink.common.serialization import ByteArraySchema, SimpleStringSchema
+from pyflink.common.time import Time
+from pyflink.common.watermark_strategy import TimestampAssigner
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream.connectors.kafka import (
     KafkaOffsetsInitializer,
@@ -50,8 +55,19 @@ from pyflink.datastream.connectors.kafka import (
     KafkaSink,
     KafkaSource,
 )
+from pyflink.datastream.functions import KeyedProcessFunction, ProcessWindowFunction
+from pyflink.datastream.state import ValueStateDescriptor
+from pyflink.datastream.window import TumblingEventTimeWindows
 
 from consumers.bunching.config import CONFIG, CONSUMER_GROUP, SINK_TOPIC, SOURCE_TOPIC
+from consumers.bunching.decode import decode
+from consumers.bunching.detect import (
+    BunchingState,
+    assign_route_key,
+    detect_in_window,
+    pair_key,
+    parse_record,
+)
 
 log = logging.getLogger("bunching")
 
@@ -61,23 +77,42 @@ log = logging.getLogger("bunching")
 # resolves, connects to nothing, and reports no partitions assigned.
 BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_INTERNAL", "redpanda:9092")
 
+RECORD_TYPE = Types.MAP(Types.STRING(), Types.PICKLED_BYTE_ARRAY())
 
-# --- given -------------------------------------------------------------------
+
+# --- environment, sources and sink -------------------------------------------
 
 
 def build_env() -> StreamExecutionEnvironment:
-    """Execution environment with event time and checkpointing. GIVEN."""
+    """Execution environment with event time and checkpointing."""
     env = StreamExecutionEnvironment.get_execution_environment()
     # Checkpointing is what makes keyed state survive a TaskManager restart.
     # Without it a crash loses every vehicle's last-known position and the
     # detector silently under-reports until state refills.
     env.enable_checkpointing(30_000)
-    env.set_parallelism(2)
+    # 3, matching the partition count of enriched.vehicle_positions, and this
+    # is a CORRECTNESS setting rather than a throughput one.
+    #
+    # PyFlink cannot assign watermarks at the source (see watermark_strategy),
+    # so each subtask computes one watermark over every partition it was
+    # given. At parallelism 2 one subtask reads two partitions, interleaves
+    # them, and cannot tell a partition lagging from a record arriving late:
+    # measured, 29.75% of records dropped as late over an evening. Give each
+    # subtask exactly one partition and its single watermark IS a per-
+    # partition watermark, which is the property the source placement would
+    # have provided.
+    #
+    # map and filter preserve partitioning, so the assigner downstream of
+    # them still sees one partition per subtask. A key_by after that point
+    # shuffles, which is fine -- the watermark is already correct by then.
+    #
+    # Raising the partition count means raising this to match.
+    env.set_parallelism(3)
     return env
 
 
 def watermark_strategy() -> WatermarkStrategy:
-    """Bounded out-of-orderness on event time. GIVEN.
+    """Bounded out-of-orderness on event time.
 
     `allowed_lateness_s` (120s) is sized from measurement, not taste: Phase 1
     saw a 65s maximum inter-payload gap, and stale bursts after a tunnel run
@@ -86,6 +121,50 @@ def watermark_strategy() -> WatermarkStrategy:
 
     The timestamp assigner reads `position_timestamp` -- the GPS fix time --
     which is the whole point. See the module docstring.
+
+    APPLIED DOWNSTREAM OF THE PYTHON MAPS, and not as a preference.
+
+    The textbook placement is on the source, where Flink keeps a watermark
+    PER KAFKA PARTITION and emits the minimum, so a partition being consumed
+    slowly holds time back instead of having its records declared late.
+    That placement does not work in PyFlink, and the failure is silent.
+
+    Measured with the strategy passed to `from_source`:
+
+        rec_ts=1789960793771  wm=1789960673416  pos=1789959734
+        rec_ts=1789960793771  wm=1789960673416  pos=1789959748
+        rec_ts=1789960793771  wm=1789960673416  pos=1789959741
+
+    `pos` is each record's own position_timestamp and varies; `rec_ts` is
+    what Flink windows on and is IDENTICAL for every record. A Python map
+    operator does not carry the input record's timestamp to its output, so a
+    timestamp assigned before `.map(decode)` is gone by the time the window
+    sees it. Every record then lands in one window whose end sits just past
+    the final watermark, and it never fires: the job runs, reads all 46,286
+    records, drops nothing, and emits nothing. Zero late drops is what it
+    looks like when no record has a real timestamp at all.
+
+    So the assigner has to go after the last Python operator, which means
+    giving up per-split watermarking. That cost is permanent, and an earlier
+    version of this docstring got its size badly wrong.
+
+    It claimed the 23.4% late-drop rate seen on replay was a catch-up
+    artifact that would "collapse to the within-partition 38s" once the job
+    was tailing the live topic. Measured over an evening of steady state:
+
+        649,949 records into the window
+        193,364 dropped as late                     29.75%
+
+    Worse than replay, not better. The reasoning was wrong about the cause:
+    three partitions do not advance in lockstep just because the job has
+    caught up, because the enrichment consumer fills them in bursts. The
+    disorder is still not in the DATA -- within any single partition the
+    same records never exceed 111s -- but the interleaving the job sees is
+    real and permanent, so the bound has to cover it.
+
+    CONFIG.allowed_lateness_s carries the distribution it was sized from.
+    The lesson worth keeping: a watermark bound has to be measured where the
+    watermark is computed, not where the data is produced.
     """
     return (
         WatermarkStrategy
@@ -95,12 +174,20 @@ def watermark_strategy() -> WatermarkStrategy:
 
 
 def kafka_source() -> KafkaSource:
-    """Source over enriched.vehicle_positions. GIVEN.
+    """Source over enriched.vehicle_positions.
 
     `earliest` rather than `latest`: a bunching job restarted mid-day should
     rebuild its picture from recent history rather than start blind. The
     consumer group means it resumes from committed offsets in practice, and
     only falls back to earliest on a genuinely new group.
+
+    BYTES, not SimpleStringSchema. The topic carries Confluent-framed
+    protobuf; it held JSON only during the Phase 2 placeholder era, and an
+    earlier version of this file was written against that. SimpleStringSchema
+    does not fail on protobuf -- Java's `new String(bytes, charset)`
+    substitutes U+FFFD for anything undecodable -- so the wrong deserializer
+    produces a healthy job emitting garbage. decode.py turns the bytes into a
+    dict; see its docstring for why it does not use ProtobufDeserializer.
     """
     return (
         KafkaSource.builder()
@@ -108,13 +195,13 @@ def kafka_source() -> KafkaSource:
         .set_topics(SOURCE_TOPIC)
         .set_group_id(CONSUMER_GROUP)
         .set_starting_offsets(KafkaOffsetsInitializer.earliest())
-        .set_value_only_deserializer(SimpleStringSchema())
+        .set_value_only_deserializer(ByteArraySchema())
         .build()
     )
 
 
 def kafka_sink() -> KafkaSink:
-    """Sink to alerts.bunching. GIVEN.
+    """Sink to alerts.bunching.
 
     Keyed by route so alerts for one route stay ordered, and so a downstream
     compacted view could keep the latest state per route if one is ever
@@ -133,144 +220,133 @@ def kafka_sink() -> KafkaSink:
     )
 
 
-class _PositionTimestampAssigner:
-    """Extracts event time from a record. GIVEN.
+class _PositionTimestampAssigner(TimestampAssigner):
+    """Extracts event time from a record.
 
-    Flink wants milliseconds since epoch. `position_timestamp` arrives as an
-    ISO-8601 string after the JSON round-trip through publish.serialize(), so
-    it is parsed rather than cast -- the same trap enrich_v2 hits, and the
-    same fix.
+    Flink wants milliseconds since epoch. `position_timestamp` is `int64` in
+    the .proto and decode.to_dict() keeps it an int, so this multiplies
+    rather than parses.
+
+    That is worth stating because the obvious alternative is wrong in a quiet
+    way: json_format.MessageToDict renders int64 as a STRING (JSON numbers
+    cannot hold the range), so a decoder built on it would hand this method
+    "1789935300" and `* 1000` would produce a thousand-fold repeated string.
+    decode.to_dict() uses explicit field access for exactly this reason.
+
+    Falls back to the Kafka record timestamp rather than raising. A record
+    that cannot yield an event time must not stall the watermark, and the
+    broker's own timestamp is close enough for one record.
     """
 
     def extract_timestamp(self, value, record_timestamp: int) -> int:
-        from datetime import datetime
-
-        try:
-            rec = json.loads(value)
-            ts = rec.get("position_timestamp")
-            if isinstance(ts, (int, float)):
-                return int(ts * 1000)
-            return int(datetime.fromisoformat(ts).timestamp() * 1000)
-        except Exception:  # noqa: BLE001 -- a bad record must not stall the watermark
-            return record_timestamp
+        # A dict: this runs after decode and parse_record, never on raw bytes.
+        # The isinstance guard is the cheap way to fail soft rather than
+        # AttributeError inside an operator.
+        rec = value if isinstance(value, dict) else None
+        ts = rec.get("position_timestamp") if rec else None
+        if isinstance(ts, (int, float)):
+            return int(ts * 1000)
+        return record_timestamp
 
 
-# --- stubs ------------------------------------------------------------- >>> TODO
+# --- wiring ------------------------------------------------------------------
 
 
-def parse_record(value: str) -> dict | None:
-    """Enriched JSON -> the fields the detector needs.
+class BunchingWindowFunction(ProcessWindowFunction):
+    """One window of one (route, direction) -> that window's candidate alerts.
 
-    >>> IMPLEMENT THIS.
-
-    Keep only what the detector uses: vehicle_id, route_id, direction_id,
-    trip_id, shape_dist_traveled, position_timestamp, route_short_name,
-    schedule_deviation_seconds. Dropping the rest early matters more here than
-    in the enrichment consumer, because everything retained crosses the
-    Python/JVM boundary on every record.
-
-    Return None for a record the detector cannot use, and let the caller
-    filter: no shape_dist_traveled (the vehicle could not be located on its
-    shape) or no route_id. Do not raise -- one malformed record must not fail
-    the job, and an exception here takes down the whole TaskManager slot.
+    Thin on purpose. The pairing logic is detect_in_window, which is pure and
+    tested; the only thing this owns is the unit conversion.
     """
-    raise NotImplementedError("consumers.bunching.job.parse_record")
+
+    def process(self, key, context, elements):
+        # context.window().end is epoch MILLISECONDS while position_timestamp
+        # and window_end_s are seconds. Passed unconverted, every record looks
+        # ancient to the stale gate and the window emits nothing.
+        yield from detect_in_window(key, list(elements), context.window().end / 1000)
 
 
-def assign_route_key(rec: dict) -> str:
-    """Partition key for the detector.
+class BunchingCooldown(KeyedProcessFunction):
+    """CONFIG.cooldown_s and CONFIG.min_consecutive_windows, across windows.
 
-    >>> IMPLEMENT THIS.
+    Keyed by vehicle PAIR, so one state entry per pair rather than per route.
+    The decision is detect.BunchingState.emit; this class only carries the state
+    in and out of Flink, which is the part that needs a cluster.
 
-    (route_id, direction_id) -- NOT route_id alone. The two directions of a
-    route run on different shapes, so their shape_dist_traveled values are not
-    comparable, and a northbound bus at 12,000 ft is not "near" a southbound
-    one at 12,100 ft. Keying on route alone produces confident nonsense at
-    every terminus.
-
-    Note this is the re-keying that ADR 0002 predicted would be necessary:
-    the topic is partitioned by vehicle_id for per-vehicle ordering, so
-    route-level analysis has to shuffle. That cost was accepted knowingly and
-    this is where it lands.
+    A second re-keying: the window stream is keyed by (route, direction) and
+    this splits it by pair, so alerts for one route no longer share a subtask.
+    alerts.bunching has one partition, so ordering holds regardless -- the
+    shuffle is the cost, not the correctness.
     """
-    raise NotImplementedError("consumers.bunching.job.assign_route_key")
 
+    def open(self, ctx):
+        self.state = ctx.get_state(
+            ValueStateDescriptor("bunching", Types.PICKLED_BYTE_ARRAY()))
 
-def detect_in_window(key: str, records: list[dict]) -> list[dict]:
-    """Find bunched pairs among one route-direction's positions in one window.
-
-    >>> IMPLEMENT THIS. This is the core of Phase 3's first deliverable.
-
-    Given every position for one (route, direction) inside a 60s event-time
-    window, emit an alert dict per bunched PAIR.
-
-    Shape:
-
-      * Reduce to one position per vehicle -- the latest by
-        position_timestamp. A 60s window holds ~3 observations per vehicle at
-        the measured 20s publish rate, and comparing all of them against each
-        other would count the same pair three times.
-
-      * Drop vehicles whose position is older than CONFIG.max_position_age_s
-        relative to the window end. A stale-burst position measures where a
-        bus WAS; pairing it against a fresh one invents a gap that closed
-        minutes ago.
-
-      * Sort by shape_dist_traveled and compare CONSECUTIVE vehicles only.
-        All-pairs is O(n^2) and wrong besides: three buses in a row are two
-        bunched pairs, not three.
-
-      * A gap below CONFIG.gap_threshold_ft is a candidate.
-
-      * Emit: route_id, direction_id, route_short_name, both vehicle_ids and
-        trip_ids, gap_ft, window_end, and both schedule_deviation_seconds --
-        the deviations are what make an alert interpretable, because bunching
-        with one bus 8 minutes late is a different story from two buses both
-        on time.
-
-    UNITS: shape_dist_traveled is in feed units, which is FEET for 423 of 424
-    shapes. Both vehicles in a pair share a shape, so the comparison is
-    internally consistent regardless -- see the note in config.py. Do not
-    convert to metres and do not compare across routes.
-
-    Return [] rather than None when nothing is bunched.
-    """
-    raise NotImplementedError("consumers.bunching.job.detect_in_window")
-
-
-# --- wiring -------------------------------------------------------- >>> TODO
+    def process_element(self, alert, ctx):
+        # alert["window_end"] rather than ctx.timestamp(): the same epoch
+        # seconds detect_in_window used, so no second unit conversion here.
+        emit, updated = BunchingState.from_dict(self.state.value()).emit(alert["window_end"])
+        self.state.update(updated.to_dict())
+        if emit:
+            yield alert
 
 
 def build_pipeline(env: StreamExecutionEnvironment) -> None:
-    """Assemble source -> parse -> key -> window -> detect -> sink.
+    """Assemble source -> decode -> parse -> key -> window -> detect -> cooldown -> sink.
 
-    >>> IMPLEMENT THIS once the functions above are done.
+    Six stages in two groups. The first is stateless and event-time: decode the
+    topic's protobuf bytes, narrow to the detector's ten fields, stamp event
+    time from position_timestamp, and window each (route, direction) into
+    CONFIG.window_s buckets. The second is stateful: BunchingWindowFunction
+    turns one window into that window's candidate alerts, and BunchingCooldown
+    holds the per-pair memory that decides which of them are worth sending.
 
-    Sketch, in PyFlink terms:
+    Three things that bite here, all of them silently:
 
-        stream = env.from_source(kafka_source(), watermark_strategy(),
-                                 "enriched-positions")
-        parsed = (stream.map(parse_record, output_type=Types.MAP(...))
-                        .filter(lambda r: r is not None))
-        alerts = (parsed.key_by(assign_route_key)
-                        .window(TumblingEventTimeWindows.of(
-                            Time.seconds(CONFIG.window_s)))
-                        .process(BunchingWindowFunction()))
-        alerts.sink_to(kafka_sink())
+      * Types. PyFlink needs an explicit output type wherever a Python object
+        crosses the boundary; without one it pickles the object, which works
+        between Python operators and then fails at the sink, because
+        SimpleStringSchema is a Java serializer expecting a string. Hence
+        RECORD_TYPE on every map/process and the json.dumps stage at the end.
 
-    Two things that will bite:
+      * The watermark goes on the DECODED stream, because a Python map does
+        not carry a record's timestamp to its output. Assigned on the source
+        it is lost before the window, every record gets one identical
+        timestamp, and the job reads everything and emits nothing. The cost
+        of the working placement is late drops during replay; both numbers
+        are in watermark_strategy's docstring.
 
-      * Types. PyFlink needs explicit output types on map/process; a Python
-        dict crossing the boundary without one produces a pickled blob that
-        the sink serialises as gibberish rather than failing.
+      * context.window().end is epoch MILLISECONDS while position_timestamp and
+        window_end_s are seconds. BunchingWindowFunction divides by 1000; get it
+        wrong and the stale gate compares 1.79e12 against 1.79e9, every record
+        looks ancient, and a healthy-looking job emits nothing.
 
-      * CONFIG.min_consecutive_windows and CONFIG.cooldown_s are NOT window
-        logic -- they are state that spans windows. They belong in a
-        KeyedProcessFunction with a ValueState per pair, downstream of the
-        window. Trying to express them inside a single window's process()
-        cannot work, because one window has no memory of the last.
+    CONFIG.min_consecutive_windows and CONFIG.cooldown_s are NOT window logic.
+    One window has no memory of the last, so they cannot be expressed inside
+    process() at all: they live in BunchingCooldown's ValueState, one entry per
+    vehicle pair, with the decision itself in detect.BunchingState.emit.
     """
-    raise NotImplementedError("consumers.bunching.job.build_pipeline")
+    records = (
+        env.from_source(kafka_source(), WatermarkStrategy.no_watermarks(),
+                        "enriched-positions")
+        .map(decode, output_type=RECORD_TYPE)
+        .filter(lambda rec: rec is not None)
+        .map(parse_record, output_type=RECORD_TYPE)
+        .filter(lambda rec: rec is not None)
+        # AFTER the maps, not on the source. A Python map drops the record
+        # timestamp, so assigning it earlier gives every record the same one
+        # and no window ever fires. See watermark_strategy.
+        .assign_timestamps_and_watermarks(watermark_strategy())
+    )
+    alerts = (
+        records.key_by(assign_route_key)
+        .window(TumblingEventTimeWindows.of(Time.seconds(CONFIG.window_s)))
+        .process(BunchingWindowFunction(), output_type=RECORD_TYPE)
+        .key_by(pair_key)
+        .process(BunchingCooldown(), output_type=RECORD_TYPE)
+    )
+    alerts.map(json.dumps, output_type=Types.STRING()).sink_to(kafka_sink())
 
 
 def main() -> None:

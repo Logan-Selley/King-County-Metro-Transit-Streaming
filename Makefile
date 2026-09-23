@@ -96,6 +96,11 @@ topics: ## Create the Kafka topics with their intended configs
 	  -p 3 -r 1 -c retention.ms=604800000 || true
 	@$(DC) exec -T redpanda rpk topic create alerts.bunching \
 	  -p 1 -r 1 -c retention.ms=2592000000 || true
+	@# Phase 3F output: one record per (prediction, observed arrival) pair.
+	@# 3 partitions because the analysis groups by lead-time bucket and route
+	@# rather than reading it in order, so per-key ordering buys nothing here.
+	@$(DC) exec -T redpanda rpk topic create analytics.prediction_accuracy \
+	  -p 3 -r 1 -c retention.ms=2592000000 || true
 	@# One DLQ topic per feed: run.py routes with f"dlq.{spec.name}", so every
 	@# feed in feeds.py needs its topic here, or the first DLQ produce would
 	@# auto-create it with broker defaults.
@@ -142,11 +147,22 @@ static-hoods:  ## Load the King County neighborhood polygons
 # Registration is DELIBERATELY a separate step from running a producer.
 # auto.register.schemas is off (ADR 0005) so a process cannot mutate a shared
 # subject as a side effect of starting.
-schema-gen:  ## Generate _pb2.py from the .proto (build output, gitignored)
+schema-gen:  ## Generate _pb2.py + .desc from the .proto (build output, gitignored)
+	@# --descriptor_set_out is for the Flink job, which CANNOT import the
+	@# _pb2.py: the image runs protobuf 5.29.6 (apache-beam pins <6) and the
+	@# gencode is 7.35.1, which protobuf refuses at import because a runtime
+	@# may not be older than its gencode. A serialized FileDescriptorSet is
+	@# protobuf's own version-agnostic format, so the job builds the message
+	@# class from it at startup. See consumers/bunching/decode.py.
+	@#
+	@# ONE protoc invocation emits both, deliberately. Two commands is how
+	@# the descriptor ends up describing a different schema than the bindings.
 	@$(PY) -m grpc_tools.protoc -I$(ROOT)/schemas \
 	  --python_out=$(ROOT)/schemas --pyi_out=$(ROOT)/schemas \
+	  --descriptor_set_out=$(ROOT)/schemas/enriched_vehicle_position.desc \
 	  $(ROOT)/schemas/enriched_vehicle_position.proto
 	@echo "schemas/enriched_vehicle_position_pb2.py"
+	@echo "schemas/enriched_vehicle_position.desc"
 
 schema-register:  ## Register the enriched protobuf schema
 	@$(ENV) $(PY) -m consumers.enrichment.register
@@ -179,14 +195,45 @@ flink-down:  ## Stop the Flink cluster
 flink-ui:  ## Print the Flink web UI URL
 	@$(ENV) echo "http://localhost:$${FLINK_UI_PORT:-8086}"
 
-flink-smoke:  ## Prove the Flink->Kafka path works (bounded, terminates)
-	@$(DC) exec -T flink-jobmanager flink run -py /opt/jobs/consumers/bunching/smoke.py
+# --pyFiles /opt/jobs is not optional, and the failure it prevents is
+# confusing: `flink run -py <script>` puts the SCRIPT'S OWN directory on the
+# python path, not the mount root, so `from consumers.bunching.decode import
+# decode` dies with "No module named 'consumers'" -- a plain ImportError in a
+# job whose imports are fine, from a client that never tells you which path it
+# used. --pyFiles adds the root for both the client and the UDF workers.
+FLINK_RUN = flink run --pyFiles /opt/jobs -py
+# Streaming jobs submit DETACHED. Attached, `flink run` blocks until the job
+# ends -- which for an unbounded source is never -- so `make bunching` hangs
+# the terminal, and interrupting it leaves you unsure whether the job is still
+# up (it is: without -sae, killing the client does not cancel the job).
+# flink-smoke stays attached because it is bounded and waiting is the point.
+FLINK_RUN_D = flink run -d --pyFiles /opt/jobs -py
+
+flink-smoke:  ## Prove the Flink->Kafka path works and records DECODE (bounded)
+	@$(DC) exec -T flink-jobmanager $(FLINK_RUN) /opt/jobs/consumers/bunching/smoke.py
 
 bunching:  ## Submit the bunching detection job to the cluster
-	@$(DC) exec -T flink-jobmanager flink run -py /opt/jobs/consumers/bunching/job.py
+	@$(DC) exec -T flink-jobmanager $(FLINK_RUN_D) /opt/jobs/consumers/bunching/job.py
+
+prediction:  ## Submit the prediction-accuracy join to the cluster
+	@# Needs 6 slots (raw.trip_updates has 6 partitions); `make flink-jobs`
+	@# first, because a second job on a full cluster fails with
+	@# NoResourceAvailableException rather than queueing.
+	@$(DC) exec -T flink-jobmanager $(FLINK_RUN_D) /opt/jobs/consumers/prediction/job.py
 
 flink-jobs:  ## List running Flink jobs
 	@$(DC) exec -T flink-jobmanager flink list
+
+contract-p3f:  ## Run the Phase 3F prediction-accuracy spec (no cluster needed)
+	@$(PY) -m pytest $(ROOT)/tests/test_prediction_contract.py -m contract \
+	  $(if $(K),-k $(K)) -v
+
+contract-p3:  ## Run the Phase 3 detector spec (no cluster needed)
+	@# Runs in the PROJECT venv, not the Flink image, which is the whole
+	@# reason consumers/bunching/detect.py holds no pyflink import. K=proximity
+	@# to narrow.
+	@$(PY) -m pytest $(ROOT)/tests/test_bunching_contract.py -m contract \
+	  $(if $(K),-k $(K)) -v
 
 flink-logs:  ## Tail TaskManager logs (where Python job errors surface)
 	@$(DC) logs -f flink-taskmanager
@@ -260,4 +307,6 @@ nuke-warehouse:  ## Drop the warehouse data dir so initdb re-runs (DESTRUCTIVE)
         feeds produce-dry produce static-status static-load static-hoods \
         schema-gen schema-register schema-status enrich-dry enrich \
         flink-up flink-down flink-ui flink-smoke bunching flink-jobs flink-logs \
-        migrate test contract contract-p2 contract-schema smoke psql check lag nuke-warehouse
+        migrate test contract contract-p2 contract-p3 contract-p3f contract-schema \
+        prediction smoke psql \
+        check lag nuke-warehouse

@@ -124,13 +124,16 @@ All host ports route around the parcel project, which holds **5433** and
 - Warehouse schema: partitioned raw tables, DLQ, partition-maintenance
   function ([`docker/initdb/01-schema.sql`](docker/initdb/01-schema.sql)).
 - Topic layout with real retention and compaction settings (`make topics`).
-- ADRs 0001-0006. Three carry dated corrections where measurement
-  contradicted the original reasoning, 0001 on the disk constraint, 0003 on
-  `block_id`'s real source, and 0005 on what the Schema Registry actually
-  enforces for protobuf.
-- **121 tests** across four suites: wire semantics (10), producer contract
-  (46), enrichment contract (42), and schema/semantic-gate (23). The contract
-  suites are the executable specs the implementations were written against.
+- ADRs 0001-0007. Four carry dated corrections where measurement
+  contradicted the original reasoning: 0001 on the disk constraint, 0003 on
+  `block_id`'s real source, 0005 on what the Schema Registry actually
+  enforces for protobuf, and 0006 on the PyFlink version pin and the
+  gencode/runtime conflict its isolation created.
+- **232 tests**, all enforced in CI, across six suites: wire semantics
+  (10), producer contract (46), enrichment contract (42), schema/semantic-gate
+  (23), the bunching detector (63), and the prediction-accuracy join (48).
+  The contract suites are the executable specs the implementations were
+  written against, and each was written before the code it tests.
 
 **Phase 1, complete.** 24 hours of continuous collection, 16.3M messages,
 median gap 21 s, **zero gaps over 90 s**. 75 transient network faults, all
@@ -145,11 +148,26 @@ the Schema Registry with a v1→v2 evolution. Verified live: 100% trip join
 rate, median schedule deviation **+105 s**, zero timezone or service-date
 anchor errors. Results in [findings §10](docs/findings.md).
 
-**Next (Phase 3), stateful processing.** PyFlink, chosen over Faust in
-[ADR 0006](docs/decisions/0006-flink-over-faust.md). Windowed bunching
-detection first (`consumers/bunching/`, scaffolded), then the two-stream
-prediction-accuracy join. Exit: bunching alerts that survive spot-checking,
-and a prediction-error-by-lead-time curve.
+**In progress (Phase 3), stateful processing.** PyFlink 2.2.0, chosen over
+Faust in [ADR 0006](docs/decisions/0006-flink-over-faust.md). The cluster
+runs, checkpoints to MinIO, and `make flink-smoke` decodes the enriched topic
+end to end. Keying and both correctness gates are settled in
+[ADR 0007](docs/decisions/0007-bunching-key-and-gates.md).
+
+**Bunching is done and spot-checked.** Over 19 hours it produced 607 alerts
+from 1.56M records, peaking at 17:00 with 40% of the day falling in the
+16:00-18:00 window. Chasing its one implausible result (Route 255 ranking 4th)
+found buses staging at a transit centre 1,600 ft along their shape, and
+produced a stop-sequence gate that a distance gate could not express.
+
+**Prediction accuracy (3F) is implemented and validated offline.** A
+two-stream event-time join of `raw.trip_updates` against observed arrivals,
+keyed on `(service_day, trip_id, stop_id)`; PyFlink 2.2 has no
+`interval_join`, so it is a hand-rolled `KeyedCoProcessFunction` with explicit
+State TTL. Over 608,140 joined pairs the error curve rises cleanly from a
+45 s median at under two minutes to 196 s at an hour, and it is biased in one
+direction throughout: buses arrive earlier than the sign says
+([findings](docs/findings.md)).
 
 Phases 4-6 (dbt/Airflow, CI/Terraform, replay demo) are unstarted.
 

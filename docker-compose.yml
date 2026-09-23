@@ -223,18 +223,65 @@ services:
     image: transit-pyflink:2.2.0
     container_name: transit_flink_jm
     command: jobmanager
+    restart: unless-stopped
     depends_on:
       redpanda:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     environment:
       # rpc.address must match the service name or TaskManagers cannot
       # register, and the failure looks like "no slots available" rather than
       # a connectivity error.
+      #
+      # state.checkpoints.dir is what makes checkpointing mean anything.
+      # Without it, checkpoints live in JobManager memory: they survive a
+      # TaskManager crash (the case job.py's docstring describes) but NOT a
+      # JobManager restart, and `make flink-up --build` is a JobManager
+      # restart. The detector would then silently refill state from an empty
+      # start and under-report until every vehicle reappeared.
+      #
+      # CORRECTED 2026-09-22: a durable directory alone does not deliver
+      # that. Two more things are true and both bit:
+      #
+      #   * Flink's default retention is NO_EXTERNALIZED_CHECKPOINTS, which
+      #     DELETES a job's checkpoints when the job terminates. The bunching
+      #     job completed checkpoint 1750 at 20:35:38 UTC, the JobManager took
+      #     a SIGTERM 13s later, and MinIO held nothing afterwards.
+      #     RETAIN_ON_CANCELLATION below keeps them.
+      #
+      #   * There is no JobManager HA, so a restarted JobManager logs
+      #     "Successfully recovered 0 persisted job graphs" and the job is
+      #     simply gone. Retained checkpoints make it RESUMABLE, by hand:
+      #       flink run -s s3://transit-raw/flink-checkpoints/<job>/chk-N ...
+      #     They do not make it automatic. That needs HA, which for a
+      #     single-node laptop stack is more machinery than it is worth.
+      #
+      # MinIO rather than a new dependency -- it is already in the stack for
+      # the raw archive and speaks S3. path.style.access is mandatory for it:
+      # the AWS default is virtual-host addressing (bucket.host), which does
+      # not resolve against a container named `minio`.
+      #
+      # DO NOT QUOTE `true` HERE, unlike every other boolean in this file.
+      # FLINK_PROPERTIES is a YAML block scalar, so its contents are copied
+      # into Flink's config.yaml verbatim -- quotes and all. Written as
+      # "true", Flink logs `s3.path.style.access, "true"` and does not read it
+      # as a boolean, so addressing stays virtual-host and the checkpoint
+      # hangs rather than failing: total 2, completed 0, in_progress 1, and no
+      # error anywhere in the logs. The `environment:` values elsewhere in
+      # this file need their quotes because Compose passes those to the
+      # container; these are not the same thing.
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
-        parallelism.default: 2
+        parallelism.default: 3
         state.backend: hashmap
         execution.checkpointing.interval: 30s
+        execution.checkpointing.externalized-checkpoint-retention: RETAIN_ON_CANCELLATION
+        state.checkpoints.dir: s3://${RAW_BUCKET:-transit-raw}/flink-checkpoints
+        s3.endpoint: http://minio:9000
+        s3.path.style.access: true
+        s3.access-key: ${MINIO_ROOT_USER}
+        s3.secret-key: ${MINIO_ROOT_PASSWORD}
     ports:
       - "${FLINK_UI_PORT:-8086}:8081"
     volumes:
@@ -246,12 +293,49 @@ services:
     image: transit-pyflink:2.2.0
     container_name: transit_flink_tm
     command: taskmanager
+    restart: unless-stopped
     depends_on:
       - flink-jobmanager
     environment:
+      # The S3 settings are repeated rather than shared. TaskManagers write
+      # checkpoint state themselves -- only the metadata goes through the
+      # JobManager -- so a TaskManager without credentials fails at the first
+      # checkpoint, ~30s in, long after the job looks healthy.
+      # jvm-metaspace defaults to 256m, which is enough for a cluster that
+      # runs one job and too little for one that a developer submits to
+      # repeatedly. Each submission loads the job's classes into a fresh
+      # ChildFirstClassLoader, and PyFlink drags in Beam, so metaspace grows
+      # per submit. Measured here after roughly a dozen submits in one
+      # session:
+      #
+      #   java.lang.OutOfMemoryError: Metaspace ... The task executor has to
+      #   be shutdown...
+      #
+      # It kills the TaskManager, not the job, so the symptom is a job that
+      # was healthy a moment ago sitting in RESTARTING with no exception of
+      # its own. `restart: unless-stopped` brings the container back and the
+      # job recovers from its last checkpoint, which masks it further.
+      #
+      # 9 slots and 6g, sized for both jobs at once: bunching at parallelism
+      # 3 (its topic's partition count) plus prediction at 6 (raw.trip_updates'
+      # count). Parallelism is a correctness setting here -- see
+      # consumers/bunching/job.py -- so the slots follow from the topics.
+      #
+      # The memory follows from PyFlink. Python workers draw on Flink's
+      # MANAGED memory (python.fn-execution.memory.managed is on by default),
+      # which is ~40% of what is left after metaspace and JVM overhead. At the
+      # old 1728m that was ~410 MB shared across every slot, ~45 MB each for a
+      # Python worker running Beam. At 6g it is ~2 GB, ~225 MB a slot.
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
-        taskmanager.numberOfTaskSlots: 2
+        taskmanager.numberOfTaskSlots: 9
+        taskmanager.memory.process.size: 6g
+        taskmanager.memory.jvm-metaspace.size: 512m
+        state.checkpoints.dir: s3://${RAW_BUCKET:-transit-raw}/flink-checkpoints
+        s3.endpoint: http://minio:9000
+        s3.path.style.access: true
+        s3.access-key: ${MINIO_ROOT_USER}
+        s3.secret-key: ${MINIO_ROOT_PASSWORD}
     volumes:
       - ./consumers:/opt/jobs/consumers:ro
       - ./schemas:/opt/jobs/schemas:ro

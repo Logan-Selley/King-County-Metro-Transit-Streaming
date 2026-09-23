@@ -19,6 +19,11 @@ __pycache__/
 # schema evolution, so that drift would be actively misleading.
 schemas/**/*_pb2.py
 schemas/**/*_pb2.pyi
+# Same argument for the descriptor set, which the Flink job loads instead of
+# the bindings (consumers/bunching/decode.py explains why it cannot import
+# them). It comes out of the SAME protoc call as the _pb2.py, so tracking one
+# and ignoring the other is how they would drift apart.
+schemas/**/*.desc
 
 # --- collected feed data -----------------------------------------------------
 # data/recon holds Phase 0 payload captures. The SUMMARIES are tracked --
