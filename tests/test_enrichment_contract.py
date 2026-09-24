@@ -17,6 +17,7 @@ rest need nothing but the venv.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
@@ -24,6 +25,11 @@ from consumers.enrichment.enrich import interpolate, service_date_origin
 from consumers.enrichment.reference import resolve_version
 from producer.errors import DlqReason
 from static import feed as static_feed
+
+# For the one test that reads a DAG's SOURCE rather than importing it: this
+# venv has no airflow, and Airflow's image has no psycopg. Neither can import
+# the other, so the contract between them is checked as text.
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 pytestmark = pytest.mark.contract
 
@@ -188,6 +194,47 @@ class TestFeedInfo:
         assert info.covers("20270326") is True   # inclusive upper bound
         assert info.covers("20260913") is False
         assert info.covers("20270327") is False
+
+
+class TestStaticLoadExitCodes:
+    """The loader's exit codes, and the DAG that depends on one of them.
+
+    `--load` used to exit 0 both when it loaded a new version and when the ETag
+    had not moved, so `transit_static_refresh` could not tell a real load from a
+    no-op day: an unchanged morning is now SKIPPED rather than a green run that
+    did nothing.
+    """
+
+    def test_unchanged_is_99_and_not_zero(self):
+        """99 is the parcel project's convention for "nothing to do". What
+        matters is that it is neither 0 (loaded) nor 1 (a real failure), since
+        Airflow treats those as success and failure."""
+        from static.run import EXIT_UNCHANGED
+
+        assert EXIT_UNCHANGED == 99
+        assert EXIT_UNCHANGED not in (0, 1)
+
+    def test_the_dag_skips_exactly_the_code_the_loader_returns(self):
+        """The number is written down twice, and nothing else checks that the
+        two copies agree.
+
+        airflow/dags/transit_static_refresh.py cannot import static.run --
+        Airflow's image carries neither psycopg nor shapely, which is the same
+        separation that makes the task a DockerOperator. So this reads the DAG's
+        source rather than importing it, the way the import-isolation tests
+        read theirs.
+        """
+        from static.run import EXIT_UNCHANGED
+
+        dag_src = (REPO_ROOT / "airflow" / "dags"
+                   / "transit_static_refresh.py").read_text()
+        assert f"UNCHANGED_EXIT_CODE = {EXIT_UNCHANGED}" in dag_src, (
+            "the DAG and static/run.py disagree about the 'feed unchanged' exit "
+            "code, so an unchanged day would fail the task instead of skipping it"
+        )
+        assert "skip_on_exit_code=UNCHANGED_EXIT_CODE" in dag_src, (
+            "the DAG defines the code but never hands it to the operator"
+        )
 
 
 # =============================================================================

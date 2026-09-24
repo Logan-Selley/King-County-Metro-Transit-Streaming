@@ -6,6 +6,14 @@
 -- writes into and nothing else; every derived table is a dbt model in Phase 4,
 -- and putting analytical logic here would split the transformation layer
 -- across two tools that disagree about who owns it.
+--
+-- 4F CANCELLED THREE OF THE TABLES BELOW. raw.vehicle_positions,
+-- raw.trip_updates and raw.service_alerts are still defined here because this
+-- file is the record of what Phase 0 designed, but 06-drop-unsunk-raw.sql drops
+-- them during the same `make migrate`. The raw topics stayed schemaless
+-- (ADR 0005), the JDBC sink cannot fill a table from a schemaless topic, and
+-- the Flink jobs read those topics directly. On a fresh database the three
+-- exist for the length of one migrate run and then are gone.
 
 CREATE EXTENSION IF NOT EXISTS postgis;
 

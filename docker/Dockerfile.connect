@@ -1,0 +1,49 @@
+# Kafka Connect with the JDBC sink, and a protobuf runtime that can run it.
+#
+# Two changes to the Confluent image, and the second one took three attempts
+# to find, so it is written out in full.
+#
+# 1. THE JDBC SINK IS NOT IN THE IMAGE. cp-kafka-connect ships the converters
+#    and no connectors. kafka-connect-jdbc 10.8.0 bundles the Postgres driver
+#    (postgresql-42.4.4.jar), so nothing else is needed for the warehouse.
+#
+# 2. THE IMAGE'S OWN ProtobufConverter DOES NOT WORK OUT OF THE BOX. The
+#    first record fails with:
+#
+#       java.lang.VerifyError: Bad return type
+#         io/confluent/protobuf/MetaProto$Meta.internalGetMapFieldReflection
+#         Type 'com/google/protobuf/MapField' is not assignable to
+#         'com/google/protobuf/MapFieldReflectionAccessor'
+#
+#    The image carries protobuf-java in several places and they disagree:
+#
+#       /usr/share/java/kafka               3.23.4   MapField extends Object
+#       /usr/share/java/kafka-serde-tools   3.25.4   MapField extends
+#                                                    MapFieldReflectionAccessor
+#
+#    Confluent's MetaProto is generated code that needs the 3.25 shape, and
+#    the worker's -cp lists kafka/* BEFORE kafka-serde-tools/*, so the older
+#    runtime wins. It is the same rule the Flink decoder hit in Python (ADR
+#    0006's revision): a protobuf runtime may not be older than the code
+#    generated against it. The fix is the same direction, too -- upgrade the
+#    runtime, which serves older generated code fine.
+#
+#    The FIRST attempt copied 3.25.4 into /etc/kafka-connect/jars, which sits
+#    at the front of the classpath and is the image's documented place for
+#    extra jars. The build succeeded and the error did not change, because
+#    the base image declares that path a VOLUME, and Docker silently discards
+#    build-time writes to a declared volume. The directory was empty at
+#    runtime. Checked with:
+#
+#       docker image inspect confluentinc/cp-kafka-connect:7.7.1 \
+#         -f '{{json .Config.Volumes}}'
+#
+#    So the old jar is replaced where it lives instead.
+FROM confluentinc/cp-kafka-connect:7.7.1
+
+RUN confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.8.0
+
+USER root
+RUN rm /usr/share/java/kafka/protobuf-java-3.23.4.jar \
+ && cp /usr/share/java/kafka-serde-tools/protobuf-java-3.25.4.jar /usr/share/java/kafka/
+USER appuser

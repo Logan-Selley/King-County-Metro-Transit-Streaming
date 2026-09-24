@@ -40,16 +40,17 @@ the writeup.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
+from functools import partial
 
 from pyflink.common import Duration, Types, WatermarkStrategy
-from pyflink.common.serialization import ByteArraySchema, SimpleStringSchema
+from pyflink.common.serialization import ByteArraySchema
 from pyflink.common.time import Time
 from pyflink.common.watermark_strategy import TimestampAssigner
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream.connectors.kafka import (
+    KafkaOffsetResetStrategy,
     KafkaOffsetsInitializer,
     KafkaRecordSerializationSchema,
     KafkaSink,
@@ -59,6 +60,7 @@ from pyflink.datastream.functions import KeyedProcessFunction, ProcessWindowFunc
 from pyflink.datastream.state import ValueStateDescriptor
 from pyflink.datastream.window import TumblingEventTimeWindows
 
+from consumers import framing
 from consumers.bunching.config import CONFIG, CONSUMER_GROUP, SINK_TOPIC, SOURCE_TOPIC
 from consumers.bunching.decode import decode
 from consumers.bunching.detect import (
@@ -76,6 +78,11 @@ log = logging.getLogger("bunching")
 # the single most common way a Flink job hangs at startup with no error: it
 # resolves, connects to nothing, and reports no partitions assigned.
 BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_INTERNAL", "redpanda:9092")
+
+# Where the job reads its sink schema's id from, at submit time. Defaults to the
+# compose service name for the same reason BOOTSTRAP does: .env carries the
+# HOST-facing address (localhost:18081) and a container cannot reach that.
+SCHEMA_REGISTRY = os.environ.get("SCHEMA_REGISTRY_INTERNAL", "http://redpanda:8081")
 
 RECORD_TYPE = Types.MAP(Types.STRING(), Types.PICKLED_BYTE_ARRAY())
 
@@ -176,10 +183,18 @@ def watermark_strategy() -> WatermarkStrategy:
 def kafka_source() -> KafkaSource:
     """Source over enriched.vehicle_positions.
 
-    `earliest` rather than `latest`: a bunching job restarted mid-day should
-    rebuild its picture from recent history rather than start blind. The
-    consumer group means it resumes from committed offsets in practice, and
-    only falls back to earliest on a genuinely new group.
+    COMMITTED OFFSETS, falling back to earliest only on a genuinely new group.
+    This docstring described that behaviour for a while before the code did:
+    the call was `.earliest()`, which IGNORES the group's committed offsets, so
+    every boot replayed the topic's whole 7-day retention into alerts.bunching.
+    Measured: four replays in a single day. The warehouse's upsert collapsed the
+    duplicates that reached it, but the topic kept every one of them, and each
+    boot paid for a full replay.
+
+    The restart trade is unchanged and still deliberate: a group with no commits
+    starts at earliest, and the per-pair window state refills within minutes, so
+    a cold start is a few minutes of extra alerts rather than a gap. See
+    docker/flink-submit.sh, which explains why checkpoint restore is left manual.
 
     BYTES, not SimpleStringSchema. The topic carries Confluent-framed
     protobuf; it held JSON only during the Phase 2 placeholder era, and an
@@ -194,7 +209,9 @@ def kafka_source() -> KafkaSource:
         .set_bootstrap_servers(BOOTSTRAP)
         .set_topics(SOURCE_TOPIC)
         .set_group_id(CONSUMER_GROUP)
-        .set_starting_offsets(KafkaOffsetsInitializer.earliest())
+        .set_starting_offsets(
+            KafkaOffsetsInitializer.committed_offsets(
+                KafkaOffsetResetStrategy.EARLIEST))
         .set_value_only_deserializer(ByteArraySchema())
         .build()
     )
@@ -206,6 +223,12 @@ def kafka_sink() -> KafkaSink:
     Keyed by route so alerts for one route stay ordered, and so a downstream
     compacted view could keep the latest state per route if one is ever
     wanted. `make topics` owns the topic's config; this only writes to it.
+
+    BYTES, not SimpleStringSchema, since 4B. The records carry Confluent
+    framing now (consumers/framing.py) so the JDBC sink can read them, and a
+    framed record is bytes rather than text: the first five are a magic byte and
+    a schema id, which Java's String(bytes, charset) would replace with U+FFFD.
+    The same trap the SOURCE docstring describes, pointing the other way.
     """
     return (
         KafkaSink.builder()
@@ -213,7 +236,7 @@ def kafka_sink() -> KafkaSink:
         .set_record_serializer(
             KafkaRecordSerializationSchema.builder()
             .set_topic(SINK_TOPIC)
-            .set_value_serialization_schema(SimpleStringSchema())
+            .set_value_serialization_schema(ByteArraySchema())
             .build()
         )
         .build()
@@ -263,7 +286,14 @@ class BunchingWindowFunction(ProcessWindowFunction):
         # context.window().end is epoch MILLISECONDS while position_timestamp
         # and window_end_s are seconds. Passed unconverted, every record looks
         # ancient to the stale gate and the window emits nothing.
-        yield from detect_in_window(key, list(elements), context.window().end / 1000)
+        # int() of the millisecond window end. Epoch seconds as an INTEGER,
+        # because the sink's TimestampConverter refuses FLOAT64 (measured: the
+        # JDBC task died on "Schema Schema{FLOAT64} does not correspond to a
+        # known timestamp type format" without writing a row). This value is
+        # also what every alert carries as window_end, so the coercion is
+        # stated once, here.
+        yield from detect_in_window(key, list(elements),
+                                    int(context.window().end / 1000))
 
 
 class BunchingCooldown(KeyedProcessFunction):
@@ -308,7 +338,7 @@ def build_pipeline(env: StreamExecutionEnvironment) -> None:
         crosses the boundary; without one it pickles the object, which works
         between Python operators and then fails at the sink, because
         SimpleStringSchema is a Java serializer expecting a string. Hence
-        RECORD_TYPE on every map/process and the json.dumps stage at the end.
+        RECORD_TYPE on every map/process and the framing stage at the end.
 
       * The watermark goes on the DECODED stream, because a Python map does
         not carry a record's timestamp to its output. Assigned on the source
@@ -346,7 +376,14 @@ def build_pipeline(env: StreamExecutionEnvironment) -> None:
         .key_by(pair_key)
         .process(BunchingCooldown(), output_type=RECORD_TYPE)
     )
-    alerts.map(json.dumps, output_type=Types.STRING()).sink_to(kafka_sink())
+    # The sink schema's id, resolved ONCE here rather than per record. See
+    # consumers/framing.py for why, and for what a re-registration later does
+    # to a job that is already running.
+    sid = framing.schema_id(SCHEMA_REGISTRY, f"{SINK_TOPIC}-value")
+    log.info("sink schema %s-value -> id %s", SINK_TOPIC, sid)
+
+    alerts.map(partial(framing.frame, sid=sid),
+               output_type=Types.PRIMITIVE_ARRAY(Types.BYTE())).sink_to(kafka_sink())
 
 
 def main() -> None:

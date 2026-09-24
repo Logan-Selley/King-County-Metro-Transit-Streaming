@@ -1,0 +1,66 @@
+# The pipeline image: the producer, the enrichment consumer, and the static
+# loader. One image, three entry points, no ENTRYPOINT.
+#
+# WHY IT EXISTS, in two halves.
+#
+# 1. SUPERVISION. The producer and the enrichment consumer used to be started
+#    from a terminal (`make produce`, `make enrich`), so they died with the
+#    session that started them and took the feed down with them. Two of the
+#    gaps in the warehouse are exactly that: mart_feed_health reports ~10
+#    silent hours before midnight on 2026-09-22 and a 1,062-minute run from
+#    2026-09-20 20:21, and it cannot tell our downtime from Metro's. An image
+#    is what lets them be compose services with a restart policy.
+#
+#    producer/run.py's own docstring already says this process "runs under
+#    systemd, docker, or a terminal" and that Airflow must not own it. This is
+#    the docker half of that sentence.
+#
+# 2. AIRFLOW'S ENVIRONMENT. The static loader needs psycopg and shapely, and
+#    Airflow's image must not carry either: that is the same separation dbt
+#    has (Dockerfile.dbt), and it is why build step 4D needs a pipeline image
+#    for DockerOperator to run `python -m static.run --load`.
+#
+# uv, not pip, and the LOCK is the point: `uv sync --frozen` installs exactly
+# what uv.lock resolved and refuses to rewrite it. uv itself is deliberately
+# unpinned, for the reason .github/workflows/ci.yml uses an unpinned
+# setup-uv@v5: a newer uv reads an older lock, and --frozen means it cannot
+# drift it.
+#
+# The protobuf bindings are GENERATED here rather than copied in. They are
+# gitignored build output (`make schema-gen`), so copying them would make the
+# image depend on a developer having run that on this checkout.
+# consumers/enrichment/schema.py imports schemas.enriched_vehicle_position_pb2
+# lazily for the same reason.
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+RUN pip install --no-cache-dir uv
+
+WORKDIR /app
+
+# Dependencies first. This is the expensive layer, and it only invalidates when
+# pyproject.toml or uv.lock changes.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
+
+# The venv on PATH, so `python -m producer.run` works and Airflow's
+# DockerOperator command does not have to know uv exists.
+ENV PATH="/app/.venv/bin:$PATH"
+
+COPY schemas/ ./schemas/
+RUN python -m grpc_tools.protoc -I schemas \
+      --python_out=schemas --pyi_out=schemas \
+      --descriptor_set_out=schemas/enriched_vehicle_position.desc \
+      schemas/enriched_vehicle_position.proto
+
+COPY producer/ ./producer/
+COPY consumers/ ./consumers/
+COPY static/ ./static/
+
+# No ENTRYPOINT on purpose, and it is not laziness: the same image runs three
+# different programs, and an image whose ENTRYPOINT is one of them makes the
+# other two look like overrides. Compose and DockerOperator both name the
+# command they want.
+CMD ["python", "-m", "producer.run"]

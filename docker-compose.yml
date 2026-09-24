@@ -4,7 +4,7 @@
 # implicitly. See .env.example for the required keys. Substitution only: these
 # values reach the containers via `environment:`, not by injecting the file.
 #
-# --- TWO CONSTRAINTS SHAPE THIS WHOLE FILE ---
+# --- THREE CONSTRAINTS SHAPE THIS WHOLE FILE ---
 #
 # 1. EVERY persistent volume is a HOST BIND MOUNT under /mnt/F/docker-data,
 #    never a named volume. Named volumes live under /var/lib/docker on the
@@ -35,6 +35,29 @@
 #    them mnemonic while guaranteeing no clash with a default-configured
 #    Kafka or Schema Registry a tutorial might have you start.
 
+# 3. EVERY SERVICE IS MEMORY-CAPPED, and this one is new. It is the reason the
+#    machine used to come back rebooted.
+#
+#    Nothing here had a limit, so any runaway -- Redpanda's cache, the
+#    TaskManager, Connect during a replay -- could take the whole host instead
+#    of being killed inside its own cgroup. Measured 2026-09-23, stack idle:
+#    31Gi total, 20Gi used, 10Gi available, 3.3Gi of zram swap in use. The
+#    stack was the smaller half of that (containers ~4.7G: redpanda 1.7,
+#    taskmanager 1.3, jobmanager 0.8, connect 0.5, minio 0.3, warehouse 0.2)
+#    against an IDE and browser above it (PyCharm ~6.9G).
+#
+#    `memswap_limit` is set equal to `mem_limit` everywhere so a container
+#    cannot swap at all. Swap here is zram, which is compressed RAM: a
+#    container thrashing it does not slow down, it freezes the desktop, and
+#    the kernel's OOM killer never runs because no allocation ever fails.
+#    That is consistent with the two boots that ended with no OOM record and
+#    no panic (checked: no oom-kill, no systemd-oomd, /sys/fs/pstore empty).
+#
+#    These are LIMITS, not reservations, so the idle footprint is unchanged.
+#    The one number that follows a hard rule is the TaskManager's: it must
+#    exceed taskmanager.memory.process.size (6g, explained in its own comment)
+#    or Flink refuses to start, which is why it is 7g and not less.
+
 name: transit-stream
 
 services:
@@ -52,6 +75,8 @@ services:
     image: docker.redpanda.com/redpandadata/redpanda:v25.2.1
     container_name: transit_redpanda
     restart: unless-stopped
+    mem_limit: 2g
+    memswap_limit: 2g
     command:
       - redpanda
       - start
@@ -104,6 +129,8 @@ services:
     image: docker.redpanda.com/redpandadata/console:v3.11.0
     container_name: transit_console
     restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
     depends_on:
       redpanda:
         condition: service_healthy
@@ -131,6 +158,8 @@ services:
     image: postgis/postgis:16-3.4
     container_name: transit_warehouse
     restart: unless-stopped
+    mem_limit: 1g
+    memswap_limit: 1g
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -163,6 +192,8 @@ services:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: transit_minio
     restart: unless-stopped
+    mem_limit: 512m
+    memswap_limit: 512m
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
@@ -202,6 +233,89 @@ services:
       "
     restart: "no"
 
+  # --- ingest and enrichment (supervised) -----------------------------------
+  # BEHIND A PROFILE, because `make up` is infrastructure and these are the
+  # feed. `make stream-up` starts them; the restart policy is what keeps them
+  # alive afterwards, because a profile governs STARTING, not restarting, so
+  # they come back on a boot without the profile being named again.
+  #
+  # WHY CONTAINERS AT ALL. Both used to be started from a terminal (`make
+  # produce`, `make enrich`), so they died with the session that started them.
+  # Two of the gaps in the warehouse are exactly that shape -- see the
+  # 1,062-minute run in mart_feed_health -- and the mart cannot tell our
+  # downtime from Metro's. Dockerfile.pipeline has the long version.
+  #
+  # The environment below is passed explicitly and the container does NOT read
+  # .env, because every value in there is host-facing: localhost:19092,
+  # localhost:18081, localhost:9000. None of those resolve inside the network.
+  # It is the mirror image of the redpanda listener trap -- a client
+  # bootstraps once and then reconnects to whatever the broker ADVERTISES, so
+  # an internal client told `localhost` connects to itself.
+  producer:
+    profiles: ["stream"]
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.pipeline
+    image: transit-pipeline:0.1.0
+    container_name: transit_producer
+    restart: unless-stopped
+    mem_limit: 512m
+    memswap_limit: 512m
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP: redpanda:9092
+      SCHEMA_REGISTRY_URL: http://redpanda:8081
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      RAW_BUCKET: ${RAW_BUCKET:-transit-raw}
+      # Carried through from .env because these are policy, not addresses.
+      # The user agent is the good-citizen contact on a public endpoint, and
+      # the poll intervals are half Metro's measured publish period.
+      FEED_USER_AGENT: ${FEED_USER_AGENT}
+      POLL_INTERVAL_VEHICLE_POSITIONS: ${POLL_INTERVAL_VEHICLE_POSITIONS}
+      POLL_INTERVAL_TRIP_UPDATES: ${POLL_INTERVAL_TRIP_UPDATES}
+      POLL_INTERVAL_SERVICE_ALERTS: ${POLL_INTERVAL_SERVICE_ALERTS}
+    # No --duration. The process has to run until something stops it, which is
+    # the whole point of giving it a restart policy.
+    command: ["python", "-m", "producer.run"]
+
+  enrichment:
+    profiles: ["stream"]
+    image: transit-pipeline:0.1.0
+    container_name: transit_enrichment
+    restart: unless-stopped
+    mem_limit: 1g
+    memswap_limit: 1g
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      warehouse:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP: redpanda:9092
+      SCHEMA_REGISTRY_URL: http://redpanda:8081
+      # psycopg is enrichment-only, so the database credentials are here and
+      # deliberately NOT on the producer above.
+      WAREHOUSE_HOST: warehouse
+      WAREHOUSE_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # --schema-version 2, NOT the CLI default of 1, and this is a measured
+    # choice: a live record off the enriched topic carries
+    # neighborhood_name 'South Beacon Hill' and neighborhood_num 91, which
+    # only enrich_v2 populates, and stg_vehicle_positions selects
+    # neighborhood_name to build the mart. Run this as v1 and the warehouse
+    # quietly starts receiving a thinner payload than the 2.79M rows already
+    # in it. Note `make enrich` defaults to V=1, which is the trap this line
+    # exists to close.
+    command: ["python", "-m", "consumers.enrichment.run", "--schema-version", "2"]
+
   # --- stateful processing (Phase 3) ---------------------------------------
   # BEHIND A PROFILE, like connect. `make flink-up` starts them.
   #
@@ -224,6 +338,8 @@ services:
     container_name: transit_flink_jm
     command: jobmanager
     restart: unless-stopped
+    mem_limit: 1536m
+    memswap_limit: 1536m
     depends_on:
       redpanda:
         condition: service_healthy
@@ -294,6 +410,13 @@ services:
     container_name: transit_flink_tm
     command: taskmanager
     restart: unless-stopped
+    # MUST EXCEED taskmanager.memory.process.size BELOW (6g). Flink checks the
+    # requested process size against the container's cgroup limit and refuses
+    # to start when it does not fit, so capping this at the measured 1.3G
+    # would trade a freeze for a cluster that never comes up. 7g leaves 1g for
+    # the JVM's own overhead outside the accounting.
+    mem_limit: 7g
+    memswap_limit: 7g
     depends_on:
       - flink-jobmanager
     environment:
@@ -326,10 +449,25 @@ services:
       # which is ~40% of what is left after metaspace and JVM overhead. At the
       # old 1728m that was ~410 MB shared across every slot, ~45 MB each for a
       # Python worker running Beam. At 6g it is ~2 GB, ~225 MB a slot.
+      #
+      # task.off-heap is the one that crashed. The JVM and each Python worker
+      # talk over Beam's gRPC, whose Netty buffers are DIRECT memory, and
+      # the default direct budget is Flink's network buffers plus a 128m
+      # framework allowance -- MaxDirectMemorySize came to ~630 MB, most of it
+      # already spoken for. With both jobs submitted (nine slots of Python
+      # workers) the prediction job died within 25s on:
+      #
+      #   java.lang.OutOfMemoryError: Direct buffer memory ... The task
+      #   executor has to be shutdown...
+      #
+      # and because it is the TASKMANAGER that shuts down, it took the
+      # healthy bunching job with it. 1g of task off-heap is carved out of
+      # the 6g and adds straight onto MaxDirectMemorySize.
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
         taskmanager.numberOfTaskSlots: 9
         taskmanager.memory.process.size: 6g
+        taskmanager.memory.task.off-heap.size: 1g
         taskmanager.memory.jvm-metaspace.size: 512m
         state.checkpoints.dir: s3://${RAW_BUCKET:-transit-raw}/flink-checkpoints
         s3.endpoint: http://minio:9000
@@ -339,6 +477,57 @@ services:
     volumes:
       - ./consumers:/opt/jobs/consumers:ro
       - ./schemas:/opt/jobs/schemas:ro
+
+  # Submits the jobs once, and re-submits after a restart. There is no
+  # JobManager HA (see the jobmanager comment above), so without this a boot
+  # leaves the cluster running and empty -- which looks identical to a healthy
+  # cluster with a quiet feed.
+  #
+  # 1024m, and the number is measured: at 256m the container's cgroup pinned
+  # its limit (memory.peak == memory.max, 90 max events) and `flink run` came
+  # back "Killed". It is a JVM plus a Python process building the job graph,
+  # which is the same shape as the JobManager, so it gets a comparable budget
+  # rather than a rounding error. Worth noting what that failure looked like:
+  # the container died and the host did not, which is the whole point of
+  # capping these.
+  #
+  # The script is idempotent by job name and explains why resuming from a
+  # retained checkpoint stays manual: docker/flink-submit.sh.
+  flink-submit:
+    profiles: ["flink"]
+    image: transit-pyflink:2.2.0
+    container_name: transit_flink_submit
+    restart: unless-stopped
+    mem_limit: 1024m
+    memswap_limit: 1024m
+    depends_on:
+      flink-jobmanager:
+        condition: service_started
+    environment:
+      # On by default. Both sources start at latest(), so submitting the
+      # prediction job on boot costs no replay; it was off by default on the
+      # mistaken belief that it read 47M records from earliest. Set it to 0 to
+      # run the detector alone.
+      FLINK_AUTOSUBMIT_PREDICTION: ${FLINK_AUTOSUBMIT_PREDICTION:-1}
+    volumes:
+      # The same mounts the flink run needs, because --pyFiles packages from
+      # here. The script is mounted at /opt outside them so it does not end up
+      # in the shipped Python archive.
+      - ./consumers:/opt/jobs/consumers:ro
+      - ./schemas:/opt/jobs/schemas:ro
+      - ./docker/flink-submit.sh:/opt/flink-submit.sh:ro
+    # `sleep infinity` rather than a bare script. A container that exits is
+    # finished as far as compose is concerned; staying up means a compose
+    # restart re-runs the submit pass, which is how this recovers after a
+    # reboot without any host-side unit. The script is idempotent, so the
+    # re-run costs one `flink list`.
+    #
+    # `bash /opt/flink-submit.sh`, NOT the bare path: the script is bind-mounted
+    # from /mnt/F, an NTFS mount, where the executable bit does not survive.
+    # Executing it directly gave "Permission denied" and a restart loop --
+    # which is the restart policy doing its job on a fixable mistake. Naming
+    # the interpreter sidesteps the file mode entirely.
+    command: ["/bin/bash", "-c", "bash /opt/flink-submit.sh && exec sleep infinity"]
 
   # --- sink -----------------------------------------------------------------
   # BEHIND A PROFILE, so `docker compose up -d` does not pull it.
@@ -355,9 +544,21 @@ services:
   # the API-compatibility claim in ADR 0001, tested rather than asserted.
   connect:
     profiles: ["connect"]
-    image: confluentinc/cp-kafka-connect:7.7.1
+    # Built, not pulled: the stock image has no JDBC sink and a protobuf-java
+    # ordering bug that breaks its own ProtobufConverter. Both are explained
+    # in docker/Dockerfile.connect.
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.connect
+    image: transit-connect:7.7.1
     container_name: transit_connect
     restart: unless-stopped
+    # 2560m rather than the measured 484M: the Confluent image's launcher sets
+    # KAFKA_HEAP_OPTS to -Xms256M -Xmx2G, so a limit under 2G would OOM-kill
+    # Connect the first time a replay fills the heap, which is exactly when its
+    # failure is least welcome.
+    mem_limit: 2560m
+    memswap_limit: 2560m
     depends_on:
       redpanda:
         condition: service_healthy
@@ -366,6 +567,15 @@ services:
     environment:
       CONNECT_BOOTSTRAP_SERVERS: redpanda:9092
       CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      # THE IMAGE'S OWN HEALTHCHECK READS THIS, and leaving it unset is why
+      # `connect-status` used to report the container UNHEALTHY for its whole
+      # life while the worker and all three tasks were fine.
+      # /etc/confluent/docker/healthcheck.sh curls
+      #   http://$CONNECT_REST_ADVERTISED_HOST_NAME:$CONNECT_REST_PORT/connectors
+      # and without the port that url is "http://connect:/connectors": curl
+      # answers 000, the script exits 1, and Docker retries it forever.
+      # Measured inside the container: 000 without the port, 200 with it.
+      CONNECT_REST_PORT: 8083
       CONNECT_GROUP_ID: transit-connect
       CONNECT_CONFIG_STORAGE_TOPIC: _connect_configs
       CONNECT_OFFSET_STORAGE_TOPIC: _connect_offsets
@@ -379,6 +589,15 @@ services:
       CONNECT_VALUE_CONVERTER: io.confluent.connect.protobuf.ProtobufConverter
       CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://redpanda:8081
       CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+      # Secrets stay out of connector configs. EnvVarConfigProvider lets a
+      # config say "${env:POSTGRES_PASSWORD}" and resolves it inside the
+      # worker, so connect/*.json is committed with no credential in it and
+      # the password never appears in the REST API's view of the config.
+      CONNECT_CONFIG_PROVIDERS: env
+      CONNECT_CONFIG_PROVIDERS_ENV_CLASS: org.apache.kafka.common.config.provider.EnvVarConfigProvider
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "${CONNECT_PORT:-8083}:8083"
     volumes:

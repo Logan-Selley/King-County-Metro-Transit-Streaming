@@ -6,8 +6,20 @@
     python -m static.run --neighborhoods   # reload the spatial layer only
     python -m static.run --retire 3        # retire a superseded version
 
-Airflow wraps this with a BashOperator in Phase 4; it
-never imports the package, same separation the producer has.
+Airflow wraps this with a DockerOperator in Phase 4
+(airflow/dags/transit_static_refresh.py); it never imports the package, the
+same separation the producer has. The image is docker/Dockerfile.pipeline,
+which the producer and the enrichment consumer also run from.
+
+EXIT CODES, because that DAG depends on them:
+
+    0   a new version was loaded, or a status/neighborhoods run succeeded
+    1   the requested transition did not happen (--retire matched no row)
+    99  --load found the ETag unchanged, so there was nothing to do
+
+99 exists so the DAG can show an unchanged day as SKIPPED rather than as a
+green run that did nothing. Both cases used to exit 0, which meant the
+scheduler could not tell a real load from a no-op.
 
 Deliberately NOT scheduled here. This is the batch side of the streaming/batch
 boundary: the static feed changes on service-change dates, and a cron that
@@ -29,6 +41,16 @@ from static import load as loader
 from static.feed import SOURCE
 
 log = logging.getLogger("static")
+
+# "The feed's ETag has not changed", which is neither an error nor a load.
+#
+# 99 follows the parcel project's convention for the same situation. Nothing
+# else in this CLI uses it, and the value is pinned by
+# tests/test_enrichment_contract.py together with the DAG's copy of it, because
+# airflow/dags/transit_static_refresh.py cannot import this module (Airflow's
+# image carries neither psycopg nor shapely) and so writes the number down a
+# second time.
+EXIT_UNCHANGED = 99
 
 
 def dsn() -> str:
@@ -123,7 +145,7 @@ def main(argv: list[str] | None = None) -> int:
         payload, etag, last_modified = loader.fetch_zip(known_etag)
         if payload is None:
             print(f"static feed unchanged (etag {etag[:14]}) -- nothing to do")
-            return 0
+            return EXIT_UNCHANGED
 
         log.info("loading %s bytes, etag %s", f"{len(payload):,}", etag[:14])
         # feed_info.txt is parsed from the payload and handed to

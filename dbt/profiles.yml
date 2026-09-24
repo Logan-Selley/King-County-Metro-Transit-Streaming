@@ -1,0 +1,20 @@
+# Every value from the environment, none committed. The same variables the
+# rest of the stack reads from .env, so there is one place to change them.
+#
+# DBT_HOST defaults to `warehouse`, the compose service name: dbt runs in its
+# own container on the compose network (make dbt, or Airflow's
+# DockerOperator), never on the host. From the host it would be localhost and
+# the mapped port, which is the kind of split that works on one machine and
+# nowhere else.
+transit_stream:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DBT_HOST', 'warehouse') }}"
+      port: "{{ env_var('DBT_PORT', '5432') | int }}"
+      user: "{{ env_var('POSTGRES_USER') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD') }}"
+      dbname: "{{ env_var('POSTGRES_DB') }}"
+      schema: staging
+      threads: 4

@@ -1,0 +1,71 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      What Kafka Connect lands. Read-only to dbt. See connect/README.md for
+      how each table is written and docker/initdb/03-sink.sql for its shape.
+    tables:
+      - name: enriched_vehicle_positions
+        description: >
+          enriched.vehicle_positions, sunk by the JDBC connector with upsert on
+          (vehicle_id, position_timestamp). ~1M rows a day, partitioned by day.
+        loaded_at_field: enriched_at
+        # Source freshness is the dbt-native half of the lesson from the
+        # 2026-09-23 03:00 stall: the producer logged stale=3998s and nothing
+        # alerted. `dbt source freshness` fails loudly on the same condition.
+        # Thresholds from measurement: normal enriched_at lag is ~50s, and the
+        # feed republishes every 20s.
+        freshness:
+          warn_after: {count: 5, period: minute}
+          error_after: {count: 15, period: minute}
+
+      # Sunk in build step 4B, which framed both topics as registered JSON
+      # (consumers/framing.py, schemas/json/) after the JDBC sink rejected them
+      # schemaless (ADR 0008). See connect/README.md and, for their shape,
+      # docker/initdb/05-flink-sinks.sql.
+      #
+      # FRESHNESS DIFFERS BETWEEN THE TWO, and the reason is worth stating
+      # because the first version of this file said "no freshness block on
+      # either" and was right about only one of them.
+      #
+      # bunching_alerts: no block. What it receives depends on the detector
+      # finishing an event-time window for a specific pair on a specific route,
+      # so "no new rows" is a normal state for minutes at a time and on a quiet
+      # route for hours. A threshold would alert on the detector working
+      # correctly.
+      #
+      # prediction_accuracy: a block, because its job resolves every prediction
+      # it can and therefore never goes quiet while the feed is alive. Measured
+      # over 13 hours: rows arrived in every single minute, owl service
+      # included, and the only gaps of ten minutes or more were the 84-minute
+      # upstream stall and a 114-minute one beginning at 10:07. So 15/30 minutes
+      # fires on real outages only.
+      - name: prediction_accuracy
+        description: >
+          analytics.prediction_accuracy, sunk by connect/prediction_accuracy.json
+          with upsert on (start_date, trip_id, stop_id, issued_at, observed_at).
+          ~1.35M rows backfilled by 4B, one per prediction that could be checked
+          against an arrival.
+        loaded_at_field: observed_at
+        # The check that would have caught the prediction job going absent: it
+        # was missing for hours after a 13:11 crash and nothing said so. dbt
+        # source freshness runs inside transit_dbt, whose hourly run at :15
+        # fails the task once the lag passes 30 minutes, so an absence surfaces
+        # 30 to 90 minutes after it starts rather than within half an hour.
+        freshness:
+          warn_after: {count: 15, period: minute}
+          error_after: {count: 30, period: minute}
+      - name: bunching_alerts
+        description: >
+          alerts.bunching, sunk by connect/bunching_alerts.json with upsert on
+          (vehicle_id_a, vehicle_id_b, window_end). That key is not decoration:
+          the topic holds duplicate alerts from the pre-4B detector runs, and
+          the upsert is what collapses them into one row per alert.
+
+  - name: static
+    description: Versioned static GTFS, loaded by static/run.py (Phase 2).
+    tables:
+      - name: routes
+      - name: trips
+      - name: feed_version

@@ -1,0 +1,121 @@
+# Airflow for transit-stream: the BATCH side, in its own compose project.
+#
+#     make airflow-up        # http://localhost:8088  (admin / admin)
+#
+# The shape is the parcel project's, reused on purpose rather than redesigned,
+# and its three separations carry over unchanged:
+#
+#   1. Airflow never shares a Python environment with dbt. Tasks run the
+#      transit-dbt image as SIBLING containers via DockerOperator.
+#   2. Airflow's metadata lives in its own Postgres, not in the warehouse.
+#   3. Airflow orchestrates the batch side only -- static refresh, dbt,
+#      partition maintenance, health checks. It does NOT run the stream. The
+#      producer, enrichment and Flink jobs are long-running services, and an
+#      orchestrator that "schedules" a streaming job is the wrong tool
+#      pretending to be the right one. The README states the same boundary.
+#
+# Port 8088, not 8080: the parcel project's Airflow holds 8080 and both may run
+# at once (docker-compose.yml, constraint 2).
+
+name: transit_airflow
+
+x-airflow-env: &airflow-env
+  AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+  AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+  AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+  # Pinned from .env for the parcel project's reason: airflow.cfg is not on a
+  # volume, so without this every recreate generates a new secret_key and
+  # silently invalidates every open browser session.
+  AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:?set AIRFLOW_SECRET_KEY in .env}
+  # The warehouse, as an Airflow connection defined by environment variable
+  # rather than through the UI, so it is reproducible from a clean clone.
+  # `warehouse:5432` -- the compose service name and INTERNAL port, reachable
+  # because this project joins the transit network below. Not localhost:5434,
+  # the host-side mapping .env carries for local tools.
+  AIRFLOW_CONN_WAREHOUSE: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@warehouse:5432/${POSTGRES_DB}
+  # Passed through to dbt task containers.
+  POSTGRES_USER: ${POSTGRES_USER}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  POSTGRES_DB: ${POSTGRES_DB}
+  # Forwarded to the static loader's task container. static/feed.py reads it
+  # with its own default, so it is only forwarded when set: this env block
+  # passing an empty string would strip the good-citizen contact from requests
+  # to King County.
+  FEED_USER_AGENT: ${FEED_USER_AGENT:-}
+  # Absolute HOST path of the repo. DockerOperator asks the host daemon to
+  # mount volumes, so a path inside this container would be meaningless to it
+  # and would silently mount an empty directory. `make airflow-up` sets PWD.
+  TRANSIT_HOST_ROOT: ${PWD}
+
+services:
+  airflow-db:
+    image: postgres:16
+    restart: unless-stopped
+    mem_limit: 512m
+    memswap_limit: 512m
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    # A host bind mount under /mnt/F/docker-data like every other volume in
+    # this repo (docker-compose.yml, constraint 1), not the parcel project's
+    # named volume. `make dirs` creates and chowns it to 999.
+    volumes:
+      - /mnt/F/docker-data/transit-airflow-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 10
+
+  airflow:
+    # The image tag is the pin. 2.10.5 ships the three providers the DAGs
+    # use -- docker 4.0.0, postgres 6.0.0, common-sql 1.21.0 (checked) -- so
+    # there is no _PIP_ADDITIONAL_REQUIREMENTS installing anything at start.
+    image: apache/airflow:2.10.5
+    # restart: unless-stopped and a memory cap, both added 2026-09-23. The
+    # restart policy was simply absent before, so every reboot left the batch
+    # side down until somebody ran `make airflow-up` again. The cap is the
+    # docker-compose.yml constraint 3 argument applied here: without one, a
+    # runaway scheduler or webserver competes with the stream and the IDE for
+    # the same 31G.
+    restart: unless-stopped
+    mem_limit: 2g
+    memswap_limit: 2g
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    environment:
+      <<: *airflow-env
+    # UID 50000 is the image's airflow user, and the GROUP MUST BE 0 -- the
+    # image makes /opt/airflow group-writable by root group so it can run
+    # under an arbitrary UID. Docker-socket access comes from group_add, which
+    # is additive. (Parcel project: passing the docker gid as the primary group
+    # broke `db migrate` before the scheduler started.)
+    user: "50000:0"
+    group_add:
+      - "${DOCKER_GID:-952}"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "${AIRFLOW_PORT:-8088}:8080"
+    # A LITERAL block (|), and every line a complete command. The parcel
+    # project's first version used a folded block, which only joins lines at
+    # equal indentation: the wrapped `users create` arguments became separate
+    # commands, `|| true` hid the failure, and standalone created an admin
+    # with a random password nobody ever saw.
+    command:
+      - bash
+      - -c
+      - |
+        airflow db migrate
+        airflow users create --role Admin --username admin --password admin \
+          --email admin@example.com --firstname Admin --lastname User || true
+        exec airflow standalone
+
+networks:
+  default:
+    name: transit-stream_default
+    external: true

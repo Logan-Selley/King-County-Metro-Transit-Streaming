@@ -1,0 +1,33 @@
+# Build-context hygiene, and it is a memory/disk issue before it is a
+# tidiness one.
+#
+# Docker sends the whole build context to the daemon BEFORE any COPY runs, so
+# this list applies even though no Dockerfile in this repo COPYs from the
+# context today (verified against docker/Dockerfile.flink, .connect and .dbt,
+# all of which install from the network and mount at runtime instead).
+#
+# The project lives on an NTFS mount (/mnt/F). .venv alone is tens of
+# thousands of files, and dbt/target is regenerated on every `make dbt`, so
+# without this every `make flink-up` and `make connect-up` pays to transfer
+# and hash both of them for nothing.
+#
+# .env is here for a second reason: it holds the passwords, and there is no
+# build that needs them. Compose substitutes them at runtime.
+
+.git
+.venv
+.env
+data
+logs
+dbt/target
+dbt/logs
+dbt/dbt_packages
+dbt/.user.yml
+
+__pycache__
+**/__pycache__
+*.py[cod]
+*.egg-info
+
+.pytest_cache
+.ruff_cache

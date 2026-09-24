@@ -1,0 +1,28 @@
+# transit-stream analytics layer (Phase 4).
+#
+# Layers follow the schemas 01-schema.sql created in Phase 0:
+#   raw      what the Connect sink lands, never edited by dbt
+#   staging  one view per source: types, units, names; no business logic
+#   marts    tables built for a question, the only thing a chart reads
+#
+# Staging is views on purpose. raw.enriched_vehicle_positions grows ~1M rows
+# a day and is partitioned by day, so a view over it prunes partitions from
+# the mart's own date filter; a staging TABLE would copy the whole thing on
+# every hourly run to save nothing.
+name: transit_stream
+version: "0.4.0"
+profile: transit_stream
+config-version: 2
+
+model-paths: ["models"]
+test-paths: ["tests"]
+
+models:
+  transit_stream:
+    staging:
+      +materialized: view
+      +schema: staging
+    marts:
+      +materialized: table
+      +schema: marts
+

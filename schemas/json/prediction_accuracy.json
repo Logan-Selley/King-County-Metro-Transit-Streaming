@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PredictionAccuracy",
+  "description": "One prediction resolved against the arrival it predicted. Written by consumers/prediction/job.py, sunk into raw.prediction_accuracy by connect/prediction_accuracy.json. One row is one point on the error curve; consumers/prediction/accuracy.py states the sign convention.",
+  "type": "object",
+  "properties": {
+    "lead_time_s": {
+      "type": "number",
+      "description": "predicted_arrival minus issued_at, both from the PREDICTION. Negative for the ~2.8% of records restating an arrival in the past."
+    },
+    "error_s": {
+      "type": "number",
+      "description": "POSITIVE means the prediction was later than reality, so a rider who trusted the sign missed the bus. A sign flip here inverts every conclusion, which is why accuracy_record documents it twice."
+    },
+    "abs_error_s": {
+      "type": "number"
+    },
+    "lead_bucket": {
+      "type": "string",
+      "description": "One of LEAD_BUCKET_LABELS. Not an enum on purpose: adding a bucket would then be a schema change for no gain, and the bucket set is pinned by dbt tests instead."
+    },
+    "trip_id": {
+      "type": "string"
+    },
+    "stop_id": {
+      "type": "string"
+    },
+    "route_id": {
+      "type": ["null", "string"]
+    },
+    "route_short_name": {
+      "type": ["null", "string"],
+      "description": "From the OBSERVATION, because the prediction stream carries no route_short_name. NULL on the late-prediction path, where only the arrival timestamp was kept."
+    },
+    "start_date": {
+      "type": "string",
+      "description": "ISO here, unlike the enriched topic's GTFS form. The two topics disagree on purpose; see consumers/prediction/accuracy.py's service_day()."
+    },
+    "issued_at": {
+      "type": "integer",
+      "description": "Epoch SECONDS, as an INTEGER: the TimestampConverter rejects FLOAT64."
+    },
+    "predicted_arrival": {
+      "type": "integer",
+      "description": "Epoch SECONDS, as an INTEGER, same reason as issued_at."
+    },
+    "observed_at": {
+      "type": "integer",
+      "description": "Epoch SECONDS, as an INTEGER. The connector partitions on this one, so unix.precision=seconds is load-bearing too."
+    }
+  },
+  "required": [
+    "lead_time_s",
+    "error_s",
+    "abs_error_s",
+    "lead_bucket",
+    "trip_id",
+    "stop_id",
+    "start_date",
+    "issued_at",
+    "predicted_arrival",
+    "observed_at"
+  ]
+}

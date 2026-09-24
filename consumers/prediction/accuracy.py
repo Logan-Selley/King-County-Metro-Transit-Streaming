@@ -188,8 +188,14 @@ def parse_prediction(rec: dict) -> dict | None:
     arrival_time_epoch_s = epoch_s(rec.get("arrival_time"))
     if arrival_time_epoch_s is None:
         return None
-    prediction_record["predicted_arrival"] = arrival_time_epoch_s
-    prediction_record["issued_at"] = epoch_s(rec.get("trip_timestamp"))
+    # int(), not float. The sink's TimestampConverter reads these as unix
+    # seconds and refuses FLOAT64: with floats the JDBC task died on "Schema
+    # Schema{FLOAT64} does not correspond to a known timestamp type format"
+    # having written nothing. The protobuf path never met this because int64
+    # arrives as an integer.
+    prediction_record["predicted_arrival"] = int(arrival_time_epoch_s)
+    issued_at = epoch_s(rec.get("trip_timestamp"))
+    prediction_record["issued_at"] = int(issued_at) if issued_at is not None else None
     return prediction_record
 
 
@@ -231,7 +237,9 @@ def parse_observation(rec: dict) -> dict | None:
     observed_at_epoch_s = epoch_s(rec.get("position_timestamp"))
     if observed_at_epoch_s is None:
         return None
-    observation_record["observed_at"] = observed_at_epoch_s
+    # int(), for the reason parse_prediction records, and this is the field the
+    # connector PARTITIONS on, so a FLOAT64 here fails twice over.
+    observation_record["observed_at"] = int(observed_at_epoch_s)
     return observation_record
 
 

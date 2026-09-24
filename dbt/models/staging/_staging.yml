@@ -1,0 +1,89 @@
+version: 2
+
+models:
+  - name: stg_vehicle_positions
+    description: >
+      One row per (vehicle, GPS fix) from the enriched topic, with local time,
+      service date and ingest lag derived once. This is the pattern the other
+      staging models follow.
+    columns:
+      - name: vehicle_id
+        data_tests: [not_null]
+      - name: position_at
+        data_tests: [not_null]
+      - name: service_date
+        description: >
+          From GTFS start_date, not from position_at. NULL would mean the
+          start_date format changed, which is why it is tested rather than
+          assumed.
+        data_tests: [not_null]
+      - name: current_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['IN_TRANSIT_TO', 'STOPPED_AT', 'INCOMING_AT']
+      - name: ingest_lag_s
+        description: enriched_at minus position_at. ~50s normally.
+
+  - name: stg_bunching_alerts
+    description: >
+      One row per bunched pair per event-time window, from the Flink detector.
+      The model's header carries the three decisions: gap_ft is FEET, local time
+      is converted once, and window_at is the event time rather than the time
+      the row arrived.
+    columns:
+      - {name: vehicle_id_a, data_tests: [not_null]}
+      - {name: vehicle_id_b, data_tests: [not_null]}
+      - name: window_at
+        description: >
+          When the bunching window closed, which is when the alert was emitted.
+          Partition key and the reason the table is partitioned by day.
+        data_tests: [not_null]
+      - {name: gap_ft, data_tests: [not_null]}
+      - {name: local_hour, data_tests: [not_null]}
+      - name: route_short_name
+        description: >
+          Nullable. A route with no short_name in the static feed leaves this
+          NULL; route_id is still populated on the same row.
+      - name: deviation_a
+        description: >
+          Seconds late for the lead bus, NULL when Metro published no schedule
+          estimate, which is not zero (ADR 0005). Inspected rather than tested:
+          a not_null here would fail on real data.
+
+  - name: stg_prediction_accuracy
+    description: >
+      One row per (prediction, observed arrival) pair. The grain the error curve
+      is drawn at, and the model where each prediction's error first becomes
+      checkable rather than merely stated.
+    columns:
+      - {name: trip_id, data_tests: [not_null]}
+      - {name: stop_id, data_tests: [not_null]}
+      - {name: observed_at, data_tests: [not_null]}
+      - name: service_date
+        description: >
+          Parsed from this topic's ISO start_date with an explicit format. NULL
+          would mean the format changed, which is why it is tested rather than
+          assumed -- the enriched topic carries the GTFS form of the same field.
+        data_tests: [not_null]
+      - {name: abs_error_s, data_tests: [not_null]}
+      - name: lead_bucket
+        description: >
+          From consumers/prediction/config.py's LEAD_BUCKET_LABELS, computed in
+          the job. This accepted_values list is the pin on the bucket set: the
+          JSON schema deliberately does not declare an enum, because adding a
+          bucket should not be a schema change, and a typo in a label should
+          still fail the build.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['past', '0-2m', '2-5m', '5-10m', '10-15m',
+                         '15-20m', '20-30m', '30-45m', '45-60m']
+      - name: error_s
+        description: >
+          POSITIVE means the prediction was later than reality, so a rider who
+          trusted the sign was still waiting when the bus left. The sign is
+          stated in consumers/prediction/accuracy.py and in the JSON schema
+          description; it is repeated here because a flip inverts the curve.
+

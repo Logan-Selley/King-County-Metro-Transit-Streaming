@@ -1,0 +1,93 @@
+version: 2
+
+# `contract: enforced` makes the column names and types part of the build.
+# A mart that drifts from them fails `dbt build` instead of quietly handing a
+# chart a renamed column. The stubs satisfy the contract with zero rows, which
+# is why they build; the data tests below and in tests/ are what fail until
+# the logic is real.
+
+models:
+  - name: mart_feed_health
+    config:
+      contract: {enforced: true}
+    columns:
+      - {name: minute_utc,          data_type: timestamptz, data_tests: [not_null]}
+      - {name: minute_local,        data_type: timestamp}
+      - {name: positions,           data_type: integer,     data_tests: [not_null]}
+      - {name: vehicles,            data_type: integer}
+      - {name: median_ingest_lag_s, data_type: integer}
+      - {name: is_silent,           data_type: boolean,     data_tests: [not_null]}
+      - {name: stall_minutes,       data_type: integer,     data_tests: [not_null]}
+
+  - name: mart_route_deviation_hourly
+    config:
+      contract: {enforced: true}
+    columns:
+      - {name: route_short_name,   data_type: text,    data_tests: [not_null]}
+      - {name: service_date,       data_type: date,    data_tests: [not_null]}
+      - {name: local_hour,         data_type: integer, data_tests: [not_null]}
+      - {name: positions,          data_type: integer}
+      - {name: median_deviation_s, data_type: integer}
+      - {name: pct_late_over_5min, data_type: "numeric(5,2)"}
+
+  - name: mart_bunching_by_route_hour
+    description: >
+      Bunching alerts per segment (route + direction) per local hour of day.
+      The proposal's own example question at the grain it was asked in: which
+      segments bunch worst during the PM peak. The composite grain is asserted
+      by assert_bunching_mart_grain_is_unique rather than by a column test,
+      since no single column is unique on its own.
+    config:
+      contract: {enforced: true}
+    columns:
+      - {name: route_short_name,     data_type: text,             data_tests: [not_null]}
+      - {name: direction_id,         data_type: integer,          data_tests: [not_null]}
+      - {name: local_hour,           data_type: integer,          data_tests: [not_null]}
+      - {name: alerts,               data_type: integer,          data_tests: [not_null]}
+      - {name: median_gap_ft,        data_type: "numeric(10,1)"}
+      - name: median_deviation_a_s
+        description: >
+          Median seconds late for the lead bus of the pair. NULL where Metro
+          published no estimate for any alert in the group.
+        data_type: integer
+      - name: median_deviation_b_s
+        description: >
+          Median seconds late for the following bus, same NULL rule. Published
+          alongside the lead's because one bus eight minutes late is a different
+          rider experience from two buses both on time.
+        data_type: integer
+
+  - name: mart_prediction_error_by_lead
+    description: >
+      The error curve. One row per lead bucket, ordered by how far ahead the
+      prediction was issued, reproducing from the warehouse what Phase 3
+      measured from the job's output: the typical mistake grows with lead time,
+      and the sign is optimistic at every lead. The two claims are asserted by
+      assert_prediction_error_grows_with_lead rather than left to the reader.
+    config:
+      contract: {enforced: true}
+    columns:
+      - name: lead_bucket
+        description: >
+          Computed in the job, never re-derived in SQL. The bucket set is pinned
+          by the accepted_values test on stg_prediction_accuracy.lead_bucket,
+          which is where the labels enter the warehouse.
+        data_type: text
+        data_tests: [not_null, unique]
+      - name: bucket_order
+        description: >
+          min(lead_time_s) within the bucket, so its ordering cannot drift from
+          the Python bucket definitions the way a hardcoded CASE over nine
+          labels would.
+        data_type: integer
+        data_tests: [not_null, unique]
+      - {name: predictions,        data_type: integer, data_tests: [not_null]}
+      - {name: median_abs_error_s, data_type: integer}
+      - {name: p90_abs_error_s,    data_type: integer}
+      - name: mean_error_s
+        description: >
+          Positive where the sign runs optimistic. Both this and the median are
+          published because they answer different questions: which way the sign
+          errs, and how big a typical mistake is.
+        data_type: integer
+

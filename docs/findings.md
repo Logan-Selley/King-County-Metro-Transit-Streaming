@@ -959,7 +959,307 @@ against departure instead of arrival moves the mean by about 10 s.
 against the first. Keying on stop sequence would close it; at 0.1% of trips it
 was not worth a key change before the curve existed.
 
-## Corrections to the proposal
+## Phase 3 close-out: both jobs, live, overnight
+
+Both Flink jobs ran from 00:00 to 07:46 on 2026-09-23, sampled every five
+minutes by a monitor script. Every sample shows both jobs `RUNNING`, the
+producer and enrichment consumer alive, and TaskManager memory drifting *down*
+from 5.67 to ~4.8 GiB. Prediction restarted 0 times overnight; bunching's 9
+restores all date from the crash described below, the last at 00:09.
+
+### The live join reproduces the offline curve
+
+455,479 accuracy records over 15,735 stop arrivals, zero issued after their
+bus had arrived:
+
+```
+bucket   LIVE med|err|  mean   OFFLINE med|err|  mean
+0-2m          43s        +12s        45s          +17s
+2-5m          72s        +54s        80s          +59s
+5-10m         86s        +63s        96s          +71s
+10-15m        98s        +74s       109s          +75s
+15-20m       114s        +89s       123s          +79s
+20-30m       133s       +105s       139s          +81s
+30-45m       163s       +132s       167s         +111s
+45-60m       199s       +201s       196s         +151s
+```
+
+Medians agree within about 10 s everywhere and rise monotonically, so the exit
+criterion holds on the Flink job itself and not only offline. The live bias is
+larger at long leads; the live window is overnight service plus a morning peak,
+a different mix of hours from the offline slice, so that is a different sample
+rather than a contradiction.
+
+Bunching from 05:00 to 07:46: 21 alerts, G Line first with 9, and **none on
+route 255**, which is the stop-sequence gate holding on data it was not tuned
+against.
+
+### Four things broke getting both jobs up, and none showed up in a test
+
+1. **Durable checkpoints were deleted.** Flink's default retention is
+   `NO_EXTERNALIZED_CHECKPOINTS`, which removes a job's checkpoints when the
+   job ends. The old bunching job completed checkpoint 1750, the JobManager
+   took a SIGTERM 13 s later, and MinIO held nothing. There is also no
+   JobManager HA, so the restarted JobManager logged "Successfully recovered 0
+   persisted job graphs". Now `RETAIN_ON_CANCELLATION`: resumable by hand with
+   `flink run -s`, not automatic.
+2. **The TTL code could not run where it runs.** `AccuracyJoin.open()` built
+   its TTL with `Duration.of_seconds()`, which calls into the JVM through
+   py4j. `open()` executes in the Python UDF worker, which has no gateway. The
+   builder is typed to take `Time`, a plain Python class, anyway. The contract
+   suite cannot see this because it never imports `job.py`.
+3. **Direct memory, not heap.** With nine slots of Python workers, Beam's gRPC
+   channels exhausted a direct-memory budget of ~630 MB (mostly Flink's own
+   network buffers) within 25 s. It is the TaskManager that dies, so it took
+   the healthy bunching job with it. 1 GB of task off-heap fixed it.
+4. **A replay would have run out of memory by construction.** PyFlink's
+   State TTL is processing-time only, so replaying 31.9M trip updates expires
+   nothing while the hashmap backend holds every key on heap, and only 27.5%
+   of predictions ever find an arrival. The prediction job starts at the head
+   of both topics; history is answered offline.
+
+**The crash in (3) exercised (1)'s fix.** After the TaskManager died, bunching
+restored itself from `chk-10` in MinIO without intervention: the first real
+test of the durable-checkpoint path, passed.
+
+### Metro's feed stopped for 80 minutes, and nothing alerted
+
+From ~03:00 to 04:21 the upstream S3 objects stopped changing. Every poll
+returned unchanged (`unchanged` 404 -> 873, `errors=0`), positions and trip
+updates froze together as Phase 0 predicted they would, and the producer
+resumed on its own. A single DNS failure at 03:07 retried successfully and was
+coincidence, not cause.
+
+The producer's `stale=` counter measured the whole gap, peaking at 3,998 s.
+It lives in a log line. **Nothing alerted**, which is the Phase 4 requirement
+this night produced: feed health has to be a queryable table, not a log.
+
+## Phase 4 start: the warehouse boundary, measured into existence
+
+At the end of Phase 3, nothing had ever crossed from Kafka into PostGIS. Every
+`raw.*` table held zero rows. Full detail is in
+[ADR 0008](decisions/0008-warehouse-sink.md); the short version is that the
+Kafka Connect sink took four failures to get right, and none of them were
+visible from its configuration:
+
+1. The stock Connect image's own ProtobufConverter crashes with a
+   `VerifyError`: protobuf-java 3.23.4 sits ahead of 3.25.4 on the worker
+   classpath. It's the Flink decoder's rule again, in Java. The first fix
+   silently did nothing, because it wrote into a path the base image
+   declares a `VOLUME`.
+2. The sink can't see a partitioned table unless
+   `table.types=PARTITIONED TABLE`.
+3. `errors.tolerance=all` turned (2) into a green dashboard: 317,144 records
+   went to the DLQ, 0 reached the table, and every task said `RUNNING`.
+4. Connect's internal topics must be pre-created compacted, or Redpanda's
+   auto-create beats Connect to them with `cleanup.policy=delete`.
+
+**Then the delivery design was tested rather than argued.** The connector's
+offsets were reset and the whole topic replayed from zero. Rows that existed
+before the replay: 2,578,202. After: 2,578,202. The primary key plus upsert
+is the idempotency guarantee, same as Phase 0 designed on paper.
+
+**The warehouse can see the 03:00 stall.** Minute counts for 2026-09-23 show
+owl service never silent (thinnest minute: 30 positions), the upstream stall
+as exactly 82 silent minutes (03:00-04:21), and a flapping recovery with
+silent runs of 1-4 minutes. So the alert threshold is 5 consecutive minutes,
+and it's measured. The same query also shows the ~10 hours of silence before
+midnight on the 22nd, which was our producer being down, not Metro. From
+positions alone the two look identical, and `mart_feed_health` says so.
+
+## Phase 4B: two Flink topics into the warehouse, and the bug that hid in the sink
+
+The enriched topic had been landing for a day. The two Flink outputs could not:
+`alerts.bunching` and `analytics.prediction_accuracy` were schemaless JSON, and
+the JDBC sink needs a schema for every record. ADR 0008's answer was to register
+a JSON Schema per topic and have the jobs write Confluent framing -- five bytes,
+`0x00 | schema id (uint32) | UTF-8 JSON` -- so 4B built the framing helper
+(`consumers/framing.py`, standard library only, because the Flink image has no
+Kafka client), the two JSON Schemas, `make schema-register-sinks`, and the
+partitioned sink tables in `docker/initdb/05-flink-sinks.sql`.
+
+**The pre-framing records had to be migrated rather than abandoned.** By the
+time the framing existed the alert topic held 3,437 records and the prediction
+topic 1,346,226, all written before it. A connector reading `earliest` dies on
+the first one ("Unknown magic byte!"), and `latest` forfeits exactly the data the
+exit criterion is about. `consumers/reframe_topic.py` re-frames a topic in
+place, and it dumps every record to base64 JSONL *before* it deletes anything.
+That was not ceremony:
+
+- On its first run against the prediction topic, the producer hit its default
+  local queue limit (100,000 messages or 30 MB) and died with
+  `BufferError: Local: Queue full` **after** publishing 325,808 of 1,346,226.
+  The dump turned a data loss into a three-minute rerun. The fix is one
+  `producer.poll()` retry loop, and the comment in the file says so.
+- The topics turned out to hold records that no header can explain: 1,218 in
+  `alerts.bunching` carrying a valid frame, then 16 bytes of binary, then the
+  frame and the JSON again, and some with pickle opcodes trailing the JSON.
+  Every record was recovered by decoding the JSON object and discarding what
+  surrounds it, which is why the final run reports `republished 2,438 of 2,438`
+  with no skips.
+
+**THE HEADLINE BUG. The jobs were writing pickles, not frames.** The framing
+code was correct and the schema id resolved correctly, and every live record
+still began `80 05 95 11 01 00 00 00 00 00 00 42 0a ...`. That is not a frame:
+`80 05` is pickle protocol 5, `95` is FRAME, and the eight bytes after it are the
+remaining length -- 0x111, which is 273, which is 284 minus the 11-byte header.
+The cause is the stream type in front of the Kafka sink:
+
+```python
+output_type=Types.PICKLED_BYTE_ARRAY()   # pickles, always
+```
+
+PyFlink's own docstring for that type is "Returns type information which uses
+pickle for serialization/deserialization". It is the type for *payloads that are
+pickles*, not for raw bytes, and returning a `bytearray` instead of `bytes` does
+not change it. The connector said exactly what it saw -- `Unknown magic byte!`
+and `Error deserializing JSON message for id -1` -- and with
+`errors.tolerance=none` that turned into a dead task within seconds. The fix is
+`Types.PRIMITIVE_ARRAY(Types.BYTE())`, which maps to a Java `byte[]` and reaches
+`ByteArraySchema` as the bytes that were meant.
+
+Two things about this are worth keeping. It was **invisible to every test**: 235
+contract tests passed while it was broken, because they test `framing.frame` in
+isolation and it returned the right bytes. What caught it was reading the first
+bytes of a live record by hand. And the same bug sits in both jobs, because both
+were written from the same pattern.
+
+**Three more failures on the way, all measured, all in the schemas.** The
+registry rejected the first fix to the epoch fields as `TYPE_NARROWED`: both
+schemas had declared them `number`, the jobs emitted Python floats, and the
+connector's `TimestampConverter` accepts `INT32`/`INT64` only, so every task on
+both connectors died on
+
+```
+Schema Schema{FLOAT64} does not correspond to a known timestamp type format
+```
+
+having written zero rows. Fixing that meant declaring `integer`, coercing at the
+point each timestamp enters the pipeline (`int()` in the two parse functions and
+on the window end), *and* deleting and re-registering both subjects, because
+BACKWARD compatibility is doing its job: a narrowing type change is exactly what
+it exists to refuse. The new ids 6 and 7 then required re-framing every migrated
+record, which is why `reframe` compares the id it finds rather than just looking
+for a magic byte.
+
+**The upsert key earned its place.** The alert topic's 2,219 records resolved to
+1,186 distinct `(vehicle_id_a, vehicle_id_b, window_end)` tuples and the
+prediction topic's 1,346,226 to 1,302,521 distinct keys -- 1,033 and 43,705
+records that duplicate a record already in the topic, collapsed by the primary
+keys `05-flink-sinks.sql` declares. Every record in both topics is accounted
+for: the warehouse counts equal the distinct keys, exactly.
+
+## Phase 4F: the curve, from the warehouse this time
+
+`mart_prediction_error_by_lead` builds the chart Phase 3 drew from a script:
+
+| lead_bucket | predictions | median abs error | p90 | mean error |
+|---|---|---|---|---|
+| past | 369 | 179 s | 463 s | -283 s |
+| 0-2m | 46,229 | 44 s | 86 s | +11 s |
+| 2-5m | 183,825 | 75 s | 148 s | +50 s |
+| 5-10m | 270,748 | 89 s | 200 s | +57 s |
+| 10-15m | 218,124 | 102 s | 246 s | +60 s |
+| 15-20m | 172,982 | 116 s | 284 s | +63 s |
+| 20-30m | 233,908 | 132 s | 327 s | +64 s |
+| 30-45m | 144,721 | 157 s | 390 s | +73 s |
+| 45-60m | 31,615 | 187 s | 456 s | +90 s |
+
+Same shape as the offline curve and nearly the same numbers (43 s -> 199 s
+offline, 44 s -> 187 s here): the typical mistake grows with lead time and the
+mean stays positive, so the sign runs optimistic. The `past` bucket is negative
+by construction -- it holds predictions restating an arrival that already
+happened -- which is why the test asserting optimism excludes it. The first
+version of that test did not, and failed at -283 s, which was the test being
+wrong rather than the data.
+
+`bucket_order` is `min(lead_time_s)` within the bucket rather than a CASE over
+the nine labels. A CASE would be a second copy of `LEAD_BUCKET_LABELS`, and a
+relabelled bucket would then sort silently in the wrong order; the minimum lead
+time is monotonic with the bucket order by construction.
+
+**Two pre-existing tests broke, and the reason was my own speed.** Adding two
+marts over 1.3M rows took `make dbt` from about 20 seconds to 131, and two
+singular tests reconcile a materialized mart against a live view:
+`feed_health_covers_every_minute` expected 4,511 minutes and found 4,510,
+because a minute of positions arrived between building the mart and running the
+test. That race was always reachable; a slow build makes it certain. Both tests
+now compare within windows that are closed -- the mart's own span for one, all
+route-hours before staging's newest for the other -- and `make dbt` is 47 pass,
+0 fail.
+
+**4F dropped the three Phase 0 tables**, `raw.vehicle_positions`,
+`raw.trip_updates` and `raw.service_alerts`, measured empty immediately
+beforehand. They were designed for a Connect sink that could never fill them
+(ADR 0005 kept the raw topics schemaless), nothing in the repository read them,
+and an empty table is a shape a reader will believe. The Kafka topics stay: they
+are the real Phase 0 contract and the Flink jobs read them.
+
+## Phase 4 review: five bugs, and four of them were the same bug
+
+Reviewed as a reader rather than a runner: the logic re-derived by hand, every
+silent run in the warehouse replayed through it, and every comment checked
+against what the code actually does. Five things were wrong.
+
+1. **THE STALL ALERT MISSED ITS OWN STALL.** `transit_health` measured its
+   window back from `now()`, which at the :45 check is `:45 minus an hour`. A
+   stall only reaches the mart once data RESUMES, so a run whose last silent
+   minute falls between :15 and :44 is not in the mart yet at :45, and by the
+   following :45 it has fallen outside the window: 04:21 against a cutoff of
+   04:45. Replaying every silent run of 5 or more minutes found exactly one
+   casualty, and it was the stall the mart exists for, 2026-09-23 03:00-04:21.
+   The window is anchored to the mart's own latest minute now, and overlaps the
+   previous one by ten minutes, so consecutive builds cover back-to-back windows
+   and a failed build re-measures one rather than skipping it. Verified as
+   arithmetic both ways: cutoff 04:45 leaves the run outside, cutoff 04:05 puts
+   it inside.
+
+2. **THE PREDICTION JOB WAS OFF BY DEFAULT FOR A REASON THAT WASN'T TRUE.** The
+   gate said the join reads `raw.trip_updates` from `earliest`, ~47M records, so
+   auto-submitting would replay that on every boot. It reads from `latest()`, a
+   change made during the Phase 3 close-out, so submitting it costs nothing. It
+   is on by default now, with `FLINK_AUTOSUBMIT_PREDICTION=0` to opt out. What
+   the false premise cost, measured: after a 13:11 crash only the detector came
+   back, and the prediction job stayed absent for hours.
+
+3. **AND NOTHING WOULD HAVE NOTICED.** `sources.yml` argued that neither Flink
+   output deserved a freshness check, because both arrive once a window closes.
+   True of the alert table, false of the prediction table: over 13 hours rows
+   arrived in every single minute, owl service included, and the only gaps of
+   ten minutes or more were the 84-minute upstream stall and a 114-minute one
+   beginning at 10:07. So 15/30 minutes on `observed_at` fires on real outages
+   only, and the absence above becomes a failed task at transit_dbt's next
+   hourly run: 30 to 90 minutes after the job stops writing.
+
+4. **THE BUNCHING SOURCE IGNORED ITS OWN DOCSTRING.** The docstring described
+   resuming from committed offsets; the call was `.earliest()`, which ignores
+   them. Every boot replayed the topic's full 7-day retention into
+   `alerts.bunching`, four replays in one day, and the warehouse's upsert hid
+   the duplicates while the topic kept every one of them. It is
+   `committed_offsets(EARLIEST)` now, which resumes from the group's commits --
+   1,116,529, 1,056,160 and 1,052,260 on the three partitions -- and falls back
+   to earliest only for a genuinely new group. Verified by the thing it fixes:
+   the alert topic's high watermark stood still across the resubmit, where the
+   old job had been climbing hundreds of records a minute.
+
+5. **THE SCHEMA LOOKUP RACED THE BROKER.** `flink-submit.sh` waited for the
+   JobManager and not for the schema registry, and the jobs resolve their sink
+   schema id at submission time, before the job graph is built. One boot failed
+   that lookup three times with "Connection refused" and succeeded on the fourth
+   only because the restart policy kept retrying, which dresses a slow boot up
+   as a flaky script. It waits on `/subjects` now, the way it already waited on
+   `/overview`.
+
+**FOUR OF THE FIVE ARE THE SAME FAILURE: a comment describing behaviour the code
+does not have.** The docstring said committed offsets while the code said
+earliest. The gate's comment said earliest while the code said latest.
+`sources.yml` said no freshness was warranted while its own data said otherwise.
+The mart headers still carried the scaffold's "THE TRAPS, in the order they will
+bite", repeating decisions stated directly above them, one of which claimed the
+thinnest owl-service minute held 3 positions when the mart says 30. That is the
+same class as the framing bug that cost a day in 4B, where the code was right
+about intent and wrong about effect. Prose is not a test, and a comment that
+restates a decision is a comment that will eventually disagree with it.
 
 1. Basic JSON mirrors do not exist (403). Only enhanced JSON. §2's feed table
    should say protobuf + enhanced JSON.

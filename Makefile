@@ -44,10 +44,24 @@ dirs:  ## Create + chown the bind-mounted data directories (needs sudo, once)
 	@# uid (a stack brought up with a `user:` override, a volume moved between
 	@# machines) stays unreadable and postgres fails AFTER initdb rather than
 	@# before, which is a much more confusing failure.
-	@sudo mkdir -p $(DATA)/transit-warehouse $(DATA)/transit-redpanda $(DATA)/transit-minio
+	@sudo mkdir -p $(DATA)/transit-warehouse $(DATA)/transit-redpanda $(DATA)/transit-minio $(DATA)/transit-airflow-db
 	@sudo chown -R 999:999 $(DATA)/transit-warehouse && sudo chmod 700 $(DATA)/transit-warehouse
+	@sudo chown -R 999:999 $(DATA)/transit-airflow-db
 	@sudo chown -R 101:101 $(DATA)/transit-redpanda
 	@sudo chown -R $$(id -u):$$(id -g) $(DATA)/transit-minio
+	@# Airflow's task logs. The only bind mount that lives INSIDE the repo rather
+	@# than under $(DATA) (docker-compose.airflow.yml), and it needs a chown like
+	@# the rest: the container runs as 50000:0, and a root-owned 755 directory
+	@# makes it die at startup with
+	@#
+	@#   ValueError: Unable to configure handler 'processor'
+	@#
+	@# before it can even migrate its own database, which is a log-permission
+	@# error wearing a logging-config error's clothes. Added 2026-09-23, when
+	@# `make airflow-up` was found to have never produced a running Airflow on
+	@# this machine.
+	@sudo mkdir -p $(ROOT)/airflow/logs
+	@sudo chown -R 50000:0 $(ROOT)/airflow/logs
 	@echo "data directories ready under $(DATA)"
 
 up: $(ROOT)/.env  ## Start the core stack (redpanda, console, warehouse, minio)
@@ -59,11 +73,28 @@ up: $(ROOT)/.env  ## Start the core stack (redpanda, console, warehouse, minio)
 	@echo "  registry   http://localhost:$${REDPANDA_REGISTRY_PORT:-18081}"
 	@echo "  warehouse  localhost:$${WAREHOUSE_PORT:-5434}"
 
-connect-up: $(ROOT)/.env  ## Start Kafka Connect too (~1.5GB image, see compose)
-	@$(DC) --profile connect up -d
+connect-up: $(ROOT)/.env  ## Build + start Kafka Connect (see docker/Dockerfile.connect)
+	@$(DC) --profile connect up -d --build connect
+
+# PUT, not POST: PUT /connectors/<name>/config creates or updates, so this is
+# safe to re-run after editing a config. Name comes from the file name.
+connect-register:  ## Register/update every sink in connect/*.json
+	@for f in $(ROOT)/connect/*.json; do n=$$(basename $$f .json); \
+	  echo "registering $$n"; \
+	  curl -sf -X PUT -H 'Content-Type: application/json' --data @$$f \
+	    localhost:$${CONNECT_PORT:-8083}/connectors/$$n/config >/dev/null || exit 1; done
+
+connect-status:  ## Show every connector's state and task states
+	@curl -s "localhost:$${CONNECT_PORT:-8083}/connectors?expand=status" | python3 -c \
+	  "import json,sys; [print(f\"{n:<32} {v['status']['connector']['state']:<8} tasks: {' '.join(t['state'] for t in v['status']['tasks'])}\") for n,v in json.load(sys.stdin).items()]"
 
 down:  ## Stop the stack (data directories are preserved)
-	@$(DC) --profile connect down
+	@# Every profile a start target can bring up, or a container outside them
+	@# survives `make down` and keeps writing to a stopped broker. flink is
+	@# absent on purpose: it has its own target pair, and leaving the cluster
+	@# running against a stopped broker is the pre-existing behaviour rather
+	@# than one this change introduces.
+	@$(DC) --profile connect --profile stream down
 
 ps:  ## Show container status
 	@$(DC) ps
@@ -101,6 +132,13 @@ topics: ## Create the Kafka topics with their intended configs
 	@# rather than reading it in order, so per-key ordering buys nothing here.
 	@$(DC) exec -T redpanda rpk topic create analytics.prediction_accuracy \
 	  -p 3 -r 1 -c retention.ms=2592000000 || true
+	@# Kafka Connect's own state. COMPACTED, and created here rather than by
+	@# Connect: Redpanda auto-creates a topic the moment any client touches it,
+	@# with the broker default cleanup.policy=delete, and if that happens first
+	@# the worker refuses to start ("offset.storage.topic ... is required to
+	@# have 'cleanup.policy=compact'"). Measured, not hypothetical.
+	@for t in _connect_configs _connect_offsets _connect_status; do \
+	  $(DC) exec -T redpanda rpk topic create $$t -p 1 -r 1 -c cleanup.policy=compact || true; done
 	@# One DLQ topic per feed: run.py routes with f"dlq.{spec.name}", so every
 	@# feed in feeds.py needs its topic here, or the first DLQ produce would
 	@# auto-create it with broker defaults.
@@ -108,6 +146,15 @@ topics: ## Create the Kafka topics with their intended configs
 	@$(DC) exec -T redpanda rpk topic create dlq.trip_updates -p 1 -r 1 || true
 	@$(DC) exec -T redpanda rpk topic create dlq.service_alerts -p 1 -r 1 || true
 	@echo
+	@# `rpk topic create` is a NO-OP on a topic that already exists, and it does
+	@# not apply config either -- so a topic recreated by the 4B framing
+	@# migration (consumers/reframe_topic.py) would silently lose its retention
+	@# window. These re-apply the ones that matter, which also makes this target
+	@# the single place topic config lives.
+	@$(DC) exec -T redpanda rpk topic alter-config alerts.bunching \
+	  --set retention.ms=2592000000 || true
+	@$(DC) exec -T redpanda rpk topic alter-config analytics.prediction_accuracy \
+	  --set retention.ms=2592000000 || true
 	@$(DC) exec -T redpanda rpk topic list
 
 topic-describe:  ## Show config for one topic (T=raw.service_alerts)
@@ -139,7 +186,13 @@ static-status:  ## Show loaded static GTFS versions
 	@$(ENV) $(PY) -m static.run --status
 
 static-load:  ## Load the GTFS zip into PostGIS (skips if the ETag is unchanged)
-	@$(ENV) $(PY) -m static.run --load
+	@# 99 is static.run's "the ETag has not moved": not a failure, and the one
+	@# exit code the Airflow DAG turns into SKIPPED. Passed through unchanged
+	@# it makes `make` print "*** Error 99" and reads as a broken load, so it
+	@# is caught here and only a real non-zero code escapes.
+	@$(ENV) $(PY) -m static.run --load; rc=$$?; \
+	  if [ $$rc -eq 99 ]; then echo "  (ETag unchanged: nothing to load)"; \
+	  else exit $$rc; fi
 
 static-hoods:  ## Load the King County neighborhood polygons
 	@$(ENV) $(PY) -m static.run --neighborhoods
@@ -167,6 +220,13 @@ schema-gen:  ## Generate _pb2.py + .desc from the .proto (build output, gitignor
 schema-register:  ## Register the enriched protobuf schema
 	@$(ENV) $(PY) -m consumers.enrichment.register
 
+# The two Flink output topics, which are JSON rather than protobuf and need a
+# schema of their own before the JDBC sink will read them (ADR 0008, step 4B).
+# Separate from `schema-register` because they are a different registry type
+# against a different producer; `--check` and `--status` work the same way.
+schema-register-sinks:  ## Register the JSON Schemas for alerts.bunching and analytics.prediction_accuracy
+	@$(ENV) $(PY) -m consumers.sink_schemas $(ARGS)
+
 schema-status:  ## Show registered subjects, versions and compatibility
 	@$(ENV) $(PY) -m consumers.enrichment.run --status
 
@@ -175,6 +235,22 @@ enrich-dry:  ## Consume + enrich, publish nothing
 
 enrich:  ## Run the enrichment consumer (V=2 for the spatial pass)
 	@$(ENV) $(PY) -m consumers.enrichment.run --schema-version $(or $(V),1)
+
+# --- supervised stream (run continuously, survive a restart) -----------------
+# The compose services in the `stream` profile. `make produce` and `make
+# enrich` above remain for one-off and debug runs; these are the ones with a
+# restart policy, and they are what stop a machine restart from becoming
+# hours of silently missing data.
+
+pipeline-image:  ## Build the pipeline image (producer, enrichment, static loader)
+	@docker build -q -t transit-pipeline:0.1.0 -f $(ROOT)/docker/Dockerfile.pipeline $(ROOT)
+
+stream-up: $(ROOT)/.env  ## Build + start the supervised producer and enrichment consumer
+	@$(DC) --profile stream up -d --build
+	@$(DC) --profile stream ps
+
+stream-logs:  ## Tail the supervised stream's logs
+	@$(DC) --profile stream logs -f --tail 20 producer enrichment
 
 contract-p2:  ## Run the Phase 2 contract tests (the spec)
 	@$(PY) -m pytest $(ROOT)/tests/test_enrichment_contract.py -m contract \
@@ -190,7 +266,11 @@ flink-up: $(ROOT)/.env  ## Build the PyFlink image and start the cluster
 	@echo "Flink UI -> http://localhost:$${FLINK_UI_PORT:-8086}"
 
 flink-down:  ## Stop the Flink cluster
-	@$(DC) --profile flink stop flink-jobmanager flink-taskmanager
+	@$(DC) --profile flink stop flink-jobmanager flink-taskmanager flink-submit
+
+resume:  ## Re-submit the Flink jobs (idempotent; see docker/flink-submit.sh)
+	@$(DC) --profile flink up -d flink-jobmanager flink-taskmanager flink-submit
+	@$(DC) --profile flink restart flink-submit
 
 flink-ui:  ## Print the Flink web UI URL
 	@$(ENV) echo "http://localhost:$${FLINK_UI_PORT:-8086}"
@@ -256,6 +336,50 @@ contract-schema:  ## Assert what the registry actually enforces (needs it runnin
 smoke:  ## Produce + consume a protobuf round trip against the running stack
 	@$(ENV) $(PY) $(ROOT)/tests/smoke_roundtrip.py
 
+# --- analytics layer (Phase 4) -----------------------------------------------
+# dbt and Airflow each run in their own image; neither is in the project venv
+# and they never share one with each other (docker/Dockerfile.dbt,
+# docker-compose.airflow.yml). dbt runs as a container on the compose network,
+# the same way Airflow's DockerOperator runs it, so a model that works under
+# `make dbt` works under the scheduler.
+
+DBT_IMAGE := transit-dbt:1.11.0
+DBT_RUN = $(ENV) docker run --rm --network transit-stream_default \
+	  -v $(ROOT)/dbt:/dbt -e DBT_PROFILES_DIR=/dbt -e DBT_USE_COLORS=false \
+	  -e POSTGRES_USER -e POSTGRES_PASSWORD -e POSTGRES_DB $(DBT_IMAGE)
+
+dbt-image:  ## Build the dbt image (docker/Dockerfile.dbt)
+	@docker build -q -t $(DBT_IMAGE) -f $(ROOT)/docker/Dockerfile.dbt $(ROOT)
+
+dbt:  ## Run a dbt command in its container (ARGS="build --select stg_vehicle_positions")
+	@$(DBT_RUN) $(or $(ARGS),build)
+
+dbt-freshness:  ## dbt source freshness: is the sink still receiving data?
+	@$(DBT_RUN) source freshness
+
+AIRFLOW := $(ENV) PWD=$(ROOT) docker compose -f $(ROOT)/docker-compose.airflow.yml
+
+airflow-up: dbt-image  ## Start Airflow (http://localhost:8088, admin/admin)
+	@$(AIRFLOW) up -d
+	@echo "Airflow -> http://localhost:$${AIRFLOW_PORT:-8088}"
+
+airflow-down:  ## Stop Airflow (metadata is preserved on the bind mount)
+	@$(AIRFLOW) down
+
+airflow-logs:  ## Tail the Airflow scheduler/webserver logs
+	@$(AIRFLOW) logs -f airflow
+
+# The DAG spec. Imports every DAG inside the Airflow image and checks each has
+# the tasks airflow/check_dags.py requires -- and fails on any import error,
+# which is how a DAG vanishes from the UI without a word.
+airflow-check:  ## Import every DAG and check required tasks (runs in the Airflow image)
+	@docker run --rm --entrypoint python \
+	  -e TRANSIT_HOST_ROOT=$(ROOT) -e POSTGRES_USER=x -e POSTGRES_PASSWORD=x -e POSTGRES_DB=x \
+	  -e AIRFLOW__CORE__LOAD_EXAMPLES=false \
+	  -v $(ROOT)/airflow/dags:/opt/airflow/dags:ro \
+	  -v $(ROOT)/airflow/check_dags.py:/opt/airflow/check_dags.py:ro \
+	  apache/airflow:2.10.5 /opt/airflow/check_dags.py
+
 # --- diagnostics -------------------------------------------------------------
 
 # docker-entrypoint-initdb.d runs ONCE, on first creation of the data
@@ -303,10 +427,13 @@ nuke-warehouse:  ## Drop the warehouse data dir so initdb re-runs (DESTRUCTIVE)
 	@sudo rm -rf $(DATA)/transit-warehouse
 	@$(MAKE) dirs
 
-.PHONY: help dirs up connect-up down ps logs topics topic-describe recon cadence \
+.PHONY: help dirs up connect-up connect-register connect-status down ps logs topics topic-describe recon cadence \
         feeds produce-dry produce static-status static-load static-hoods \
         schema-gen schema-register schema-status enrich-dry enrich \
-        flink-up flink-down flink-ui flink-smoke bunching flink-jobs flink-logs \
+        schema-register-sinks \
+        pipeline-image stream-up stream-logs \
+        flink-up flink-down flink-ui flink-smoke bunching flink-jobs flink-logs resume \
         migrate test contract contract-p2 contract-p3 contract-p3f contract-schema \
         prediction smoke psql \
-        check lag nuke-warehouse
+        check lag nuke-warehouse dbt-image dbt dbt-freshness airflow-up airflow-down \
+        airflow-logs airflow-check

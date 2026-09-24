@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BunchingAlert",
+  "description": "One bunched pair in one event-time window. Written by consumers/bunching/job.py, sunk into raw.bunching_alerts by connect/bunching_alerts.json. See consumers/bunching/detect.py for what each field means.",
+  "type": "object",
+  "properties": {
+    "route_id": {
+      "type": "string"
+    },
+    "direction_id": {
+      "type": "integer"
+    },
+    "route_short_name": {
+      "type": ["null", "string"]
+    },
+    "vehicle_id_a": {
+      "type": "string"
+    },
+    "vehicle_id_b": {
+      "type": "string"
+    },
+    "trip_id_a": {
+      "type": ["null", "string"]
+    },
+    "trip_id_b": {
+      "type": ["null", "string"]
+    },
+    "gap_ft": {
+      "type": "number",
+      "description": "Distance between the pair along the shape, in feed units. FEET for 423 of 424 shapes; see the unit note in consumers/bunching/config.py."
+    },
+    "window_end": {
+      "type": "integer",
+      "description": "Epoch SECONDS, as an INTEGER and not a float. Two reasons, both measured: the connector's TimestampConverter refuses FLOAT64 (Schema Schema{FLOAT64} does not correspond to a known timestamp type format), and unix.precision=seconds is required or every row lands in 1970."
+    },
+    "deviation_a": {
+      "type": ["null", "integer"],
+      "description": "Seconds late, as Metro claimed it. NULL means it could not be computed, which is not the same as 0 (ADR 0005)."
+    },
+    "deviation_b": {
+      "type": ["null", "integer"]
+    }
+  },
+  "required": [
+    "route_id",
+    "direction_id",
+    "vehicle_id_a",
+    "vehicle_id_b",
+    "gap_ft",
+    "window_end"
+  ]
+}

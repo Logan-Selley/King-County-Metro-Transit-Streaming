@@ -43,10 +43,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+from functools import partial
 
 from pyflink.common import Duration, Types, WatermarkStrategy
 from pyflink.common.time import Time
-from pyflink.common.serialization import ByteArraySchema, SimpleStringSchema
+from pyflink.common.serialization import ByteArraySchema
 from pyflink.common.watermark_strategy import TimestampAssigner
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.datastream.connectors.kafka import (
@@ -58,6 +59,7 @@ from pyflink.datastream.connectors.kafka import (
 from pyflink.datastream.functions import KeyedCoProcessFunction
 from pyflink.datastream.state import StateTtlConfig, ValueStateDescriptor
 
+from consumers import framing
 from consumers.bunching.decode import decode
 from consumers.prediction.accuracy import (
     PredictionBuffer,
@@ -77,6 +79,11 @@ from consumers.prediction.config import (
 log = logging.getLogger("prediction")
 
 BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_INTERNAL", "redpanda:9092")
+
+# Where the job reads its sink schema's id from, at submit time. The compose
+# service name, not .env's host-facing localhost:18081, for the same reason
+# BOOTSTRAP defaults to redpanda:9092.
+SCHEMA_REGISTRY = os.environ.get("SCHEMA_REGISTRY_INTERNAL", "http://redpanda:8081")
 RECORD_TYPE = Types.MAP(Types.STRING(), Types.PICKLED_BYTE_ARRAY())
 
 
@@ -189,9 +196,13 @@ def _source(topic: str, group_suffix: str) -> KafkaSource:
 def kafka_sink() -> KafkaSink:
     """Sink to analytics.prediction_accuracy.
 
-    JSON, unregistered, for ADR 0007's reason: a protobuf serializer inside
-    the Flink image means the protobuf<6 conflict that put this job in its
-    own image in the first place.
+    Still JSON, and still unregistered at the serializer level, for ADR 0007's
+    reason: a protobuf serializer inside the Flink image means the protobuf<6
+    conflict that put this job in its own image in the first place. The schema
+    this one carries is a registered JSON Schema, so nothing about that changes.
+
+    BYTES since 4B, with Confluent framing in front of the JSON
+    (consumers/framing.py) so the JDBC sink can read it.
     """
     return (
         KafkaSink.builder()
@@ -199,7 +210,7 @@ def kafka_sink() -> KafkaSink:
         .set_record_serializer(
             KafkaRecordSerializationSchema.builder()
             .set_topic(SINK_TOPIC)
-            .set_value_serialization_schema(SimpleStringSchema())
+            .set_value_serialization_schema(ByteArraySchema())
             .build()
         )
         .build()
@@ -304,7 +315,12 @@ def build_pipeline(env: StreamExecutionEnvironment) -> None:
 
     joined = predictions.connect(observations).process(
         AccuracyJoin(), output_type=RECORD_TYPE)
-    joined.map(json.dumps, output_type=Types.STRING()).sink_to(kafka_sink())
+
+    # The sink schema's id, resolved ONCE at submit rather than per record.
+    sid = framing.schema_id(SCHEMA_REGISTRY, f"{SINK_TOPIC}-value")
+    log.info("sink schema %s-value -> id %s", SINK_TOPIC, sid)
+    joined.map(partial(framing.frame, sid=sid),
+               output_type=Types.PRIMITIVE_ARRAY(Types.BYTE())).sink_to(kafka_sink())
 
 
 def main() -> None:
