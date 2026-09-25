@@ -33,10 +33,15 @@ x-airflow-env: &airflow-env
   # `warehouse:5432` -- the compose service name and INTERNAL port, reachable
   # because this project joins the transit network below. Not localhost:5434,
   # the host-side mapping .env carries for local tools.
-  AIRFLOW_CONN_WAREHOUSE: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@warehouse:5432/${POSTGRES_DB}
-  # Passed through to dbt task containers.
-  POSTGRES_USER: ${POSTGRES_USER}
-  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  AIRFLOW_CONN_WAREHOUSE: postgresql://airflow_ops:${AIRFLOW_OPS_PASSWORD}@warehouse:5432/${POSTGRES_DB}
+  # Handed to the task containers, each its own role rather than the superuser
+  # (build step 5C). POSTGRES_USER and POSTGRES_PASSWORD are deliberately ABSENT:
+  # nothing this container starts should be able to log in as `transit`, and the
+  # Airflow metadata database is a different postgres service with its own user,
+  # defined below. POSTGRES_DB stays because it names the warehouse database in
+  # the DAGs' container environments, and a database name is not a credential.
+  DBT_TRANSFORM_PASSWORD: ${DBT_TRANSFORM_PASSWORD}
+  STATIC_LOADER_PASSWORD: ${STATIC_LOADER_PASSWORD}
   POSTGRES_DB: ${POSTGRES_DB}
   # Forwarded to the static loader's task container. static/feed.py reads it
   # with its own default, so it is only forwarded when set: this env block

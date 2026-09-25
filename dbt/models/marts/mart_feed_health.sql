@@ -3,6 +3,15 @@
 
   THREE DECISIONS, each measured on the loaded warehouse rather than chosen:
 
+  0. THE STALL CHECK'S GRANT IS DECLARED HERE, NOT IN TERRAFORM. A table
+     materialization builds a NEW table and swaps it in, so the new relation
+     inherits none of the old ACL: a postgresql_grant in terraform/core/access.tf
+     is revoked out from under the mart by the next dbt build, every hour at :15.
+     Measured 2026-09-25: mart_feed_health's relacl was empty, airflow_ops could
+     not read it, and tf-drift reported the missing SELECT. dbt owns the table, so
+     dbt owns the grant and re-applies it on every build. Schema USAGE stays in
+     Terraform, where a schema-level fact belongs.
+
   1. THE SPINE IS GENERATED, NOT GROUPED. A silent minute has no rows in
      staging, so grouping staging cannot produce it. generate_series covers
      [min(position_at), max(position_at)] and the aggregates left join onto
@@ -68,6 +77,14 @@
   stale= counter, or a heartbeat topic) rather than positions, so read a row
   here as "nobody received positions", not as Metro being down.
 #}
+
+{# WHY A dbt var rather than a literal role name. CI builds dbt against a throwaway
+   warehouse that has no roles at all, because nothing there runs Terraform, so a
+   hard-coded GRANT ... TO airflow_ops fails the build with "role does not exist".
+   make ci-dbt passes stall_mart_readers: [] and the grant is skipped. #}
+{% set stall_mart_readers = var('stall_mart_readers', ['airflow_ops']) %}
+
+{{ config(grants={'select': stall_mart_readers}) }}
 
 with staging as (
 

@@ -34,6 +34,7 @@ from producer.dedupe import LastValueCache
 from producer.errors import FeedError, DecodeError, DlqReason
 from producer.fetch import ConditionalFetcher
 from producer.feeds import FeedSpec
+from producer.heartbeat import beat
 from producer.publish import TopicPublisher, serialize
 
 log = logging.getLogger("producer")
@@ -339,6 +340,10 @@ def main(argv: list[str] | None = None) -> int:
             log.info("duration reached")
             break
 
+        # Liveness for the compose healthcheck: one touch per iteration, whether
+        # or not the feeds produced anything. See producer/heartbeat.py for what
+        # this does and does not prove.
+        beat()
         time.sleep(min(scheduler.sleep_until_next(time.monotonic()), 1.0))
 
     if pipeline.publisher:

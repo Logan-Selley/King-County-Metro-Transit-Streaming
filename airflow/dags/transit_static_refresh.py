@@ -62,8 +62,10 @@ UNCHANGED_EXIT_CODE = 99
 ENV = {
     "WAREHOUSE_HOST": "warehouse",
     "WAREHOUSE_PORT": "5432",
-    "POSTGRES_USER": os.environ["POSTGRES_USER"],
-    "POSTGRES_PASSWORD": os.environ["POSTGRES_PASSWORD"],
+    # static_loader, not the superuser (build step 5C): it writes static.* and
+    # reads nothing else, so a bad load cannot reach raw.*.
+    "STATIC_LOADER_USER": "static_loader",
+    "STATIC_LOADER_PASSWORD": os.environ["STATIC_LOADER_PASSWORD"],
     "POSTGRES_DB": os.environ["POSTGRES_DB"],
 }
 if os.environ.get("FEED_USER_AGENT"):

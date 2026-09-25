@@ -24,6 +24,52 @@
 #
 # Anything needing the stack belongs in `make check` and the Phase 1
 # 24-hour collection run.
+#
+# --- WHAT THIS FILE CHECKS, AND WHAT IT DELIBERATELY DOES NOT ----------------
+#
+# FIRST, THE STATE OF IT (2026-09-25): CI has still run exactly once, on the
+# init commit, where it failed at collection (ModuleNotFoundError: producer).
+# Phases 1-5 are uncommitted, so nothing below has been seen by a runner yet.
+# Every step is a make target and has been replayed locally, including the
+# platform job's steps, but a runner has its own surprises, and the README badge
+# reports what a runner says rather than what this comment says.
+#
+# 5A IS DONE (2026-09-24), and the detail moved where the code is. The validate
+# job now checks all six initdb files, both terraform roots and the DAG imports;
+# a second `dbt` job builds against the committed fixture slice. Each step is a
+# make target for one reason: a step that lives only in this file cannot be run
+# before it is pushed, and both of the ones below were wrong when run locally.
+# Read them there:
+#
+#   * make ci-ddl    docker/initdb in order, then both maintenance functions on
+#                    tables that survive 06, against a throwaway PostGIS. It
+#                    also waits for the postgis image's own init to finish,
+#                    which pg_isready does not report and which made the
+#                    scaffold's version of this step race CREATE EXTENSION.
+#   * make ci-load   the fixtures into raw.*, then their counts against MANIFEST
+#   * make ci-dbt    the two above, then dbt build --vars require_fixture:true
+#   * make tf-check  fmt -check + validate, both roots, no credentials needed
+#
+# 5E. `make ci-platform`, run by the `platform` job: the clean-clone exit
+#   criterion, proven here rather than asserted in the README. From a checkout
+#   with no .env, it brings up redpanda, warehouse and minio (no Flink, no
+#   Airflow: nothing in the job needs them), applies both Terraform roots with
+#   adopt_existing at its default of false, migrates, registers the sink schemas,
+#   starts Connect against the sink role, and requires `tf-drift` to exit 0
+#   immediately after the apply. Then `make sink-roundtrip` produces one framed
+#   record to alerts.bunching and waits for the row in raw.bunching_alerts: the
+#   whole sink path (registry framing, JsonSchemaConverter, TimestampConverter,
+#   upsert, partition routing) on a stack that did not exist a minute earlier.
+#
+#   THAT JOB STANDS UP A BROKER, which the first section of this header argues
+#   against. The argument there is that a broker in CI tests the client library
+#   rather than this project, and it still holds for the fast job. Here the thing
+#   under test is terraform/ and connect/, which exist only as calls against a
+#   real broker and a real object store, so the argument points the other way.
+#   That is why they are separate jobs: `validate` and `dbt` stay broker-free
+#   and run on every push, and `platform` takes the minutes a stack costs.
+#   Measured while building this: `make sink-roundtrip` against the local stack
+#   produced one file and the row was visible on the first probe.
 
 name: CI
 
@@ -32,6 +78,13 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+
+# The token every job gets, pinned instead of inherited. These jobs read the
+# checkout and nothing else: no job writes a comment, a release or a package, and
+# an unpinned token carries whatever the repository's default is, which for a
+# repository created before 2023 is write on contents and packages.
+permissions:
+  contents: read
 
 jobs:
   validate:
@@ -58,17 +111,19 @@ jobs:
 
       - name: Tests (wire semantics + every implemented contract suite)
         # `not wip` overrides the `not contract` default in pyproject.toml, so
-        # the contract suites run HERE as well as under `make contract`. They
-        # need no infrastructure: producer and enrichment contracts are pure,
-        # and the schema-compatibility suite skips itself when no registry
-        # answers.
+        # the contract suites run HERE as well as under `make contract`. Most
+        # need no infrastructure: producer and enrichment contracts are pure.
+        # The two that do skip themselves when nothing answers -- the
+        # schema-compatibility suite when no registry responds, and the
+        # privileges suite when no warehouse does, which is the case at this
+        # point in the job because the compose stack starts further down.
         #
         # `wip` is the escape hatch for a spec written ahead of its
         # implementation. No suite carries it now -- the Phase 3 detector was
-        # promoted to `contract` on 2026-09-21 -- but the marker stays, because
-        # excluding by marker rather than by filename makes promoting a suite
-        # into CI a one-line edit in the suite itself, not a change here that
-        # someone has to remember to make.
+        # promoted to `contract` on 2026-09-21, and the privilege suite on
+        # 2026-09-25 -- but the marker stays, because excluding by marker rather
+        # than by filename makes promoting a suite into CI a one-line edit in
+        # the suite itself, not a change here that someone has to remember.
         #
         # Excluding ALL contract tests was the previous setting and it hid a
         # real break: `make test` uses `python -m pytest`, which puts CWD on
@@ -92,33 +147,102 @@ jobs:
           "
 
       - name: Warehouse DDL is valid Postgres
-        # A real server, because `psql -f` against a live instance is the only
-        # honest syntax check for DDL -- there is no offline parser that
-        # agrees with Postgres about partitioning and plpgsql. This asserts
-        # the schema APPLIES; it asserts nothing about data, because there
-        # isn't any.
-        env:
-          PGPASSWORD: ci
-        run: |
-          docker run -d --name ci-pg \
-            -e POSTGRES_USER=ci -e POSTGRES_PASSWORD=ci -e POSTGRES_DB=ci \
-            -p 5432:5432 postgis/postgis:16-3.4
-          for i in $(seq 1 30); do
-            docker exec ci-pg pg_isready -U ci -d ci && break
-            sleep 2
-          done
-          docker exec -i ci-pg psql -U ci -d ci -v ON_ERROR_STOP=1 \
-            < docker/initdb/01-schema.sql
-          # Partition maintenance has to be idempotent -- Airflow will call it
-          # on a schedule and a second call must not error.
-          docker exec ci-pg psql -U ci -d ci -v ON_ERROR_STOP=1 -tAc \
-            "select raw.ensure_partition('raw.vehicle_positions', current_date);"
-          docker exec ci-pg psql -U ci -d ci -v ON_ERROR_STOP=1 -tAc \
-            "select raw.ensure_partition('raw.vehicle_positions', current_date);"
-          docker rm -f ci-pg
+        # One `make` target rather than inline shell, so this step can be run on
+        # a laptop before it is pushed. That is not a style preference: running
+        # it locally is how the race below was found.
+        #
+        # It applies ALL SIX docker/initdb files in order and then calls both
+        # maintenance functions on tables that survive 06. The previous version
+        # applied 01 only and called them on raw.vehicle_positions, which
+        # 06-drop-unsunk-raw.sql drops -- so it would have failed on the first
+        # push that included 06.
+        #
+        # The race: postgis/postgis runs its initdb scripts against a TEMPORARY
+        # server, and pg_isready answers during that phase, so a two-second wait
+        # lets the apply collide with the image's own CREATE EXTENSION postgis
+        # ("duplicate key value violates unique constraint
+        # pg_extension_name_index"). Measured here. `make ci-ddl` waits for the
+        # extension to be visible instead.
+        run: make ci-ddl
+
+      - name: Terraform is formatted and valid (both roots)
+        # The image the Makefile pins, so a CLI version drift fails here rather
+        # than on a laptop. `init -backend=false` downloads the providers given
+        # in the committed lock file and touches no state, which is why this
+        # step needs no credentials and no running service.
+        #
+        # This checks the DECLARATIONS. Whether they match a live stack is
+        # `make tf-drift`, and the platform job at the end of this file is what
+        # runs it.
+        run: make tf-check
+
+      - name: Every DAG imports, and has the tasks it must
+        # A DAG that fails to import disappears from the UI without a word,
+        # which is the failure this catches. Runs in the Airflow image because
+        # Airflow is not in the project venv and must not be (see the Makefile's
+        # airflow-check target).
+        run: make airflow-check
 
       - name: Compose file is valid
         run: |
           cp .env.example .env
           docker compose config --quiet
           echo "compose config parses"
+
+  dbt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: dbt build against a throwaway warehouse, with real fixture data
+        # ONE STEP, because the whole sequence lives in a make target that can be
+        # run here first: start a throwaway PostGIS, apply all six initdb files,
+        # load tests/fixtures/warehouse/*.csv.gz into raw.*, check the loaded
+        # counts against MANIFEST, then `dbt build --vars
+        # '{require_fixture: true}'` from the transit-dbt image built here.
+        #
+        # WHY THE FIXTURES ARE COMMITTED. dbt build against an EMPTY warehouse is
+        # green on almost every test in this project: the singular tests return
+        # failing rows, and an empty table has none. The fixtured slice is
+        # 2026-09-23 00:00-05:30 Pacific, which contains owl service, the
+        # 82-minute upstream stall, the flapping recovery, and the ten
+        # stale-timestamp records from 09-04. So every feed-health test, the
+        # route-deviation reconciliation and the stale filter all have real rows
+        # to disagree with.
+        #
+        # This is also why require_fixture matters: without the var,
+        # dbt/tests/fixture_is_loaded.sql is disabled and a load that silently
+        # produced nothing would pass.
+        #
+        # Rehearsed locally on 2026-09-24, again after 5B, and again on
+        # 2026-09-25 after the 5C credential switch (DBT_USER matters here: the
+        # step passed POSTGRES_USER for a day and failed on `Env var required but
+        # not provided: 'DBT_USER'`). 48 PASS of 48, which is what this prints.
+        run: make ci-dbt
+
+  platform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: .env from the example
+        # The roles Terraform creates take their passwords from here, and every
+        # client reads the same file, so a clean clone needs no secret to run.
+        # The values are the literal change-me placeholders, which is fine for a
+        # stack that exists for the length of this job.
+        run: cp .env.example .env
+
+      - name: The clean-clone path (see the 5E note in the header)
+        # One make target, for the same reason `make ci-dbt` is: it can be
+        # rehearsed locally, and a failure on a runner is reproducible rather
+        # than something to diagnose by pushing again.
+        run: make ci-platform
+
+      - name: Stop the stack, whatever happened
+        # The same rule as the dbt job's teardown: a failed step must not leave a
+        # stack running, both because a later diagnostic would be reading
+        # leftovers and because a port already in use is how the NEXT run fails.
+        # `|| true` because a missing .env (the step above failed) would
+        # otherwise turn a teardown into a second error.
+        if: always()
+        run: make down || true

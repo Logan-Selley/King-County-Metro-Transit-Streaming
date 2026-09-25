@@ -26,11 +26,20 @@
 -- no write amplification on the table the connector is inserting into right
 -- now. DELETE FROM ... WHERE position_timestamp < cutoff would scan and bloat
 -- all 90 days of a table that grows 730 MB a day while the sink writes to it.
+-- SECURITY DEFINER and a pinned search_path, for the reasons 01-schema.sql gives
+-- for ensure_partition: DROP TABLE needs ownership of what it drops, airflow_ops
+-- owns nothing in raw, and an unpinned search_path lets a caller shadow what the
+-- body resolves. The body below references pg_class, pg_namespace, pg_inherits,
+-- to_regclass, to_date, format, cardinality and array_to_string, all of which live
+-- in pg_catalog, so it is enough.
 CREATE OR REPLACE FUNCTION raw.drop_partitions_before(
     parent text,
     cutoff date
 ) RETURNS text
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $$
 DECLARE
     part    record;
     dropped text[] := '{}';
@@ -63,3 +72,8 @@ BEGIN
                   array_to_string(dropped, ', '));
 END;
 $$;
+
+-- PUBLIC has EXECUTE on every new function by default. Revoked here, granted to
+-- airflow_ops in terraform/core/access.tf, so dropping partitions is a privilege
+-- exactly one role has rather than everybody's.
+REVOKE EXECUTE ON FUNCTION raw.drop_partitions_before(text, date) FROM PUBLIC;

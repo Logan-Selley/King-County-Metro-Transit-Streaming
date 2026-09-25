@@ -1,5 +1,8 @@
-# Every value from the environment, none committed. The same variables the
-# rest of the stack reads from .env, so there is one place to change them.
+# Every value from the environment, none committed. The credentials are now
+# role-specific rather than the superuser's: since build step 5C, dbt logs in as
+# `dbt_transform`, which reads raw.* and static.* and OWNS staging.* and marts.*.
+# That ownership is the point: `create or replace` needs it, and the role that has
+# it can still not drop a landing table.
 #
 # DBT_HOST defaults to `warehouse`, the compose service name: dbt runs in its
 # own container on the compose network (make dbt, or Airflow's
@@ -13,8 +16,8 @@ transit_stream:
       type: postgres
       host: "{{ env_var('DBT_HOST', 'warehouse') }}"
       port: "{{ env_var('DBT_PORT', '5432') | int }}"
-      user: "{{ env_var('POSTGRES_USER') }}"
-      password: "{{ env_var('POSTGRES_PASSWORD') }}"
+      user: "{{ env_var('DBT_USER') }}"
+      password: "{{ env_var('DBT_PASSWORD') }}"
       dbname: "{{ env_var('POSTGRES_DB') }}"
       schema: staging
       threads: 4

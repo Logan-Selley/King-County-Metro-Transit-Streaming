@@ -1,6 +1,9 @@
 -- Runs ONCE, on first creation of the warehouse data directory. Editing this
--- file does nothing to an existing volume -- `make nuke-warehouse` then
--- `make up` is the way to re-apply it during development.
+-- file does nothing on the initdb path -- the entrypoint only reads it when the
+-- data directory is empty. `make migrate` is how a change reaches an existing
+-- volume: it re-applies every file in this directory in order, and the files are
+-- written to be idempotent. `make nuke-warehouse` then `make up` is the blunt
+-- alternative, and it deletes the data.
 --
 -- Deliberately minimal. This establishes the shape the Kafka Connect sink
 -- writes into and nothing else; every derived table is a dbt model in Phase 4,
@@ -202,11 +205,26 @@ CREATE INDEX IF NOT EXISTS idx_dlq_time_reason
 -- Called by the Airflow DAG in Phase 4. Kept here rather than in dbt because
 -- dbt models describe SELECTs, and creating a partition is DDL that has to
 -- happen before the rows arrive, not as part of transforming them.
+--
+-- SECURITY DEFINER, because the body is DDL the CALLER cannot do itself:
+-- CREATE TABLE ... PARTITION OF requires ownership of the parent, and the whole
+-- point of this function is that airflow_ops owns nothing in raw (build step 5C).
+-- EXECUTE is revoked from PUBLIC below and granted to airflow_ops by
+-- terraform/core/access.tf, because a grant describes a ROLE rather than a table.
+--
+-- SET search_path IS PART OF THE SECURITY, not tidiness. Without it, a caller who
+-- can create objects on the search path can shadow what the body resolves and
+-- have it run with the definer's rights instead of their own. Everything here is
+-- either a pg_catalog builtin or a schema-qualified name, so pg_catalog alone is
+-- enough, and tests/test_privileges_contract.py asserts both halves.
 CREATE OR REPLACE FUNCTION raw.ensure_partition(
     parent text,
     day    date
 ) RETURNS text
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $$
 DECLARE
     part text := format('%s_%s', split_part(parent, '.', 2), to_char(day, 'YYYYMMDD'));
     ddl  text;
@@ -223,3 +241,8 @@ BEGIN
     RETURN format('raw.%s created', part);
 END;
 $$;
+
+-- New functions are executable by PUBLIC by default, which would let any role
+-- create and drop partitions in raw. Revoked here; access.tf grants it back to
+-- the one role that needs it.
+REVOKE EXECUTE ON FUNCTION raw.ensure_partition(text, date) FROM PUBLIC;

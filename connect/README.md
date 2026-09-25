@@ -1,16 +1,22 @@
 # Kafka Connect sink configs
 
 One file per connector. The file name is the connector name, and the file
-body is the bare config map that `PUT /connectors/<name>/config` takes, so
-`make connect-register` creates or updates every one of them and is safe to
-re-run.
+body is the bare config map that `PUT /connectors/<name>/config` takes.
+
+These files are the source of truth, and `terraform/connectors/` reads them, so
+`plan` shows a config edited in the worker behind Terraform's back and a
+connector deleted by hand comes back on the next apply.
 
 ```
-make topics            # creates Connect's compacted internal topics first
-make connect-up        # builds docker/Dockerfile.connect
-make connect-register
+make tf-apply R=core          # Terraform creates Connect's compacted internal topics
+make connect-up              # builds docker/Dockerfile.connect
+make tf-apply R=connectors   # registers the three sinks from these files
 make connect-status
 ```
+
+`make connect-register` still exists and does the same thing with a curl loop.
+It is no longer the owner of this config: since build step 5B Terraform is, and
+`make tf-drift` exits 0 only while the live connectors match these files.
 
 JSON has no comments, so the reasoning for each non-default setting in the
 three configs lives here.

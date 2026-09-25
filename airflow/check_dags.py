@@ -16,7 +16,9 @@ from airflow.models import DagBag
 REQUIRED = {
     "transit_partitions": {"ensure_enriched_vehicle_positions"},
     "transit_dbt": {"source_freshness", "build"},
-    "transit_health": {"check_feed_stall", "dlq_report"},
+    # consumer_lag: Phase 5D. tests/test_operations_contract.py pins which
+    # groups it watches.
+    "transit_health": {"check_feed_stall", "dlq_report", "consumer_lag"},
     "transit_static_refresh": {"load_static"},
 }
 

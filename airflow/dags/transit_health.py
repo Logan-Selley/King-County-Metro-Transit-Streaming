@@ -105,6 +105,57 @@ STALL_WINDOW_OVERLAP_MINUTES = 10
 # and any occurrence at all is an alert.
 CHRONIC_DLQ_REASON = "position_out_of_bounds"
 
+# Consumer lag, per group, in records. ONE NUMBER PER GROUP because the groups do
+# not lag alike and a single threshold would be either blind or noisy. Measured
+# on the live stack 2026-09-24, mid-catch-up after a job resubmit, so these are
+# BUSY values rather than idle ones:
+#
+#     bunching                              1,000
+#     prediction-accuracy-pred             23,045
+#     prediction-accuracy-obs               1,500
+#     enrichment                              430
+#     connect-enriched_vehicle_positions      500
+#     connect-bunching_alerts                   0
+#     connect-prediction_accuracy               0
+#
+# The shape of those measurements is why the dict has this shape:
+#
+#   * -pred reads raw.trip_updates, ~30x the row volume of positions at ~18.6k
+#     records per poll, so its lag is naturally in the tens of thousands and
+#     100k is about four polls of backlog. Both Flink groups also commit only at
+#     a checkpoint (every 30s), so a fully caught-up -pred still shows a few
+#     thousand between checkpoints.
+#   * -obs reads enriched.vehicle_positions, three partitions of a much smaller
+#     feed, so a quarter of that is generous.
+#   * the connect-* groups commit continuously, so 0 means caught up. Their
+#     thresholds are "the sink has stopped draining", not "the sink is behind".
+#
+# WHAT THESE CATCH: a consumer that is alive and no longer keeping up, which is
+# the failure freshness checks cannot see, because there the data IS arriving and
+# nobody is reading it fast enough.
+#
+# WHAT THEY DELIBERATELY TOLERATE: a backfill. Restart a connector, or resubmit a
+# job from `earliest`, and the lag exceeds these until the backlog drains, so a
+# deliberate action fires this alert once.
+#
+# WHAT THEY MISS: a group whose offsets have expired after seven days without a
+# member. "A connector was deleted by hand" is `make tf-drift`'s question, and it
+# answers immediately rather than in a week.
+LAG_THRESHOLDS = {
+    "bunching": 10_000,
+    "prediction-accuracy-pred": 100_000,
+    "prediction-accuracy-obs": 25_000,
+    "enrichment": 25_000,
+    "connect-enriched_vehicle_positions": 25_000,
+    "connect-bunching_alerts": 5_000,
+    "connect-prediction_accuracy": 50_000,
+}
+
+# Handed to the container as "group:threshold" pairs, so the script holds no
+# second copy of the numbers. tests/test_operations_contract.py pins this dict to
+# exactly the groups the pipeline runs, from the code's own constants.
+LAG_TARGETS = " ".join(f"{name}:{limit}" for name, limit in LAG_THRESHOLDS.items())
+
 # Reconstructs the silent runs. The mart stores stall_minutes per minute but no
 # run id, so this repeats the gaps-and-islands arithmetic the model uses:
 # subtract a row_number PARTITIONED BY is_silent from a global one, and the
@@ -195,6 +246,69 @@ rpk topic consume $DLQ_TOPICS -X brokers=redpanda:9092 \
     }'
 """.strip()
 
+# The lag verdict, same shape as DLQ_SCRIPT: one container, rpk for the numbers,
+# awk for the arithmetic, and the pipeline's exit status IS the task's.
+#
+# AN ABSENT GROUP IS NOT A FAILURE. `rpk group describe` errors for a group that
+# does not exist, which happens on a stack where a job has never run (the
+# prediction job is opt-in) and for any group whose offsets expired. A group that
+# does not exist cannot lag, so it is reported and skipped. The other half of that
+# question, "a consumer should exist and does not", belongs to `make tf-drift` for
+# the connectors and to dbt source freshness for the two Flink outputs.
+#
+# TOTAL-LAG is the number rpk prints for a group as a whole, across partitions,
+# which is what a threshold wants: one partition of six being behind is still a
+# consumer that is behind.
+LAG_SCRIPT = r"""
+set -euo pipefail
+fail=0
+for target in $LAG_TARGETS; do
+    group="${target%%:*}"
+    limit="${target##*:}"
+    desc=$(rpk group describe "$group" -X brokers=redpanda:9092 2>&1) || desc=""
+    if [ -z "$desc" ]; then
+        printf '  %-36s UNREADABLE: rpk returned nothing (broker down?)\n' "$group"
+        fail=1
+        continue
+    fi
+    # STATE Dead is what rpk reports for a group that does not exist as well as
+    # for one that expired, and both mean no consumer is making progress. It
+    # reports TOTAL-LAG 0 with it, so the lag comparison alone passes silently:
+    # that is a never-submitted Flink job reading as healthy, which is what
+    # happened on 2026-09-23.
+    state=$(printf '%s\n' "$desc" | awk '/^STATE/ {print $2; exit}')
+    # Rows AFTER the topic-partition header. Zero rows is a group with nothing
+    # assigned, which cannot be behind on anything and cannot be making progress
+    # either.
+    assigned=$(printf '%s\n' "$desc" | awk \
+        '/^TOPIC[[:space:]]+PARTITION/ {seen=1; next} seen && NF {n++} END {print n+0}')
+    lag=$(printf '%s\n' "$desc" | awk '/^TOTAL-LAG/ {print $2; exit}')
+    if [ -z "$state" ]; then
+        printf '  %-36s UNREADABLE: %s\n' "$group" \
+            "$(printf '%s' "$desc" | head -1 | cut -c1-100)"
+        fail=1
+    elif [ "$state" = "Dead" ]; then
+        printf '  %-36s DEAD: no live members (job not submitted, or group expired)\n' "$group"
+        fail=1
+    elif [ "$assigned" -eq 0 ]; then
+        printf '  %-36s EMPTY: no partitions assigned to the group\n' "$group"
+        fail=1
+    elif [ -z "$lag" ]; then
+        printf '  %-36s UNREADABLE: no TOTAL-LAG in the describe output\n' "$group"
+        fail=1
+    elif [ "$lag" -gt "$limit" ]; then
+        printf '  %-36s %8s OVER threshold %s\n' "$group" "$lag" "$limit"
+        fail=1
+    else
+        printf '  %-36s %8s (threshold %s)\n' "$group" "$lag" "$limit"
+    fi
+done
+if [ "$fail" -ne 0 ]; then
+    echo "ALERT: a consumer group is missing, dead, unreadable or over its lag threshold"
+    exit 1
+fi
+""".strip()
+
 
 with DAG(
     dag_id="transit_health",
@@ -237,3 +351,75 @@ with DAG(
         auto_remove="success",
         mount_tmp_dir=False,
     )
+
+    DockerOperator(
+        task_id="consumer_lag",
+        image=REDPANDA_IMAGE,
+        # Entrypoint overridden for the same measured reason dlq_report records:
+        # this image's /entrypoint.sh expects redpanda arguments, so without it
+        # the command is swallowed and the task runs `rpk --help` and exits 0. A
+        # green task doing nothing is the failure this DAG exists to catch.
+        entrypoint=["bash"],
+        command=["-c", LAG_SCRIPT],
+        network_mode=NETWORK,
+        environment={"LAG_TARGETS": LAG_TARGETS},
+        auto_remove="success",
+        mount_tmp_dir=False,
+    )
+
+
+# --- consumer_lag, and the healthchecks (5D) -----------------------------------
+#
+# The third task, `consumer_lag`, fails when a production consumer group falls
+# too far behind. tests/test_operations_contract.py is the spec; `make
+# airflow-check` requires the task.
+#
+# WHAT IT ASSERTS
+#
+#   1. LAG_THRESHOLDS: a module-level dict literal, {group: max records behind},
+#      for EXACTLY the seven production groups. The contract test derives them
+#      from the code (bunching, prediction-accuracy-pred/-obs, enrichment, one
+#      connect-<name> per connect/*.json) and fails on any difference.
+#
+#   2. NOT every group rpk lists. Measured 2026-09-24: `rpk group list` has
+#      nineteen groups, twelve of them abandoned diagnostics from Phases 2-3
+#      (scan-*, probe-era2, strcheck, flink-smoke, fmt-<uuid>, ...), each about
+#      3.2M records behind because nothing will ever read them again. A check
+#      over all groups would be red forever. Deleting them (`rpk group delete`)
+#      is a reasonable cleanup, but the explicit list is what keeps a future
+#      diagnostic group from paging anyone.
+#
+#   3. Thresholds per group, measured and written down like the DLQ ones above.
+#      The groups do not lag alike. At steady state on 2026-09-24:
+#      connect-* 0, bunching 0, enrichment 120, prediction-accuracy-pred 1,189.
+#      The Flink groups commit offsets only when a checkpoint completes (every
+#      30s), so their "lag" includes up to 30s of records they have already
+#      processed. Measure across an evening peak before changing one.
+#
+#   4. Same shape as dlq_report: a DockerOperator running rpk in the Redpanda
+#      image with the entrypoint overridden (see that task's comment for what
+#      happens without it), one `rpk group describe` per group, and a verdict
+#      that is the task's exit status.
+#
+#   5. A Flink group shows STATE Empty even while its job runs. Flink assigns
+#      partitions itself instead of joining the group, and only commits
+#      offsets. So state says nothing here; lag is the only signal. A job that
+#      is gone shows up as lag that grows every hour.
+#
+# HEALTHCHECKS, the other half of 5D, are in docker-compose.yml:
+#
+#   * producer and enrichment: producer/heartbeat.py touches a file once per
+#     loop iteration and the healthcheck stats its age (`-mmin -2`). What
+#     "healthy" means for the producer is that it is LOOPING, not that data is
+#     arriving. During the 2026-09-23 03:00 upstream stall it ticked normally
+#     for 82 minutes while Metro published nothing: a healthy process and an
+#     unhealthy FEED. The feed has its own two alarms (source freshness and
+#     check_feed_stall) and this one deliberately does not duplicate them.
+#   * flink-jobmanager: the REST API's /overview. flink-taskmanager: the
+#     jobmanager must see it (`/taskmanagers` carries a dataPort), which is the
+#     check that catches a TaskManager that is up but not attached.
+#   * Docker does NOT restart an unhealthy container. `restart: unless-stopped`
+#     acts on exit, not on health. What a healthcheck buys is an honest
+#     `docker ps` and `depends_on: condition: service_healthy` ordering;
+#     flink-submit uses the latter for the jobmanager. Restarting on unhealthy
+#     is a supervisor's job, and saying so is part of the answer.

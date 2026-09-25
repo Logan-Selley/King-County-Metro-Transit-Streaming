@@ -103,59 +103,24 @@ logs:  ## Tail logs (SVC=redpanda to narrow)
 	@$(DC) logs -f $(SVC)
 
 # --- topics ------------------------------------------------------------------
-# Created explicitly rather than by auto-creation, because auto-created topics
-# get the broker default partition count and cleanup policy -- which would
-# silently give the alerts topic delete-retention instead of compaction, and
-# the compaction design is one of the things this project exists to show.
+# MOVED TO TERRAFORM, build step 5B. Topic config lives in
+# terraform/core/topics.tf, and `make platform` is what applies it.
 #
-# Partition counts are not throughput-driven; at these volumes one partition
-# would keep up. They are there so consumer-group rebalancing and per-key
-# ordering are demonstrable at all, which needs more than one.
+# WHY IT MOVED. This target ran a broker-CLI topic create per topic, which is a
+# no-op on a topic that already exists and applies no config either. Two topics
+# were recreated by 4B's re-framing migration and silently lost their 30-day
+# retention; the fix was a second block of `rpk topic alter-config` calls right
+# here. Two sources for one setting is how that happened, and neither of them
+# could say whether the running stack still matched what was written down.
 #
-# Retention is grounded in the Phase 0 measurements in docs/findings.md.
-
-topics: ## Create the Kafka topics with their intended configs
-	@$(DC) exec -T redpanda rpk topic create raw.vehicle_positions \
-	  -p 3 -r 1 -c retention.ms=604800000 -c cleanup.policy=delete || true
-	@$(DC) exec -T redpanda rpk topic create raw.trip_updates \
-	  -p 6 -r 1 -c retention.ms=259200000 -c cleanup.policy=delete || true
-	@# COMPACTED, keyed by alert_id: the topic holds current alert state, not a
-	@# history of every poll restating the same 53 alerts.
-	@$(DC) exec -T redpanda rpk topic create raw.service_alerts \
-	  -p 1 -r 1 -c cleanup.policy=compact -c min.cleanable.dirty.ratio=0.1 || true
-	@$(DC) exec -T redpanda rpk topic create enriched.vehicle_positions \
-	  -p 3 -r 1 -c retention.ms=604800000 || true
-	@$(DC) exec -T redpanda rpk topic create alerts.bunching \
-	  -p 1 -r 1 -c retention.ms=2592000000 || true
-	@# Phase 3F output: one record per (prediction, observed arrival) pair.
-	@# 3 partitions because the analysis groups by lead-time bucket and route
-	@# rather than reading it in order, so per-key ordering buys nothing here.
-	@$(DC) exec -T redpanda rpk topic create analytics.prediction_accuracy \
-	  -p 3 -r 1 -c retention.ms=2592000000 || true
-	@# Kafka Connect's own state. COMPACTED, and created here rather than by
-	@# Connect: Redpanda auto-creates a topic the moment any client touches it,
-	@# with the broker default cleanup.policy=delete, and if that happens first
-	@# the worker refuses to start ("offset.storage.topic ... is required to
-	@# have 'cleanup.policy=compact'"). Measured, not hypothetical.
-	@for t in _connect_configs _connect_offsets _connect_status; do \
-	  $(DC) exec -T redpanda rpk topic create $$t -p 1 -r 1 -c cleanup.policy=compact || true; done
-	@# One DLQ topic per feed: run.py routes with f"dlq.{spec.name}", so every
-	@# feed in feeds.py needs its topic here, or the first DLQ produce would
-	@# auto-create it with broker defaults.
-	@$(DC) exec -T redpanda rpk topic create dlq.vehicle_positions -p 1 -r 1 || true
-	@$(DC) exec -T redpanda rpk topic create dlq.trip_updates -p 1 -r 1 || true
-	@$(DC) exec -T redpanda rpk topic create dlq.service_alerts -p 1 -r 1 || true
-	@echo
-	@# `rpk topic create` is a NO-OP on a topic that already exists, and it does
-	@# not apply config either -- so a topic recreated by the 4B framing
-	@# migration (consumers/reframe_topic.py) would silently lose its retention
-	@# window. These re-apply the ones that matter, which also makes this target
-	@# the single place topic config lives.
-	@$(DC) exec -T redpanda rpk topic alter-config alerts.bunching \
-	  --set retention.ms=2592000000 || true
-	@$(DC) exec -T redpanda rpk topic alter-config analytics.prediction_accuracy \
-	  --set retention.ms=2592000000 || true
-	@$(DC) exec -T redpanda rpk topic list
+# tests/test_platform_contract.py now fails while any raw topic-create call
+# appears in this file -- a blunt substring check, so this comment cannot quote
+# the command either. `make tf-drift` answers the question the target could not:
+# does the live broker match the repository?
+#
+# The reasoning that used to live below (partition counts are for rebalancing
+# rather than throughput; retention is grounded in the Phase 0 measurements) is
+# next to the values in topics.tf.
 
 topic-describe:  ## Show config for one topic (T=raw.service_alerts)
 	@test -n "$(T)" || { echo "usage: make topic-describe T=raw.service_alerts"; exit 2; }
@@ -336,6 +301,9 @@ contract-schema:  ## Assert what the registry actually enforces (needs it runnin
 smoke:  ## Produce + consume a protobuf round trip against the running stack
 	@$(ENV) $(PY) $(ROOT)/tests/smoke_roundtrip.py
 
+sink-roundtrip:  ## Produce one framed record to alerts.bunching; wait for the row (ARGS="--clean")
+	@$(ENV) $(PY) $(ROOT)/tests/sink_roundtrip.py $(ARGS)
+
 # --- analytics layer (Phase 4) -----------------------------------------------
 # dbt and Airflow each run in their own image; neither is in the project venv
 # and they never share one with each other (docker/Dockerfile.dbt,
@@ -344,9 +312,13 @@ smoke:  ## Produce + consume a protobuf round trip against the running stack
 # `make dbt` works under the scheduler.
 
 DBT_IMAGE := transit-dbt:1.11.0
+# dbt_transform, not the superuser, since build step 5C. The password comes from
+# .env as DBT_TRANSFORM_PASSWORD and is passed straight through; the user name is
+# the role name and has no second spelling.
 DBT_RUN = $(ENV) docker run --rm --network transit-stream_default \
 	  -v $(ROOT)/dbt:/dbt -e DBT_PROFILES_DIR=/dbt -e DBT_USE_COLORS=false \
-	  -e POSTGRES_USER -e POSTGRES_PASSWORD -e POSTGRES_DB $(DBT_IMAGE)
+	  -e DBT_HOST -e DBT_PORT -e DBT_USER=dbt_transform \
+	  -e DBT_PASSWORD=$$DBT_TRANSFORM_PASSWORD -e POSTGRES_DB $(DBT_IMAGE)
 
 dbt-image:  ## Build the dbt image (docker/Dockerfile.dbt)
 	@docker build -q -t $(DBT_IMAGE) -f $(ROOT)/docker/Dockerfile.dbt $(ROOT)
@@ -372,9 +344,16 @@ airflow-logs:  ## Tail the Airflow scheduler/webserver logs
 # The DAG spec. Imports every DAG inside the Airflow image and checks each has
 # the tasks airflow/check_dags.py requires -- and fails on any import error,
 # which is how a DAG vanishes from the UI without a word.
+#
+# THE ENVIRONMENT HERE MATTERS. The DAGs read their task containers' credentials
+# at import time, so every variable they name has to exist or the import fails and
+# the DAG reports as missing. Since 5C those are the per-role passwords rather
+# than POSTGRES_USER/POSTGRES_PASSWORD: x is fine for all of them, because this
+# only imports, it never connects.
 airflow-check:  ## Import every DAG and check required tasks (runs in the Airflow image)
 	@docker run --rm --entrypoint python \
-	  -e TRANSIT_HOST_ROOT=$(ROOT) -e POSTGRES_USER=x -e POSTGRES_PASSWORD=x -e POSTGRES_DB=x \
+	  -e TRANSIT_HOST_ROOT=$(ROOT) -e POSTGRES_DB=transit \
+	  -e DBT_TRANSFORM_PASSWORD=x -e STATIC_LOADER_PASSWORD=x \
 	  -e AIRFLOW__CORE__LOAD_EXAMPLES=false \
 	  -v $(ROOT)/airflow/dags:/opt/airflow/dags:ro \
 	  -v $(ROOT)/airflow/check_dags.py:/opt/airflow/check_dags.py:ro \
@@ -418,6 +397,313 @@ check:  ## Verify the environment before blaming a consumer
 lag:  ## Show consumer group lag (the Phase 1 "did it stall overnight" check)
 	@$(DC) exec -T redpanda rpk group list 2>/dev/null || echo "no groups yet"
 
+# --- terraform (Phase 5) -----------------------------------------------------
+#
+# Two roots, applied in order (terraform/connectors/versions.tf says why):
+#
+#     make tf-apply R=core         topics, bucket, (5C) roles
+#     make connect-up              the worker needs core's _connect_* topics
+#     make tf-apply R=connectors   the sinks
+#
+# `make platform` runs the three. On a machine whose resources predate
+# Terraform, run `make tf-adopt R=core` and `make tf-adopt R=connectors` ONCE
+# instead of the applies; after that, plain tf-apply.
+#
+# Terraform runs from its pinned image on the compose network, the way dbt
+# does, so the endpoints are service names and nothing needs installing on the
+# host. -u keeps the files it writes (.terraform/, terraform.tfstate) owned
+# by you rather than by root, on a bind mount that would otherwise leave
+# root-owned state in the repo.
+#
+# CREDENTIALS reach it as TF_VAR_* from .env and never as arguments, so they
+# stay out of `ps` and shell history. The variables that carry them are
+# ephemeral (terraform/core/variables.tf), so they stay out of the state too.
+# `-e NAME` with no value passes the variable through from this shell.
+# 5C adds its role passwords to TF_PASS.
+
+R ?= core
+TF_IMAGE := hashicorp/terraform:1.15.9
+# APPLY IS INTERACTIVE BY DEFAULT, and AUTO=1 is for the places that cannot be:
+# CI's platform job, and any scripted run. `terraform apply` prints the plan and
+# waits for a typed "yes", which is the right default for a change to live
+# infrastructure and the wrong one for a runner with no stdin -- there it fails
+# with "Apply cancelled" rather than doing anything useful.
+#
+# tf-drift exists as the review step this skips: run it first, and AUTO=1 applies
+# a plan you have already seen. `-auto-approve` does NOT skip the plan, only the
+# confirmation.
+TF_APPROVE := $(if $(AUTO),-auto-approve,)
+TF_PASS := TF_VAR_warehouse_db TF_VAR_warehouse_admin_user TF_VAR_warehouse_admin_password \
+           TF_VAR_minio_root_user TF_VAR_minio_root_password TF_VAR_raw_bucket \
+           TF_VAR_connect_sink_password TF_VAR_static_loader_password \
+           TF_VAR_enrichment_password TF_VAR_dbt_transform_password \
+           TF_VAR_airflow_ops_password TF_VAR_archive_writer_secret \
+           TF_VAR_flink_state_secret
+TF_ENV := $(ENV) export TF_VAR_warehouse_db=$$POSTGRES_DB \
+  TF_VAR_warehouse_admin_user=$$POSTGRES_USER \
+  TF_VAR_warehouse_admin_password=$$POSTGRES_PASSWORD \
+  TF_VAR_minio_root_user=$$MINIO_ROOT_USER \
+  TF_VAR_minio_root_password=$$MINIO_ROOT_PASSWORD \
+  TF_VAR_raw_bucket=$${RAW_BUCKET:-transit-raw} \
+  TF_VAR_connect_sink_password=$$CONNECT_SINK_PASSWORD \
+  TF_VAR_static_loader_password=$$STATIC_LOADER_PASSWORD \
+  TF_VAR_enrichment_password=$$ENRICHMENT_PASSWORD \
+  TF_VAR_dbt_transform_password=$$DBT_TRANSFORM_PASSWORD \
+  TF_VAR_airflow_ops_password=$$AIRFLOW_OPS_PASSWORD \
+  TF_VAR_archive_writer_secret=$$ARCHIVE_WRITER_SECRET \
+  TF_VAR_flink_state_secret=$$FLINK_STATE_SECRET;
+TF = docker run --rm --network transit-stream_default \
+  -u $$(id -u):$$(id -g) -e HOME=/tmp $(foreach v,$(TF_PASS),-e $(v)) \
+  -v $(ROOT):/repo -w /repo/terraform/$(1) $(TF_IMAGE)
+
+tf-init:  ## terraform init for one root (R=core|connectors)
+	@$(TF_ENV) $(call TF,$(R)) init -input=false -no-color
+
+tf-plan: tf-init  ## terraform plan for one root (R=core|connectors)
+	@$(TF_ENV) $(call TF,$(R)) plan -input=false
+
+tf-validate: tf-init  ## terraform validate for one root (R=core|connectors)
+	@$(TF_ENV) $(call TF,$(R)) validate -no-color
+
+tf-apply: tf-init  ## terraform apply for one root, after showing the plan (R=...)
+	@$(TF_ENV) $(call TF,$(R)) apply -input=false $(TF_APPROVE)
+
+tf-adopt: tf-init  ## ONCE per machine: import resources that predate Terraform (R=...)
+	@$(TF_ENV) $(call TF,$(R)) apply -input=false -var adopt_existing=true $(TF_APPROVE)
+
+# -detailed-exitcode: 0 no changes, 1 error, 2 changes. The 2 is the point, so
+# it is turned into a failure with a message rather than passed through as a
+# bare exit status. -lock=false because this only reads, and a stale lock from
+# an interrupted apply should not stop the drift check from reporting.
+tf-drift:  ## Fail if the live stack differs from terraform/ (both roots)
+	@for r in core connectors; do \
+	  $(MAKE) -s tf-init R=$$r >/dev/null || exit 1; \
+	  $(TF_ENV) $(call TF,$$r) plan -input=false -lock=false -detailed-exitcode -no-color >/dev/null; \
+	  s=$$?; \
+	  if [ $$s -eq 0 ]; then echo "$$r: no drift"; \
+	  elif [ $$s -eq 2 ]; then echo "$$r: DRIFT, run 'make tf-plan R=$$r' to see it"; exit 2; \
+	  else echo "$$r: plan failed"; exit 1; fi; \
+	done
+
+tf-fmt:  ## terraform fmt -check across both roots (what CI runs)
+	@docker run --rm -u $$(id -u):$$(id -g) -v $(ROOT):/repo -w /repo/terraform \
+	  $(TF_IMAGE) fmt -check -recursive -diff
+
+# fmt -check plus validate for BOTH roots, needing no credentials and no running
+# service. `init -backend=false` still downloads the providers named in the lock
+# file -- which is what makes it honest for CI, since a lock file that disagrees
+# with the declarations fails here -- but it never touches state, so none of
+# TF_ENV's variables are needed. That is why this is the one part of the
+# terraform lifecycle a validator-only CI job can run.
+tf-check:  ## terraform fmt -check + validate for both roots, with no credentials
+	@$(MAKE) -s tf-fmt
+	@for r in core connectors; do \
+	  echo "terraform/$$r:"; \
+	  docker run --rm -u $$(id -u):$$(id -g) -e HOME=/tmp -v $(ROOT):/repo \
+	    -w /repo/terraform/$$r $(TF_IMAGE) init -backend=false -input=false -no-color >/dev/null || exit 1; \
+	  docker run --rm -u $$(id -u):$$(id -g) -e HOME=/tmp -v $(ROOT):/repo \
+	    -w /repo/terraform/$$r $(TF_IMAGE) validate -no-color | tail -3; \
+	done
+
+platform: $(ROOT)/.env  ## Create everything Terraform owns, in order (core, worker, connectors)
+	@$(MAKE) -s tf-apply R=core
+	@$(MAKE) -s connect-up
+	@$(MAKE) -s tf-apply R=connectors
+
+# --- CI fixture (Phase 5A) ---------------------------------------------------
+
+ci-fixture:  ## Re-export the real-data slice CI's dbt build runs against
+	@$(ENV) bash $(ROOT)/tests/fixtures/warehouse/export.sh
+
+# --- CI: the database-backed steps, as targets --------------------------------
+#
+# These exist so the runner executes the same code this machine does. A step that
+# lives only inside ci.yml cannot be run before it is pushed, so its first
+# execution is on a runner where debugging costs another push. The contract suites
+# check the declarations; these run them.
+#
+# SPLIT UP because the dbt job needs the same database the validate job only
+# checks: `ci-ddl` is up + ddl + down, and `ci-dbt` reuses the middle pieces and
+# adds the fixture load and the build.
+#
+# A THROWAWAY NETWORK rather than a published port. The dbt container has to
+# reach this server, and every other endpoint in this project is reached by
+# service name, so `ci-pg` on `transit-ci` is the same idiom. A published port
+# would additionally make the run depend on a host port being free.
+
+CI_NET  := transit-ci
+CI_PG   := ci-pg
+CI_USER := ci
+CI_PASS := ci
+CI_DB   := ci
+
+ci-net:
+	@docker network inspect $(CI_NET) >/dev/null 2>&1 || \
+	  docker network create $(CI_NET) >/dev/null
+
+ci-pg-up: ci-net  ## CI: start a throwaway PostGIS and wait until it is really ready
+	@docker rm -f $(CI_PG) >/dev/null 2>&1 || true
+	@docker run -d --name $(CI_PG) --network $(CI_NET) \
+	  -e POSTGRES_USER=$(CI_USER) -e POSTGRES_PASSWORD=$(CI_PASS) \
+	  -e POSTGRES_DB=$(CI_DB) postgis/postgis:16-3.4 >/dev/null
+	@for i in $$(seq 1 30); do \
+	  docker exec $(CI_PG) pg_isready -U $(CI_USER) -d $(CI_DB) >/dev/null 2>&1 && break; \
+	  sleep 2; \
+	done
+	@# THEN WAIT FOR THE IMAGE'S OWN INIT, which pg_isready does not tell you
+	@# about. postgis/postgis runs its docker-entrypoint-initdb.d scripts against
+	@# a TEMPORARY server, and pg_isready answers during that phase -- so a loop
+	@# that stops there lets the apply race the image's own CREATE EXTENSION
+	@# postgis and lose:
+	@#
+	@#     duplicate key value violates unique constraint "pg_extension_name_index"
+	@#     DETAIL: Key (extname)=(postgis) already exists.
+	@#
+	@# Measured on this machine, and the scaffold's inline version of this step
+	@# had the same two-second loop, so it would have flaked in CI too. Waiting
+	@# for postgis to be VISIBLE means the image has finished, after which 01's
+	@# IF NOT EXISTS is a clean no-op.
+	@for i in $$(seq 1 60); do \
+	  docker exec $(CI_PG) psql -U $(CI_USER) -d $(CI_DB) -tAc \
+	    "select 1 from pg_extension where extname = 'postgis'" 2>/dev/null \
+	    | grep -q 1 && break; \
+	  sleep 2; \
+	done
+	@docker exec $(CI_PG) psql -U $(CI_USER) -d $(CI_DB) -tAc \
+	  "select 1 from pg_extension where extname = 'postgis'" | grep -q 1 || \
+	  { echo "postgis never appeared: the image's init did not finish" >&2; exit 1; }
+	@echo "$(CI_PG) ready on $(CI_NET)"
+
+ci-pg-ddl:  ## CI: apply every initdb file, then exercise both maintenance functions
+	@# ALL SIX, in order, which is the whole point: `psql -f` against a real
+	@# server is the only honest syntax check for DDL. There is no offline parser
+	@# that agrees with Postgres about partitioning and plpgsql.
+	@for f in $(ROOT)/docker/initdb/*.sql; do \
+	  echo "applying $$(basename $$f)"; \
+	  docker exec -i $(CI_PG) psql -U $(CI_USER) -d $(CI_DB) -v ON_ERROR_STOP=1 -q < $$f || exit 1; \
+	done
+	@# The functions have to be exercised ON TABLES THAT SURVIVE 06, which drops
+	@# three of the Phase 0 raw tables. The scaffold's version called them on
+	@# raw.vehicle_positions, which no longer exists by this point.
+	@#
+	@# ensure_partition runs twice on purpose: Airflow calls it on a schedule and
+	@# a second call must not error.
+	@docker exec $(CI_PG) psql -U $(CI_USER) -d $(CI_DB) -v ON_ERROR_STOP=1 -tAc \
+	  "select raw.ensure_partition('raw.bunching_alerts', current_date);"
+	@docker exec $(CI_PG) psql -U $(CI_USER) -d $(CI_DB) -v ON_ERROR_STOP=1 -tAc \
+	  "select raw.ensure_partition('raw.bunching_alerts', current_date);"
+	@docker exec $(CI_PG) psql -U $(CI_USER) -d $(CI_DB) -v ON_ERROR_STOP=1 -tAc \
+	  "select raw.drop_partitions_before('raw.prediction_accuracy', '1999-01-01');"
+
+ci-pg-load:  ## CI: load the committed fixtures, then check them against MANIFEST
+	@# gunzip on the HOST side of the pipe. The fixtures are gzipped CSV, one
+	@# file per table, columns in table order with a header -- so this is one
+	@# \copy per table. Decompressing here means the database image does not have
+	@# to carry gunzip, and the load stops at the first error.
+	@for f in $(ROOT)/tests/fixtures/warehouse/*.csv.gz; do \
+	  t=$$(basename $$f .csv.gz); \
+	  echo "loading raw.$$t"; \
+	  gunzip -c $$f | docker exec -i $(CI_PG) psql -U $(CI_USER) -d $(CI_DB) \
+	    -v ON_ERROR_STOP=1 -q -c "\copy raw.$$t FROM STDIN CSV HEADER" || exit 1; \
+	done
+	@# AND THEN COUNT WHAT ARRIVED. This is the part that makes the rest mean
+	@# something: `dbt build` against an EMPTY warehouse passes almost every test
+	@# in this project, because the singular tests return failing rows and an
+	@# empty table has none. A truncated load would therefore be a green build
+	@# that asserted nothing. MANIFEST is written by the same export that wrote
+	@# the files, so the two cannot drift apart silently.
+	@while read -r t want; do \
+	  got=$$(docker exec $(CI_PG) psql -U $(CI_USER) -d $(CI_DB) -tAc \
+	    "select count(*) from raw.$$t"); \
+	  if [ "$$got" != "$$want" ]; then \
+	    echo "raw.$$t: loaded $$got rows, MANIFEST says $$want" >&2; exit 1; \
+	  fi; \
+	  printf '  raw.%-28s %8s rows, matches MANIFEST\n' "$$t" "$$got"; \
+	done < $(ROOT)/tests/fixtures/warehouse/MANIFEST
+
+ci-pg-down:
+	@docker rm -f $(CI_PG) >/dev/null 2>&1 || true
+	@echo "$(CI_PG) removed"
+
+# The two entry points, in the sequence the database has to be built up in.
+# Written as explicit $(MAKE) calls rather than prerequisites, because the dbt
+# build has to happen BETWEEN load and down, and that ordering cannot be a
+# dependency. `platform` above does the same thing for the same reason.
+#
+# A RED dbt BUILD LEAVES THE CONTAINER UP ON PURPOSE, so its loaded fixtures can
+# be inspected with psql. `make ci-pg-down` removes it, and the next ci-pg-up
+# removes it anyway.
+ci-ddl:  ## CI: throwaway Postgres, all six initdb files, both functions, cleaned up
+	@$(MAKE) -s ci-pg-up
+	@$(MAKE) -s ci-pg-ddl
+	@$(MAKE) -s ci-pg-down
+	@echo "six initdb files applied; both maintenance functions callable"
+
+# The dbt container as CI must run it: on the throwaway network, reaching the
+# throwaway database by name, with credentials passed inline. That last part is
+# why this is not DBT_RUN: `make dbt` deliberately sources .env, and a CI
+# checkout has no .env and should not need one. The credentials are DBT_USER and
+# DBT_PASSWORD, which is what profiles.yml reads since 5C; as the CI SUPERUSER,
+# deliberately, because this warehouse is a fresh PostGIS with no roles at all:
+# nothing in this target runs Terraform, so there is no dbt_transform to be.
+CI_DBT_RUN = docker run --rm --network $(CI_NET) \
+	  -v $(ROOT)/dbt:/dbt -e DBT_PROFILES_DIR=/dbt -e DBT_USE_COLORS=false \
+	  -e DBT_HOST=$(CI_PG) -e DBT_PORT=5432 \
+	  -e DBT_USER=$(CI_USER) -e DBT_PASSWORD=$(CI_PASS) \
+	  -e POSTGRES_DB=$(CI_DB) $(DBT_IMAGE)
+
+ci-dbt: dbt-image  ## CI: dbt build against a throwaway warehouse, with real fixture data
+	@$(MAKE) -s ci-pg-up
+	@$(MAKE) -s ci-pg-ddl
+	@$(MAKE) -s ci-pg-load
+	@# require_fixture:true turns on dbt/tests/fixture_is_loaded.sql, the test
+	@# about the test data: it asserts the 2026-09-23 night is loaded, that a
+	@# stale-timestamp row exists to exercise the stale filter, and that the
+	@# stall minute is empty. Without the var that guard is disabled, which is
+	@# what makes an unloaded warehouse look green.
+	@# stall_mart_readers:[] skips mart_feed_health's GRANT. That model grants
+	@# SELECT to airflow_ops so the hourly table swap cannot drop the stall
+	@# check's read access, and this warehouse has no roles, so the grant would
+	@# fail the build with "role airflow_ops does not exist".
+	@# THE TEARDOWN RUNS EVEN WHEN THE BUILD FAILS, and the exit status is
+	@# carried through: without that, a failed dbt run left a throwaway PostGIS
+	@# (and its port) running, which is the state that makes the NEXT run fail.
+	@status=0; $(CI_DBT_RUN) build \
+	  --vars '{require_fixture: true, stall_mart_readers: []}' || status=$$?; \
+	$(MAKE) -s ci-pg-down; \
+	exit $$status
+
+ci-platform: $(ROOT)/.env  ## CI: the clean-clone path end to end (fresh stack to one row)
+	@# THE CLEAN-CLONE EXIT CRITERION as one target rather than seven steps in a
+	@# workflow, for the same reason ci-ddl and ci-dbt are targets: it can be
+	@# rehearsed, and a failure on a runner is reproducible here.
+	@#
+	@# NOT RUNNABLE BESIDE A RUNNING STACK. Every service in docker-compose.yml
+	@# declares a fixed container_name, so a second stack would collide on names
+	@# and on the published ports. CI's runner is empty, which is where this runs.
+	@#
+	@# adopt_existing stays at its default of false: on a fresh stack an import
+	@# block for a topic that does not exist is a hard error, so the fresh path
+	@# must not adopt. `make tf-adopt R=core` is the once-per-machine other half.
+	@#
+	@# up -d --wait brings up the core services only (connect and flink are behind
+	@# profiles) and blocks until their healthchecks pass, because the next step
+	@# talks to the broker and the bucket, and "started" is not "ready".
+	@$(DC) up -d --wait
+	@$(MAKE) -s tf-apply R=core AUTO=1
+	@$(MAKE) -s migrate
+	@$(MAKE) -s schema-register-sinks
+	@$(MAKE) -s connect-up
+	@$(MAKE) -s tf-apply R=connectors AUTO=1
+	@# Immediately after the apply, not later: an apply that does not converge in
+	@# one pass is a bug in terraform/, not flakiness, and this is the step that
+	@# says so.
+	@$(MAKE) -s tf-drift
+	@# The only step that proves the whole sink path rather than each piece of it:
+	@# registry framing, JsonSchemaConverter, TimestampConverter, the upsert and
+	@# partition routing, on a stack that did not exist a minute earlier.
+	@$(MAKE) -s sink-roundtrip ARGS="--clean"
+
 # --- destructive -------------------------------------------------------------
 
 nuke-warehouse:  ## Drop the warehouse data dir so initdb re-runs (DESTRUCTIVE)
@@ -427,13 +713,15 @@ nuke-warehouse:  ## Drop the warehouse data dir so initdb re-runs (DESTRUCTIVE)
 	@sudo rm -rf $(DATA)/transit-warehouse
 	@$(MAKE) dirs
 
-.PHONY: help dirs up connect-up connect-register connect-status down ps logs topics topic-describe recon cadence \
+.PHONY: help dirs up connect-up connect-register connect-status down ps logs topic-describe recon cadence \
+        tf-init tf-plan tf-apply tf-adopt tf-validate tf-drift tf-fmt tf-check platform ci-fixture ci-ddl ci-dbt ci-platform \
+        ci-net ci-pg-up ci-pg-ddl ci-pg-load ci-pg-down \
         feeds produce-dry produce static-status static-load static-hoods \
         schema-gen schema-register schema-status enrich-dry enrich \
         schema-register-sinks \
         pipeline-image stream-up stream-logs \
         flink-up flink-down flink-ui flink-smoke bunching flink-jobs flink-logs resume \
         migrate test contract contract-p2 contract-p3 contract-p3f contract-schema \
-        prediction smoke psql \
+        prediction smoke sink-roundtrip psql \
         check lag nuke-warehouse dbt-image dbt dbt-freshness airflow-up airflow-down \
         airflow-logs airflow-check

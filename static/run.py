@@ -54,12 +54,18 @@ EXIT_UNCHANGED = 99
 
 
 def dsn() -> str:
+    """The warehouse connection, as static_loader rather than the superuser.
+
+    Its own role since build step 5C: it writes static.* and reads nothing else,
+    so a bad load cannot reach raw.*. The variable names match what
+    airflow/dags/transit_static_refresh.py forwards.
+    """
     return (
         f"host={os.environ.get('WAREHOUSE_HOST', 'localhost')} "
         f"port={os.environ.get('WAREHOUSE_PORT', '5434')} "
         f"dbname={os.environ['POSTGRES_DB']} "
-        f"user={os.environ['POSTGRES_USER']} "
-        f"password={os.environ['POSTGRES_PASSWORD']}"
+        f"user={os.environ.get('STATIC_LOADER_USER', 'static_loader')} "
+        f"password={os.environ['STATIC_LOADER_PASSWORD']}"
     )
 
 

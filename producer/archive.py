@@ -61,8 +61,12 @@ class RawArchive:
         self.bucket = bucket or os.environ.get("RAW_BUCKET", "transit-raw")
         self._client = Minio(
             endpoint or os.environ.get("MINIO_ENDPOINT", "localhost:9000"),
-            access_key=access_key or os.environ["MINIO_ROOT_USER"],
-            secret_key=secret_key or os.environ["MINIO_ROOT_PASSWORD"],
+            # archive_writer's credentials (build step 5C), not the MinIO root.
+            # Its policy allows ListBucket on the bucket and PutObject under
+            # raw/, so the producer cannot read an object back, let alone touch
+            # flink-checkpoints/.
+            access_key=access_key or os.environ["MINIO_ACCESS_KEY"],
+            secret_key=secret_key or os.environ["MINIO_SECRET_KEY"],
             # Plain HTTP: MinIO here is a local stand-in for S3 on a private
             # Docker network. Anything reachable from outside the host needs
             # secure=True and a real certificate.

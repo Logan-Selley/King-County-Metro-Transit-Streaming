@@ -1,5 +1,7 @@
 # transit-stream
 
+[![CI](https://github.com/Logan-Selley/King-County-Metro-Transit-Streaming/actions/workflows/ci.yml/badge.svg)](https://github.com/Logan-Selley/King-County-Metro-Transit-Streaming/actions/workflows/ci.yml)
+
 Real-time telemetry pipeline over King County Metro's GTFS-Realtime feeds:
 continuous ingest into Redpanda, spatial enrichment against static schedule
 data, stateful stream processing for bus bunching and prediction accuracy, and
@@ -8,8 +10,9 @@ a replayable raw archive.
 > Transit scheduling, geographic, and real-time data provided by permission of
 > King County.
 
-**Status: Phases 0-3 complete and verified; Phase 4, the analytics layer, is
-in progress.** Reconnaissance is measured and written up
+**Status: Phases 0-5 are built and verified locally, and nothing is pushed yet,
+so the badge above reports what the first push does rather than a claim made
+here.** Reconnaissance is measured and written up
 ([`docs/findings.md`](docs/findings.md)); the local stack runs and is verified
 end to end, from the producer through Connect, dbt and Airflow. See
 [Current state](#current-state).
@@ -67,9 +70,15 @@ Requires Docker, [uv](https://docs.astral.sh/uv/), and `make`.
 uv sync
 cp .env.example .env      # then edit: the passwords are literally 'change-me'
 make dirs                 # needs sudo, once (see below)
-make up
-make topics
+make up                   # infrastructure: broker, warehouse, MinIO, Connect
+make platform             # Terraform: topics, bucket + lifecycle, connectors
 ```
+
+The last line is Phase 5B's change. It used to be `make topics`, which ran one
+broker CLI call per topic. That target is gone: `terraform/core/topics.tf` owns
+the twelve topics now, `terraform/core/storage.tf` owns the bucket, and
+`terraform/connectors/` owns the three sinks. `make tf-drift` tells you whether
+the running stack still matches what is written down.
 
 Then:
 
@@ -164,16 +173,18 @@ All host ports route around the parcel project, which holds **5433** and
   [`docs/findings.md`](docs/findings.md).
 - Warehouse schema: partitioned raw tables, DLQ, partition-maintenance
   function ([`docker/initdb/01-schema.sql`](docker/initdb/01-schema.sql)).
-- Topic layout with real retention and compaction settings (`make topics`).
+- Topic layout with real retention and compaction settings
+  ([`terraform/core/topics.tf`](terraform/core/topics.tf), which owns all twelve
+  since build step 5B).
 - ADRs 0001-0008. Four carry dated corrections where measurement
   contradicted the original reasoning: 0001 on the disk constraint, 0003 on
   `block_id`'s real source, 0005 on what the Schema Registry actually
   enforces for protobuf, and 0006 on the PyFlink version pin and the
   gencode/runtime conflict its isolation created.
-- **245 tests**, all enforced in CI, across seven suites: wire semantics
-  (10), producer contract (46), enrichment contract (42), schema/semantic-gate
-  (23), the bunching detector (63), the prediction-accuracy join (48), and the
-  sink framing (13).
+- **365 tests**, all enforced in CI, across ten suites: wire semantics (10),
+  producer contract (46), enrichment contract (44), schema/semantic-gate (23),
+  the bunching detector (63), the prediction-accuracy join (48), sink framing
+  (11), the platform contract (57), privileges (55), and operations (8).
   The contract suites are the executable specs the implementations were
   written against, and each was written before the code it tests.
 
@@ -201,7 +212,7 @@ bucket overnight. Metro's estimates run pessimistic: buses arrive earlier than
 the sign says, by 12 s at under two minutes and over 3 minutes an hour out.
 Results in [findings](docs/findings.md).
 
-**In progress (Phase 4), the analytics layer.** Kafka Connect sinks the
+**Phase 4, complete: the analytics layer.** Kafka Connect sinks the
 enriched topic into a partitioned PostGIS table, idempotent under a full
 replay; dbt and Airflow each run in their own image
 ([ADR 0008](docs/decisions/0008-warehouse-sink.md)). Build order:
@@ -222,13 +233,45 @@ Phase 3 measured offline: median \|error\| rises from 44 s in the 0-2m bucket to
 so the sign runs optimistic.
 
 ```
-make topics && make connect-up && make connect-register   # 4A, 4B
-make schema-register-sinks && make migrate                # 4B DDL and subjects
-make dbt                                                  # 47 pass, 0 fail
+make platform                                             # 5B + 5C: topics, bucket, connectors, roles, grants
+make migrate && make schema-register-sinks                # 4B DDL and subjects; 5C hands staging/marts to dbt_transform
+make dbt                                                  # 47 pass, 0 fail, running as dbt_transform
 make airflow-check                                        # 4 of 4 DAGs complete
 ```
 
-Phases 5-6 (CI/Terraform, replay demo) are unstarted.
+**The order matters after 5C.** `make platform` creates the roles every client
+now logs in as, and `make migrate` is what transfers ownership of `staging` and
+`marts` to `dbt_transform` (the `raw` and `static` grants come from Terraform
+alone). On a fresh clone the containers are up before any role exists, so the
+producer and the enrichment consumer log connection failures until `make
+platform` has run and simply reconnect afterwards.
+
+**In progress (Phase 5), the production surface.** CI that tests something
+real, the platform's configuration as code, least-privilege credentials, and
+lag monitoring. Terraform manages the LOCAL stack's topics, bucket, connectors
+and roles; no cloud account is involved, and
+[ADR 0009](docs/decisions/0009-terraform-local-platform.md) records why and
+what was left out. Build order:
+
+| step | what | state |
+|---|---|---|
+| 5A | CI: every initdb file, `terraform validate`, DAG imports, and `dbt build` against a committed real-data fixture | **done**: `validate` (10 steps) and `dbt` (48/48 against the fixture slice); every step is a make target, run locally before it can run on a runner |
+| 5B | Terraform owns topics and the bucket; `make topics` and `minio-init` retire | **done**: 12 topics + the bucket adopted (13 imported, 1 added, 0 changed), the ILM rule live at 7 days, both creators retired, `make tf-drift` exits 0 |
+| 5C | One Postgres role and MinIO user per client, write-only passwords | **done**: 5 login-only roles + 2 MinIO users with prefix-scoped policies, every credential write-only from an ephemeral variable (measured: each of the 7 values occurs 0 times in `terraform.tfstate`, where `password` is null and `secret` empty); both maintenance functions `SECURITY DEFINER` with a pinned `search_path` and EXECUTE revoked from PUBLIC; every client off the superuser, which is left to initdb, migrate and Terraform; spec 55/55, promoted from `wip` |
+| 5D | Health checks on the long-running services; a `consumer_lag` task | **done**: loop-liveness for the two consumers, REST for the JobManager, JM-visibility for the TaskManager; per-group lag thresholds in `transit_health`; `make airflow-check` 4 of 4 |
+| 5E | A clean-clone CI job: fresh stack, `terraform apply`, zero drift, one record through the sink | **done**: the `platform` job runs `make ci-platform`, the whole path as one target it can be rehearsed through, and `make sink-roundtrip` is the record through the sink (measured locally: the row was visible on the first probe, 2 seconds after the produce) |
+
+Exit (from the proposal): a green CI badge, and the stack coming up from a
+clean clone, which 5E proves on every push rather than once by hand.
+
+```
+make tf-adopt R=core && make tf-adopt R=connectors   # ONCE on this machine
+make tf-drift                                        # exit 0 = live matches terraform/
+make ci-fixture                                      # re-export the CI slice
+uv run pytest -m contract                            # every implemented spec
+```
+
+Phase 6 (replay demo) is unstarted.
 
 ## Phase 0 headlines
 
@@ -268,7 +311,7 @@ schemas/                 protobuf definitions (Phase 2)
 dbt/                     Phase 4 -- staging views, marts, spec tests
 airflow/dags/            Phase 4 -- partitions, dbt, health, static refresh
 connect/                 Phase 4 -- sink configs, one file per connector
-terraform/               Phase 5
+terraform/               Phase 5 -- core/ (topics, bucket, roles), connectors/
 tests/                   wire-semantics regression tests + fixtures
 docs/findings.md         Phase 0 results
 docs/decisions/          ADRs

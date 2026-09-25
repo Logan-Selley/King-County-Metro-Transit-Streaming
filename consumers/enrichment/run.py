@@ -44,6 +44,7 @@ from consumers.enrichment import schema as schema_mod
 from consumers.enrichment.enrich import STATS as ENRICH_STATS, enrich_v1, enrich_v2
 from consumers.enrichment.reference import ReferenceData, resolve_version
 from producer.errors import DlqReason
+from producer.heartbeat import beat
 from producer.publish import TopicPublisher
 
 log = logging.getLogger("enrichment")
@@ -82,12 +83,17 @@ def _handle_signal(signum, _frame) -> None:
 
 
 def dsn() -> str:
+    """The warehouse connection, as the enrichment role rather than the superuser.
+
+    Its own role since build step 5C: it reads static.* and nothing else, and
+    never reads raw.* from Postgres at all, because its source is the raw topic.
+    """
     return (
         f"host={os.environ.get('WAREHOUSE_HOST', 'localhost')} "
         f"port={os.environ.get('WAREHOUSE_PORT', '5434')} "
         f"dbname={os.environ['POSTGRES_DB']} "
-        f"user={os.environ['POSTGRES_USER']} "
-        f"password={os.environ['POSTGRES_PASSWORD']}"
+        f"user={os.environ.get('ENRICHMENT_USER', 'enrichment')} "
+        f"password={os.environ['ENRICHMENT_PASSWORD']}"
     )
 
 
@@ -163,6 +169,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         while not _stop:
+            beat()
             msg = consumer.poll(1.0)
             if msg is not None and not msg.error():
                 counters.consumed += 1

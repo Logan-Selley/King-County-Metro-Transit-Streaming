@@ -13,12 +13,27 @@
 #
 # .env is here for a second reason: it holds the passwords, and there is no
 # build that needs them. Compose substitutes them at runtime.
+#
+# PATTERNS ARE ANCHORED AT THE CONTEXT ROOT, and a bare name does not match at
+# depth (unlike .gitignore). That is why `dbt/target` and `airflow/logs` are
+# spelled out below rather than written as `target` and `logs`. Measured the hard
+# way: `make pipeline-image` failed with
+#
+#     Can't add file .../airflow/logs/scheduler/2026-09-24/transit_health.py.log
+#     to tar: archive/tar: write too long
+#
+# because Airflow appends to those files every few seconds and the tar raced one
+# growing mid-build. The scheduler had only just been unpaused, which is what
+# turned a latent problem into a visible one.
 
 .git
 .venv
 .env
 data
+# Historical run logs from Phases 1-3 (1.7 MB), at the context root so the bare
+# name matches. No build reads them.
 logs
+airflow/logs
 dbt/target
 dbt/logs
 dbt/dbt_packages

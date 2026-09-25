@@ -210,28 +210,20 @@ services:
       retries: 10
       start_period: 10s
 
-  # One-shot bucket creation. Runs to completion and exits; `docker compose up`
-  # will show it as Exited(0), which is success, not a crash. Creating the
-  # bucket from the producer instead would mean every producer start carries
-  # admin credentials, which is the wrong place for them.
-  minio-init:
-    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
-    container_name: transit_minio_init
-    depends_on:
-      minio:
-        condition: service_healthy
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      RAW_BUCKET: ${RAW_BUCKET:-transit-raw}
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
-      mc mb --ignore-existing local/$$RAW_BUCKET &&
-      mc ls local &&
-      echo 'bucket ready'
-      "
-    restart: "no"
+  # Bucket creation MOVED TO TERRAFORM, build step 5B. terraform/core/storage.tf
+  # owns transit-raw, including its lifecycle rule for abandoned checkpoints.
+  #
+  # WHY IT MOVED. This was a one-shot bucket create with an ignore-if-exists
+  # flag: create if absent, say nothing about configuration. Same shape as the
+  # topic-create calls that used to be in the Makefile, and it went for the same
+  # reason. The bucket grew configuration worth managing (an expiry on
+  # flink-checkpoints/), and there should be one owner for it.
+  #
+  # The bootstrap sequence on a fresh machine is now `make up` then
+  # `make platform`, which is what CI's platform job proves on every push.
+  # tests/test_platform_contract.py fails while a bucket-create call appears in
+  # this file -- a blunt substring check, so this comment cannot quote it
+  # either.
 
   # --- ingest and enrichment (supervised) -----------------------------------
   # BEHIND A PROFILE, because `make up` is infrastructure and these are the
@@ -270,8 +262,11 @@ services:
       KAFKA_BOOTSTRAP: redpanda:9092
       SCHEMA_REGISTRY_URL: http://redpanda:8081
       MINIO_ENDPOINT: minio:9000
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      # archive_writer, not MINIO_ROOT_USER (build step 5C). The policy is
+      # ListBucket on the bucket plus PutObject under raw/ and nothing else, so a
+      # bad producer cannot read the archive back or touch flink-checkpoints/.
+      MINIO_ACCESS_KEY: archive_writer
+      MINIO_SECRET_KEY: ${ARCHIVE_WRITER_SECRET}
       RAW_BUCKET: ${RAW_BUCKET:-transit-raw}
       # Carried through from .env because these are policy, not addresses.
       # The user agent is the good-citizen contact on a public endpoint, and
@@ -283,6 +278,20 @@ services:
     # No --duration. The process has to run until something stops it, which is
     # the whole point of giving it a restart policy.
     command: ["python", "-m", "producer.run"]
+    healthcheck:
+      # Reports whether the loop is still TICKING, which the restart policy
+      # cannot: a wedged process stays Up. producer/heartbeat.py touches this
+      # file once an iteration and documents what it does not prove (nothing
+      # about whether Metro is publishing).
+      #
+      # -mmin rather than arithmetic on stat, so there is no $ to escape for
+      # Compose.
+      test: ["CMD-SHELL", "find /tmp/transit-heartbeat -mmin -2 | grep -q ."]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # The file does not exist until the first iteration.
+      start_period: 60s
 
   enrichment:
     profiles: ["stream"]
@@ -301,10 +310,13 @@ services:
       SCHEMA_REGISTRY_URL: http://redpanda:8081
       # psycopg is enrichment-only, so the database credentials are here and
       # deliberately NOT on the producer above.
+      #
+      # The enrichment role, not the superuser (build step 5C): it reads static.*
+      # and nothing else. POSTGRES_USER and POSTGRES_PASSWORD are absent on
+      # purpose, so this container cannot log in as `transit`.
       WAREHOUSE_HOST: warehouse
       WAREHOUSE_PORT: "5432"
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      ENRICHMENT_PASSWORD: ${ENRICHMENT_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     # --schema-version 2, NOT the CLI default of 1, and this is a measured
     # choice: a live record off the enriched topic carries
@@ -315,6 +327,16 @@ services:
     # in it. Note `make enrich` defaults to V=1, which is the trap this line
     # exists to close.
     command: ["python", "-m", "consumers.enrichment.run", "--schema-version", "2"]
+    healthcheck:
+      # Same liveness file as the producer, same reasoning: the enrichment loop
+      # can be Up and wedged, and this is the only thing that notices. It says
+      # nothing about whether records are flowing, which is dbt source
+      # freshness's job.
+      test: ["CMD-SHELL", "find /tmp/transit-heartbeat -mmin -2 | grep -q ."]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
   # --- stateful processing (Phase 3) ---------------------------------------
   # BEHIND A PROFILE, like connect. `make flink-up` starts them.
@@ -396,13 +418,23 @@ services:
         state.checkpoints.dir: s3://${RAW_BUCKET:-transit-raw}/flink-checkpoints
         s3.endpoint: http://minio:9000
         s3.path.style.access: true
-        s3.access-key: ${MINIO_ROOT_USER}
-        s3.secret-key: ${MINIO_ROOT_PASSWORD}
+        s3.access-key: flink_state
+        s3.secret-key: ${FLINK_STATE_SECRET}
     ports:
       - "${FLINK_UI_PORT:-8086}:8081"
     volumes:
       - ./consumers:/opt/jobs/consumers:ro
       - ./schemas:/opt/jobs/schemas:ro
+    healthcheck:
+      # The REST API, not the process. An Up JobManager whose web or Pekko layer
+      # is broken cannot serve the UI or accept a submit, and this is what
+      # flink-submit now waits for (see its depends_on), so the curl loop inside
+      # flink-submit.sh becomes the fallback rather than the mechanism.
+      test: ["CMD-SHELL", "curl -fs http://localhost:8081/overview >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   flink-taskmanager:
     profiles: ["flink"]
@@ -472,11 +504,25 @@ services:
         state.checkpoints.dir: s3://${RAW_BUCKET:-transit-raw}/flink-checkpoints
         s3.endpoint: http://minio:9000
         s3.path.style.access: true
-        s3.access-key: ${MINIO_ROOT_USER}
-        s3.secret-key: ${MINIO_ROOT_PASSWORD}
+        s3.access-key: flink_state
+        s3.secret-key: ${FLINK_STATE_SECRET}
     volumes:
       - ./consumers:/opt/jobs/consumers:ro
       - ./schemas:/opt/jobs/schemas:ro
+    healthcheck:
+      # A TaskManager has no HTTP endpoint of its own (measured: it listens on
+      # exactly one port, its data port), so its health is asked of the
+      # JobManager: is a TaskManager registered? An unregistered worker cannot
+      # run anything, so "unhealthy" is truthful rather than harsh here.
+      #
+      # The consequence to know: a down JobManager reports its TaskManager
+      # unhealthy as well. With one worker that coupling is correct; with
+      # several it would not be, and this check would need replacing.
+      test: ["CMD-SHELL", "curl -fs http://flink-jobmanager:8081/taskmanagers | grep -q dataPort"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   # Submits the jobs once, and re-submits after a restart. There is no
   # JobManager HA (see the jobmanager comment above), so without this a boot
@@ -502,7 +548,12 @@ services:
     memswap_limit: 1024m
     depends_on:
       flink-jobmanager:
-        condition: service_started
+        # service_healthy, not service_started. The script polls the REST API
+        # itself, so this is belt and braces, but it is the correct declaration:
+        # a submit against a half-started cluster fails outright, and the curl
+        # loop inside flink-submit.sh becomes the fallback rather than the only
+        # guard.
+        condition: service_healthy
     environment:
       # On by default. Both sources start at latest(), so submitting the
       # prediction job on boot costs no replay; it was off by default on the
@@ -590,13 +641,18 @@ services:
       CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://redpanda:8081
       CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
       # Secrets stay out of connector configs. EnvVarConfigProvider lets a
-      # config say "${env:POSTGRES_PASSWORD}" and resolves it inside the
+      # config say "${env:CONNECT_SINK_PASSWORD}" and resolves it inside the
       # worker, so connect/*.json is committed with no credential in it and
       # the password never appears in the REST API's view of the config.
+      #
+      # THE SINK'S OWN ROLE, not the superuser (build step 5C). POSTGRES_USER and
+      # POSTGRES_PASSWORD are deliberately NOT in this environment, so the worker
+      # cannot log in as `transit` even if a config asked it to. POSTGRES_DB stays,
+      # because the JDBC URL names the database and a database name is not a
+      # credential.
       CONNECT_CONFIG_PROVIDERS: env
       CONNECT_CONFIG_PROVIDERS_ENV_CLASS: org.apache.kafka.common.config.provider.EnvVarConfigProvider
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      CONNECT_SINK_PASSWORD: ${CONNECT_SINK_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "${CONNECT_PORT:-8083}:8083"

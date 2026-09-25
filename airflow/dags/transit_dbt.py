@@ -44,8 +44,12 @@ def dbt(task_id: str, command: str) -> DockerOperator:
             "DBT_PROFILES_DIR": "/dbt",
             "DBT_HOST": "warehouse",
             "DBT_PORT": "5432",
-            "POSTGRES_USER": os.environ["POSTGRES_USER"],
-            "POSTGRES_PASSWORD": os.environ["POSTGRES_PASSWORD"],
+            # dbt_transform, not the superuser (build step 5C). It reads raw.* and
+            # static.*, owns staging.* and marts.*, and cannot drop a landing
+            # table. The names match dbt/profiles.yml and the Makefile's DBT_RUN,
+            # because all three start the same container.
+            "DBT_USER": "dbt_transform",
+            "DBT_PASSWORD": os.environ["DBT_TRANSFORM_PASSWORD"],
             "POSTGRES_DB": os.environ["POSTGRES_DB"],
         },
         # dbt writes target/ and logs/ into the mounted project. Not removing
