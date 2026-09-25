@@ -176,11 +176,24 @@ services:
       - ./docker/initdb:/docker-entrypoint-initdb.d:ro
     shm_size: 1gb  # spatial joins and large sorts exhaust the 64mb default
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      # -h 127.0.0.1, not the socket. On first start the image runs initdb
+      # scripts against a temporary server that listens on the socket only, so
+      # a socket probe reports healthy while init is still running, and
+      # `up --wait` returns early. The temporary server has no TCP listener,
+      # so this answers only once the real server is up. Makefile's ci-pg-up
+      # records the two races the socket probe caused there.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      # 180s because the probe above now waits for init honestly, and a first
+      # init runs initdb, creates postgis and applies all of docker/initdb/.
+      # The old 10s only ever worked because the socket probe reported healthy
+      # DURING init. A passing check inside the start period marks the service
+      # healthy at once, so this costs nothing when init is fast; it only stops
+      # `up --wait` giving up on a slow first start (rehearsed: a cold start on
+      # a busy disk went past the old ~60s budget and failed the platform job).
+      start_period: 180s
 
   # --- raw archive ----------------------------------------------------------
   # Every poll response lands here untouched before it is decoded. This is the
@@ -189,7 +202,23 @@ services:
   # discontinue access without notice, so the archive is what makes the
   # project survive the feed disappearing.
   minio:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # NOT minio/minio. That repository no longer exists on Docker Hub (its tags
+    # API answers "object not found", a pull answers "repository does not exist
+    # or may require 'docker login'"), and quay.io/minio/minio requires auth.
+    # Found by rehearsing the `platform` CI job on an empty daemon on
+    # 2026-09-25: this machine had kept working only because it pulled the old
+    # image weeks earlier, so the clean-clone path was broken and nothing here
+    # could see it.
+    #
+    # Chainguard's build from source, signed and maintained. Its free tier
+    # publishes only `latest`, so this pins the DIGEST: reproducible, and if the
+    # digest is ever withdrawn the pull fails loudly instead of silently running
+    # a different server. It is RELEASE.2026-09-22T19-25-18Z.
+    #
+    # It runs as uid 65532, not root as the old image did, so `make dirs` owns
+    # /mnt/F/docker-data/transit-minio accordingly. It carries sh and mc, so the
+    # healthcheck below is unchanged.
+    image: cgr.dev/chainguard/minio@sha256:bd014394a80898e68c149f2311fdf8d5a2c2f3bb2c33b9327ae6d02b4b065ae1
     container_name: transit_minio
     restart: unless-stopped
     mem_limit: 512m

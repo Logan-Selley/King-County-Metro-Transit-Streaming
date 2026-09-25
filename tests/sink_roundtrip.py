@@ -13,10 +13,18 @@ gap between "the connector is configured" and "a row lands" is closed here
 without a cluster. What is under test is the connector and the table, not the
 detector, which has its own contract suite.
 
-ONE ROW, IDENTIFIABLE, AND REMOVABLE. The pair ('sink-roundtrip-a',
+ONE ROW, IDENTIFIABLE, AND ONLY HALF REMOVABLE. The pair ('sink-roundtrip-a',
 'sink-roundtrip-b') is not a vehicle id any feed will produce, and --clean
-deletes the row this script found, so running it against a real collection
-leaves nothing behind.
+deletes the warehouse row this script found. It cannot delete the RECORD:
+alerts.bunching is a delete-policy topic with 30-day retention, and Kafka has
+no way to remove one record from the middle of one. Measured on 2026-09-25
+after two runs against the live collection: 0 rows in raw.bunching_alerts, 2
+probe records still on the topic. Any replay of the connector before they age
+out puts both rows back.
+
+So this belongs on a stack that is thrown away afterwards, which is what the
+`platform` CI job is. Against a real collection, --clean keeps the marts
+honest until the next replay and no longer than that.
 
 Exit status is the whole point: 0 only when a row matching the record this run
 produced is visible in raw.bunching_alerts.
@@ -130,7 +138,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--timeout", type=int, default=90,
                     help="seconds to wait for the row (default 90)")
     ap.add_argument("--clean", action="store_true",
-                    help="delete the row afterwards, for a real collection")
+                    help="delete the warehouse row afterwards (the topic record stays)")
     ap.add_argument("--window-end", type=int, default=None,
                     help="epoch seconds; defaults to now, which is covered by the "
                          "partitions 03-sink.sql creates")

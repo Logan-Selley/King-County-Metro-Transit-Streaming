@@ -34,25 +34,38 @@ $(ROOT)/.env:
 	  echo "EDIT IT -- the passwords are literally 'change-me'."; \
 	  exit 1; }
 
-dirs:  ## Create + chown the bind-mounted data directories (needs sudo, once)
+dirs:  ## Create + chown the bind-mounted data directories (needs sudo; safe to re-run)
 	@# postgres runs as uid 999 and checks PGDATA ownership against its own
 	@# uid before initdb; redpanda runs as uid 101. Getting either wrong shows
 	@# up as a container that starts, logs a permission error, and exits 1.
-	@# minio runs as root in its image, so its directory needs no chown.
+	@# Measured for redpanda on 2026-09-25 with a directory Docker created as
+	@# root, which is what a fresh CI runner gets:
+	@#
+	@#   Failure during startup: ... mkdir failed: Permission denied
+	@#
 	@# chown -R, not a plain chown. The directory alone is not enough once a
 	@# container has written into it: any content created under a different
 	@# uid (a stack brought up with a `user:` override, a volume moved between
 	@# machines) stays unreadable and postgres fails AFTER initdb rather than
 	@# before, which is a much more confusing failure.
-	@sudo mkdir -p $(DATA)/transit-warehouse $(DATA)/transit-redpanda $(DATA)/transit-minio $(DATA)/transit-airflow-db
-	@sudo chown -R 999:999 $(DATA)/transit-warehouse && sudo chmod 700 $(DATA)/transit-warehouse
-	@sudo chown -R 999:999 $(DATA)/transit-airflow-db
-	@sudo chown -R 101:101 $(DATA)/transit-redpanda
-	@sudo chown -R $$(id -u):$$(id -g) $(DATA)/transit-minio
-	@# Airflow's task logs. The only bind mount that lives INSIDE the repo rather
-	@# than under $(DATA) (docker-compose.airflow.yml), and it needs a chown like
-	@# the rest: the container runs as 50000:0, and a root-owned 755 directory
-	@# makes it die at startup with
+	@#
+	@# BUT ONLY WHEN THE TOP-LEVEL OWNER IS WRONG. The first version walked every
+	@# tree on every run, and a re-run beside a live stack failed: MinIO creates
+	@# and deletes temp files under .minio.sys/tmp continuously, one vanished
+	@# between the directory listing and the chown, and chown exits 1 on
+	@# "No such file or directory". A directory already owned by the right uid
+	@# is left alone, which makes the target idempotent and keeps it off live
+	@# data trees.
+	@#
+	@# minio runs as uid 65532 since the image moved to Chainguard's build
+	@# (docker-compose.yml says why). The old minio/minio image ran as root and
+	@# needed no chown; this one fails to write a root-owned /data. An existing
+	@# root-owned MinIO directory is therefore chowned ONCE, and that walk must
+	@# not race a running server: `docker compose stop minio` first.
+	@#
+	@# Airflow's task logs are the one bind mount INSIDE the repo rather than
+	@# under $(DATA) (docker-compose.airflow.yml). The container runs as 50000:0,
+	@# and a root-owned 755 directory makes it die at startup with
 	@#
 	@#   ValueError: Unable to configure handler 'processor'
 	@#
@@ -60,8 +73,18 @@ dirs:  ## Create + chown the bind-mounted data directories (needs sudo, once)
 	@# error wearing a logging-config error's clothes. Added 2026-09-23, when
 	@# `make airflow-up` was found to have never produced a running Airflow on
 	@# this machine.
-	@sudo mkdir -p $(ROOT)/airflow/logs
-	@sudo chown -R 50000:0 $(ROOT)/airflow/logs
+	@sudo mkdir -p $(DATA)/transit-warehouse $(DATA)/transit-redpanda \
+	  $(DATA)/transit-minio $(DATA)/transit-airflow-db $(ROOT)/airflow/logs
+	@own() { \
+	  if [ "$$(sudo stat -c %u:%g "$$1")" != "$$2" ]; then \
+	    sudo chown -R "$$2" "$$1" && echo "  chowned $$1 -> $$2"; \
+	  fi; }; \
+	own $(DATA)/transit-warehouse 999:999 && \
+	own $(DATA)/transit-airflow-db 999:999 && \
+	own $(DATA)/transit-redpanda 101:101 && \
+	own $(DATA)/transit-minio 65532:65532 && \
+	own $(ROOT)/airflow/logs 50000:0
+	@sudo chmod 700 $(DATA)/transit-warehouse
 	@echo "data directories ready under $(DATA)"
 
 up: $(ROOT)/.env  ## Start the core stack (redpanda, console, warehouse, minio)
@@ -73,8 +96,18 @@ up: $(ROOT)/.env  ## Start the core stack (redpanda, console, warehouse, minio)
 	@echo "  registry   http://localhost:$${REDPANDA_REGISTRY_PORT:-18081}"
 	@echo "  warehouse  localhost:$${WAREHOUSE_PORT:-5434}"
 
-connect-up: $(ROOT)/.env  ## Build + start Kafka Connect (see docker/Dockerfile.connect)
-	@$(DC) --profile connect up -d --build connect
+connect-up: $(ROOT)/.env  ## Build + start Kafka Connect, and wait until its REST API answers
+	@# --wait: return only once the worker's healthcheck passes. Without it this
+	@# returned the moment the container started, while the worker needs up to
+	@# two minutes to open port 8083 (its image's own healthcheck allows a 120s
+	@# start period). The next step in `make platform` and in CI, the connectors
+	@# apply, then failed on every connector with
+	@#
+	@#   Error: Post "http://connect:8083/connectors": ... connection refused
+	@#
+	@# Found by rehearsing the `platform` CI job on an empty daemon, 2026-09-25.
+	@# On this machine the worker had always been up long before anyone applied.
+	@$(DC) --profile connect up -d --build --wait connect
 
 # PUT, not POST: PUT /connectors/<name>/config creates or updates, so this is
 # safe to re-run after editing a config. Name comes from the file name.
@@ -433,6 +466,23 @@ TF_IMAGE := hashicorp/terraform:1.15.9
 # a plan you have already seen. `-auto-approve` does NOT skip the plan, only the
 # confirmation.
 TF_APPROVE := $(if $(AUTO),-auto-approve,)
+
+# The core root applies ONE RESOURCE AT A TIME. Its Postgres grants collide when
+# run concurrently: every table grant rewrites that table's pg_class row, and
+# connect_sink and dbt_transform are both granted on the same raw tables, so
+# two parallel revoke-then-grant statements hit one row and Postgres aborts one:
+#
+#   Error: could not execute revoke query: pq: tuple concurrently updated
+#   STATEMENT: REVOKE UPDATE,SELECT,INSERT ON TABLE "raw"."prediction_accuracy",...
+#
+# Found by rehearsing the `platform` CI job on an empty daemon (2026-09-25); on
+# this machine the grants were adopted or added a few at a time and never raced.
+# The provider's own max_connections = 1 was tried first and did NOT fix it:
+# the next run still showed two backends (pids 139 and 145) failing in the same
+# second. -parallelism=1 removes the concurrency instead of trusting a setting
+# that measurably did not. The cost is the twelve topics applying in sequence
+# on a fresh stack; plan and tf-drift only read, and stay parallel.
+TF_SERIAL = $(if $(filter core,$(1)),-parallelism=1,)
 TF_PASS := TF_VAR_warehouse_db TF_VAR_warehouse_admin_user TF_VAR_warehouse_admin_password \
            TF_VAR_minio_root_user TF_VAR_minio_root_password TF_VAR_raw_bucket \
            TF_VAR_connect_sink_password TF_VAR_static_loader_password \
@@ -466,10 +516,10 @@ tf-validate: tf-init  ## terraform validate for one root (R=core|connectors)
 	@$(TF_ENV) $(call TF,$(R)) validate -no-color
 
 tf-apply: tf-init  ## terraform apply for one root, after showing the plan (R=...)
-	@$(TF_ENV) $(call TF,$(R)) apply -input=false $(TF_APPROVE)
+	@$(TF_ENV) $(call TF,$(R)) apply -input=false $(call TF_SERIAL,$(R)) $(TF_APPROVE)
 
 tf-adopt: tf-init  ## ONCE per machine: import resources that predate Terraform (R=...)
-	@$(TF_ENV) $(call TF,$(R)) apply -input=false -var adopt_existing=true $(TF_APPROVE)
+	@$(TF_ENV) $(call TF,$(R)) apply -input=false -var adopt_existing=true $(call TF_SERIAL,$(R)) $(TF_APPROVE)
 
 # -detailed-exitcode: 0 no changes, 1 error, 2 changes. The 2 is the point, so
 # it is turned into a failure with a message rather than passed through as a
@@ -546,32 +596,39 @@ ci-pg-up: ci-net  ## CI: start a throwaway PostGIS and wait until it is really r
 	@docker run -d --name $(CI_PG) --network $(CI_NET) \
 	  -e POSTGRES_USER=$(CI_USER) -e POSTGRES_PASSWORD=$(CI_PASS) \
 	  -e POSTGRES_DB=$(CI_DB) postgis/postgis:16-3.4 >/dev/null
-	@for i in $$(seq 1 30); do \
-	  docker exec $(CI_PG) pg_isready -U $(CI_USER) -d $(CI_DB) >/dev/null 2>&1 && break; \
+	@# WAIT FOR THE IMAGE'S OWN INIT TO FINISH, which a socket probe cannot see.
+	@# postgis/postgis runs its docker-entrypoint-initdb.d scripts against a
+	@# TEMPORARY server that listens on the Unix socket only, then stops it and
+	@# starts the real one. Two races came out of that, one after the other:
+	@#
+	@#  1. pg_isready over the socket answers during the temporary phase, so the
+	@#     apply raced the image's own CREATE EXTENSION postgis and lost:
+	@#       duplicate key value violates unique constraint "pg_extension_name_index"
+	@#     Measured on this machine.
+	@#  2. The fix for (1) waited until postgis was VISIBLE, on the assumption that
+	@#     the image had then finished. It had not: the extension is created on
+	@#     the temporary server, which is then shut down. On a cold runner
+	@#     (rehearsed on an empty daemon, 2026-09-25) the DDL started in that gap
+	@#     and died mid-file with
+	@#       FATAL:  terminating connection due to administrator command
+	@#     This machine had passed only by being fast enough to win.
+	@#
+	@# -h 127.0.0.1 on every probe closes both: the temporary server has no TCP
+	@# listener, so a TCP answer can only come from the final server, and every
+	@# socket connection after that talks to it too.
+	@for i in $$(seq 1 60); do \
+	  docker exec $(CI_PG) pg_isready -h 127.0.0.1 -U $(CI_USER) -d $(CI_DB) >/dev/null 2>&1 && break; \
 	  sleep 2; \
 	done
-	@# THEN WAIT FOR THE IMAGE'S OWN INIT, which pg_isready does not tell you
-	@# about. postgis/postgis runs its docker-entrypoint-initdb.d scripts against
-	@# a TEMPORARY server, and pg_isready answers during that phase -- so a loop
-	@# that stops there lets the apply race the image's own CREATE EXTENSION
-	@# postgis and lose:
-	@#
-	@#     duplicate key value violates unique constraint "pg_extension_name_index"
-	@#     DETAIL: Key (extname)=(postgis) already exists.
-	@#
-	@# Measured on this machine, and the scaffold's inline version of this step
-	@# had the same two-second loop, so it would have flaked in CI too. Waiting
-	@# for postgis to be VISIBLE means the image has finished, after which 01's
-	@# IF NOT EXISTS is a clean no-op.
-	@for i in $$(seq 1 60); do \
-	  docker exec $(CI_PG) psql -U $(CI_USER) -d $(CI_DB) -tAc \
+	@for i in $$(seq 1 30); do \
+	  docker exec -e PGPASSWORD=$(CI_PASS) $(CI_PG) psql -h 127.0.0.1 -U $(CI_USER) -d $(CI_DB) -tAc \
 	    "select 1 from pg_extension where extname = 'postgis'" 2>/dev/null \
 	    | grep -q 1 && break; \
 	  sleep 2; \
 	done
-	@docker exec $(CI_PG) psql -U $(CI_USER) -d $(CI_DB) -tAc \
+	@docker exec -e PGPASSWORD=$(CI_PASS) $(CI_PG) psql -h 127.0.0.1 -U $(CI_USER) -d $(CI_DB) -tAc \
 	  "select 1 from pg_extension where extname = 'postgis'" | grep -q 1 || \
-	  { echo "postgis never appeared: the image's init did not finish" >&2; exit 1; }
+	  { echo "the final server never answered over TCP with postgis loaded" >&2; exit 1; }
 	@echo "$(CI_PG) ready on $(CI_NET)"
 
 ci-pg-ddl:  ## CI: apply every initdb file, then exercise both maintenance functions

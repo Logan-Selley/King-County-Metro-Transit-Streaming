@@ -232,11 +232,42 @@ jobs:
         # stack that exists for the length of this job.
         run: cp .env.example .env
 
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install (locked)
+        # ci-platform is not only docker: `schema-register-sinks` and
+        # `sink-roundtrip` run in the project venv (.venv/bin/python), which a
+        # fresh checkout does not have. The first version of this job had no
+        # such step and would have died at the schema registration, after the
+        # stack and the core root were already up.
+        run: uv sync --frozen
+
+      - name: Data directories, owned by the uids the services run as
+        # The bind mounts point at /mnt/F/docker-data. On a runner Docker would
+        # create them root-owned, and redpanda (uid 101) then refuses to start:
+        # "Failure during startup: ... mkdir failed: Permission denied",
+        # reproduced locally with a root-owned directory. `make dirs` is the
+        # same target a new machine runs; the runner has passwordless sudo.
+        run: make dirs
+
       - name: The clean-clone path (see the 5E note in the header)
         # One make target, for the same reason `make ci-dbt` is: it can be
         # rehearsed locally, and a failure on a runner is reproducible rather
         # than something to diagnose by pushing again.
         run: make ci-platform
+
+      - name: On failure, what the stack looked like
+        # The runner is gone once the job ends, so this is the only chance to
+        # see why a service did not come up. Container state first, then the
+        # tails of the two services the path depends on most.
+        if: failure()
+        run: |
+          docker ps -a --format 'table {{.Names}}\t{{.Status}}'
+          for c in transit_redpanda transit_warehouse transit_minio transit_connect; do
+            echo "::group::$c"; docker logs --tail 80 "$c" 2>&1 || true; echo "::endgroup::"
+          done
 
       - name: Stop the stack, whatever happened
         # The same rule as the dbt job's teardown: a failed step must not leave a
