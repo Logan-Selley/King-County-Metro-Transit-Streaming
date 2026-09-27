@@ -7,11 +7,11 @@
 <!-- Link preview metadata, as in Wa_Parcel_Pipeline: LinkedIn, Slack and
      iMessage build their cards from these tags alone. The image is
      og-card.png, rendered from the same site/data files by `make og-card`. -->
-<meta name="description" content="A week of King County Metro's live bus feeds, streamed through Redpanda and Flink into PostGIS: where buses bunch, how far off the arrival predictions run, and a replay that reproduced the live pipeline from archived bytes.">
+<meta name="description" content="A week of King County Metro's live bus feeds, streamed through Redpanda and Flink into PostGIS: where buses bunch, how wrong the arrival predictions are, and a replay that reproduced the live pipeline from archived bytes.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="transit-stream">
 <meta property="og:title" content="King County Metro, Live">
-<meta property="og:description" content="A week of Metro's live bus feeds through Redpanda, Flink and PostGIS: where buses bunch, how far off the predictions run, and a replay that reproduced the pipeline from archived bytes.">
+<meta property="og:description" content="A week of Metro's live bus feeds through Redpanda, Flink and PostGIS: where buses bunch, how wrong the predictions are, and a replay that reproduced the pipeline from archived bytes.">
 <meta property="og:url" content="https://logan-selley.github.io/King-County-Metro-Transit-Streaming/">
 <meta property="og:image" content="https://logan-selley.github.io/King-County-Metro-Transit-Streaming/og-card.png">
 <meta property="og:image:type" content="image/png">
@@ -78,9 +78,9 @@
 <body>
 <header>
   <h1>King County Metro, Live</h1>
-  <p>A week of Metro's vehicle positions and arrival predictions, polled every 20 seconds and streamed
-     through Redpanda and Flink into PostGIS. Where buses bunch, how far off the arrival predictions run, and
-     whether a replay of the archived bytes reproduces what the live pipeline wrote.</p>
+  <p>A week of King County Metro's vehicle positions and arrival predictions, polled every 20 seconds and
+     streamed through Redpanda and Flink into PostGIS. Where buses bunch, how wrong the arrival predictions
+     are, and whether a replay of the archived bytes reproduces what the live pipeline wrote.</p>
   <p class="note" id="window-note"></p>
 </header>
 
@@ -93,7 +93,7 @@
   <div class="kpi" id="kpi"></div>
 
   <h2>When buses bunch</h2>
-  <p>Alerts per day in each hour, Pacific time. Two buses on the same route and direction within
+  <p>Alerts by hour, as a rate per day, Pacific time. Two buses on the same route and direction within
      1,000 ft, in two consecutive one-minute windows, after the terminal gate. Weekdays and weekends
      are rates, so five weekdays do not outweigh two weekend days.</p>
   <div class="card" style="margin-top:12px">
@@ -103,14 +103,14 @@
   </div>
 
   <h2>Which routes</h2>
-  <p>Raw counts favour frequent routes, which is the point: bunching needs a headway short enough to
-     collapse. The PM peak share is the share of a route's alerts between 16:00 and 18:59.</p>
+  <p>Raw counts favour frequent routes: bunching needs a headway short enough to collapse.
+     The PM peak share is the share of a route's alerts between 16:00 and 18:59.</p>
   <div class="table-wrap"><table id="routes"></table></div>
 
-  <h2>How far off the arrival predictions run</h2>
-  <p>Trip-update predictions joined to the arrivals they predicted, by how far ahead each was issued.
-     The typical miss grows with lead time, and the mean error is positive at every forward lead: the estimates
-     run pessimistic, and buses arrive earlier than the sign says.</p>
+  <h2>How wrong the arrival predictions are</h2>
+  <p>Trip-update predictions joined to the arrivals they predicted, grouped by how far ahead each was
+     issued. The typical miss grows with lead time, and the mean error is positive at every forward lead:
+     the estimates run pessimistic, so buses arrive earlier than the sign promised.</p>
   <div class="card" style="margin-top:12px">
     <div class="note"><span class="key"><span style="background:var(--accent)"></span>median |error|</span>
       <span class="key"><span style="background:var(--dim)"></span>90th percentile</span>
@@ -206,13 +206,13 @@ Promise.all(['kpis.json', 'bunching_by_hour.json', 'routes.json', 'hotspots.geoj
   const k = kpis.data;
   document.getElementById('window-note').textContent =
     `Study window: ${k.first} to ${k.last} (${k.days} days, Pacific). ` +
-    'A snapshot: the site is static, and the numbers are the ones the marts held when it was exported.';
+    'Static snapshot: these are the numbers the marts held when it was cut.';
 
   document.getElementById('kpi').innerHTML = [
-    ['Positions', fmt(k.positions), `${pct(k.live_share)} of minutes live`],
+    ['Positions', fmt(k.positions), `the feed was live in ${pct(k.live_share)} of minutes`],
     ['Bunching alerts', fmt(k.alerts), `${fmt(k.alerts_per_day, 1)} a day`],
     ['In the PM peak', pct(k.pm_peak_share), '16:00 to 18:59'],
-    ['On the map', pct(k.located_share), 'alerts placed by their vehicles'],
+    ['On the map', pct(k.located_share), 'alerts placed from vehicle positions'],
     ['Predictions checked', fmt(k.predictions), 'against observed arrivals'],
     ['Typical miss', `${k.median_abs_error_short_s} s to ${k.median_abs_error_long_s} s`, 'shortest to longest lead'],
   ].map(([h, v, s]) => `<div class="card"><h3>${h}</h3><div>${v}</div><small>${s}</small></div>`).join('');
@@ -273,7 +273,8 @@ Promise.all(['kpis.json', 'bunching_by_hour.json', 'routes.json', 'hotspots.geoj
     { values: fwd.map(p => p.mean_error_s), color: css('--warm') }] });
   const past = curve.data.find(p => p.lead_bucket === 'past');
   document.getElementById('curve-note').textContent =
-    `${fmt(fwd.reduce((a, p) => a + p.predictions, 0))} predictions, by UTC day (the prediction tables' unit).` +
+    `${fmt(fwd.reduce((a, p) => a + p.predictions, 0))} predictions, grouped by UTC day, the unit the` +
+    ' prediction tables use.' +
     (past ? ` Not drawn: ${fmt(past.predictions)} issued after the bus had already arrived.` : '');
 
   // --- replay ------------------------------------------------------------
@@ -281,14 +282,14 @@ Promise.all(['kpis.json', 'bunching_by_hour.json', 'routes.json', 'hotspots.geoj
   const day = R.window.start.slice(0, 10);
   document.getElementById('replay-intro').textContent =
     `One day, ${day} Pacific, re-run from the raw archive through the same producer, enrichment and Flink code the ` +
-    'live pipeline runs, into an isolated namespace. The baseline has to reproduce what live wrote before an ' +
-    'experiment on top of it means anything.';
+    'live pipeline runs, into an isolated namespace. The replay has to reproduce what live wrote, or an ' +
+    'experiment built on it proves nothing.';
   document.getElementById('replay-kpi').innerHTML = [
     ['Live rows reproduced', F.enriched.matched === F.enriched.live_rows ? `all ${fmt(F.enriched.live_rows)}`
       : `${fmt(F.enriched.matched)} of ${fmt(F.enriched.live_rows)}`, `${fmt(F.enriched.live_only)} missing from the replay`],
     ['Live alerts matched', `${fmt(F.alerts.matched)} of ${fmt(F.alerts.live)}`,
       Object.keys(F.alerts.field_mismatches).length ? 'some fields differ on those' : 'zero field differences on those'],
-    ['Rows live lost', fmt(F.enriched.replay_only), 'the archive kept them; live never landed them'],
+    ['Rows only the replay has', fmt(F.enriched.replay_only), 'the archive kept them; live never landed them'],
     ['Gate off', `${fmt(E.gate_off)} alerts`, `against ${fmt(E.gate_on)} with it on`],
   ].map(([h, v, s]) => `<div class="card"><h3>${h}</h3><div>${v}</div><small>${s}</small></div>`).join('');
 
@@ -300,11 +301,11 @@ Promise.all(['kpis.json', 'bunching_by_hour.json', 'routes.json', 'hotspots.geoj
   table(document.getElementById('gate-routes'), ['Route', 'Gate on', 'Gate off', 'Removed'],
     moved.map(r => [r.route, fmt(r.gate_on), fmt(r.gate_off), pct(1 - r.gate_on / r.gate_off, 0)]));
   document.getElementById('gate-finding').innerHTML =
-    `<b>The gate hides noise, and its absence hides signal.</b> With the gate off, ${fmt(E.added)} alerts appear, ` +
+    `<b>Two things happen with the gate off.</b> ${fmt(E.added)} alerts appear, ` +
     `${fmt(E.added_by_cause.terminal || 0)} of them with a bus still in its first three stops, which the gate drops by design. ` +
-    `But ${fmt(E.removed)} alerts also disappear, ${fmt(E.removed_min_seq['4+'] || 0)} of them with both buses past ` +
-    `their third stop, and ${fmt(E.removed_by_cause.suppressed || 0)} because an alert the gate would have dropped ` +
-    `had already started the same pair's ten-minute cooldown. ` +
+    `It also removes ${fmt(E.removed)} alerts. ${fmt(E.removed_min_seq['4+'] || 0)} of them have both buses past ` +
+    `their third stop, and ${fmt(E.removed_by_cause.suppressed || 0)} were swallowed by a ten-minute cooldown ` +
+    `started by an alert the gate would have dropped. ` +
     `The PM peak's share is ${pct(E.pm_peak_share.gate_on)} with the gate and ${pct(E.pm_peak_share.gate_off)} without.`;
 
   table(document.getElementById('health'), ['Day', 'Minutes', 'Silent', 'Live', 'Positions', 'Typical lag'],

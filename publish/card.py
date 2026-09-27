@@ -47,12 +47,12 @@ CARD = Template("""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
   <div>
     <div class="eyebrow">transit-stream &middot; ${first} to ${last}</div>
     <h1>King County Metro, Live</h1>
-    <div class="sub">Redpanda, Flink and PostGIS over a week of Metro's live bus feeds</div>
+    <div class="sub">A week of Metro's live bus feeds through Redpanda, Flink and PostGIS</div>
   </div>
   <div class="stats">
     <div class="stat"><b>${positions}</b><span>vehicle positions</span></div>
-    <div class="stat"><b class="hot">${pm_peak}</b><span>of bunching in the PM peak</span></div>
-    <div class="stat"><b>${replayed}</b><span>live rows reproduced by replay</span></div>
+    <div class="stat"><b class="hot">${pm_peak}</b><span>of alerts in the PM peak</span></div>
+    <div class="stat"><b>${replayed}</b><span>of the live rows reproduced by replay</span></div>
   </div>
 </body></html>""")
 
