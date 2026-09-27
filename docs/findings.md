@@ -1386,13 +1386,16 @@ second implementation agreeing with it.
 gate off, 208 had a vehicle at stop sequence 1-3 inside the window, which is
 what the gate exists to drop. 22 more are the same pair alerting within 600 s
 of a baseline alert, shifted by a different cooldown chain; 1 is unexplained.
-By route and stop (the stop the lower-sequence vehicle was at or heading to):
+By route and stop (the stop the lower-sequence vehicle was at or heading to,
+inside the alert's window). Every number in this section is in
+`site/data/replay.json`, written by `python -m replay.report` from the run of
+2026-09-27; the replay topics themselves expired seven days later.
 
 ```
 255     59 added   median gap 0 ft     NE 128th St & I-405 (54), Totem Lake TC Bay 2 (3)
 240     15 added   median gap 53 ft    108th Ave NE & NE 2nd St (10)
 7       15 added   median gap 521 ft   S Henderson St & 53rd Ave S (14)
-G Line  13 added   median gap 499 ft   E Madison St & 22nd/23rd Ave E (11)
+G Line  13 added   median gap 499 ft   E Madison St & 23rd Ave E (9), & 22nd Ave E (4)
 ```
 
 Route 255 is the Phase 3 artifact again: coaches staging near Totem Lake,
@@ -1460,6 +1463,75 @@ week-long study window is what a claim about routes in general would need.
 The prediction-accuracy job is not replayed at all: its state expires on
 processing time, so a day replayed in minutes would match nothing the way the
 live run did (ADR 0010).
+
+---
+
+# 14. Phase 7: the findings site
+
+*The snapshot in `site/data/` covers 2026-09-24 to 09-26 Pacific, the days the
+stack had finished when it was cut. `make exports` re-cuts it from the marts.*
+
+Everything in this write-up lives in a warehouse and a set of ADRs, which is the
+right home for it and a poor front door: the numbers only exist for a reader
+willing to run PostGIS and dbt. Phase 7 is the page that shows them, cut from
+the marts so that the page and the write-up cannot disagree.
+
+**The data comes from the marts, and only from the marts.** `publish/export.py`
+reads `mart_bunching_alerts`, `mart_feed_health`, and the two prediction
+intermediates, and writes six JSON files into `site/data/`. It never reads
+`raw.*` or `staging`: the marts are what the contract suites test, and a page
+that recomputed its own numbers from raw rows would be a second implementation
+with no tests behind it. The seventh file, `replay.json`, cannot come from the
+marts at all, because the replay lives in topics that keep 7 days, so
+`replay/report.py` writes it from the replay topics and the warehouse, and the
+committed file is the only copy of the run it documents.
+
+**The page needed one mart that did not exist.** `mart_bunching_alerts` puts
+each alert on the map: the midpoint of the two vehicles' last positions inside
+the alert's window, the stop of the vehicle nearer its trip's start, and the
+Pacific day and hour. Three things about it are worth recording.
+
+- **The grain is the alert**, not the (route, hour) pair, so the map, the
+  by-hour chart, and the route table are three views of one count and cannot
+  drift apart.
+- **An alert is never dropped for want of a location.** The positions are found
+  with left joins, so an alert that cannot be placed keeps its row with null
+  coordinates, which is what makes the map's total checkable against every other
+  count of alerts. Over two measured hours of 09-25 to 09-26, 198 of 198 alerts
+  had both vehicles' positions inside their windows. In the snapshot's window
+  the map covers every alert, and `kpis.json` carries that share rather than
+  leaving it implied.
+- **The lookup's shape is the cost.** The positions are partitioned and keyed by
+  (vehicle_id, position_timestamp), so one vehicle's last position before the
+  window is an index probe. Counting the window's positions instead is not
+  served from that index, and costs about seven times as much per alert. In the
+  lateral form, a full rebuild of all 2,718 alerts takes 148 s, and the hourly
+  incremental run, bounded by the detector's 360 s lateness bound, touches tens
+  of alerts and took 5.5 s.
+
+**The page is one snapshot, and it says so.** The window is 09-24 to 09-30
+Pacific, five weekdays and a weekend, starting from the first day the stack ran
+complete: 16 silent minutes on 09-24, against 843 on 09-21 while it was still
+being built. What is committed so far, over the first three days:
+
+| days | positions | live share | alerts | alerts/day | in the PM peak | predictions | median abs error, 0-2m | 45-60m |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 3 | 3,477,532 | 96.7% | 1,496 | 498.7 | 38.8% | 8,540,029 | 44 s | 204 s |
+
+The prediction days are UTC, because the intermediates are keyed that way, and
+the chart says so under it; every other file is Pacific days.
+
+**A re-cut proves the files came from this code.** `site/data/` is committed and
+`write()` puts no generated timestamp in it, deliberately: re-exporting an
+unchanged window is byte-identical, so git shows nothing, and a reader can see
+that the data really was cut from the marts. Re-exporting this snapshot's window
+reproduced all six files byte for byte.
+
+**What the page is not.** It has no warehouse behind it and no server, by
+design (ADR 0011): a reader who wants the current numbers runs the export, and
+whoever publishes an update runs it and commits the result. The link preview is
+rendered from the same JSON, so it cannot advertise a number the page does not
+show.
 
 ---
 

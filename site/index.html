@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>King County Metro, Live</title>
+<!-- Link preview metadata, as in Wa_Parcel_Pipeline: LinkedIn, Slack and
+     iMessage build their cards from these tags alone. The image is
+     og-card.png, rendered from the same site/data files by `make og-card`. -->
+<meta name="description" content="A week of King County Metro's live bus feeds, streamed through Redpanda and Flink into PostGIS: where buses bunch, how far off the arrival predictions run, and a replay that reproduced the live pipeline from archived bytes.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="transit-stream">
+<meta property="og:title" content="King County Metro, Live">
+<meta property="og:description" content="A week of Metro's live bus feeds through Redpanda, Flink and PostGIS: where buses bunch, how far off the predictions run, and a replay that reproduced the pipeline from archived bytes.">
+<meta property="og:url" content="https://logan-selley.github.io/King-County-Metro-Transit-Streaming/">
+<meta property="og:image" content="https://logan-selley.github.io/King-County-Metro-Transit-Streaming/og-card.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="627">
+<meta property="og:image:alt" content="King County Metro, Live: bus bunching, prediction accuracy and a replay experiment from a week of live GTFS-Realtime data.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="King County Metro, Live">
+<meta name="twitter:image" content="https://logan-selley.github.io/King-County-Metro-Transit-Streaming/og-card.png">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+  /* The parcel site's palette, so the two portfolio pages read as one body of work. */
+  :root { --bg:#10141a; --panel:#171d26; --line:#2a3340; --ink:#dbe2ec; --dim:#8b97a8;
+          --accent:#4da3ff; --warm:#ff9f43; --hot:#ff5d5d; --ok:#4cc38a; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--ink); font:14px/1.55 system-ui, sans-serif; }
+  header { padding:20px 28px; border-bottom:1px solid var(--line); }
+  h1 { font-size:20px; }
+  header p { color:var(--dim); margin-top:4px; max-width:900px; }
+  #map-wrap { position:relative; }
+  #map { width:100%; height:56vh; min-height:340px; }
+  /* Top-left for the reason the parcel site found: MapLibre's attribution is
+     bottom-left and its zoom control top-right, and a bottom-right legend
+     collided with the attribution at narrow widths. */
+  #legend { position:absolute; left:12px; top:12px; background:rgba(23,29,38,.92);
+            border:1px solid var(--line); border-radius:8px; padding:10px 12px;
+            font-size:12px; max-width:250px; backdrop-filter:blur(2px); }
+  #legend .row { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  #legend .dot { border-radius:50%; flex:none; }
+  /* On a phone the full legend covered 40% of the map (measured at 375 px).
+     Keep the colour key, drop the explanation; the popup carries the rest. */
+  @media (max-width: 600px) {
+    #legend { font-size:11px; padding:7px 9px; max-width:170px; }
+    #legend .note { display:none; }
+  }
+  main { max-width:1100px; margin:0 auto; padding:24px; }
+  .kpi { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:4px 0 8px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px 16px; }
+  .card h3 { font-size:12px; color:var(--dim); font-weight:500; text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
+  .card div { font-size:20px; }
+  .card small { display:block; color:var(--dim); font-size:12px; margin-top:2px; }
+  h2 { font-size:16px; margin:34px 0 4px; }
+  h2 + p, .note { color:var(--dim); font-size:13px; max-width:820px; }
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin-top:12px; }
+  svg { display:block; width:100%; height:auto; }
+  svg text { fill:var(--dim); font:11px system-ui, sans-serif; }
+  .table-wrap { overflow-x:auto; margin-top:12px; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th, td { padding:6px 10px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; }
+  th { color:var(--dim); font-weight:500; }
+  td:first-child, th:first-child { text-align:left; }
+  .key { display:inline-flex; align-items:center; gap:6px; margin-right:14px; font-size:12px; color:var(--dim); }
+  .key span { width:14px; height:3px; border-radius:2px; display:inline-block; }
+  .finding { border-left:3px solid var(--warm); padding:8px 14px; margin-top:14px; background:var(--panel); border-radius:0 8px 8px 0; }
+  footer { max-width:1100px; margin:20px auto 40px; padding:0 24px; color:var(--dim); font-size:12px; }
+  footer p + p { margin-top:6px; }
+  a { color:var(--accent); }
+  code { font-size:12px; overflow-wrap:anywhere; }
+  .maplibregl-popup-content { color:#1a1a1a; font-size:13px; }
+  .maplibregl-popup-content b { display:block; margin-bottom:2px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>King County Metro, Live</h1>
+  <p>A week of Metro's vehicle positions and arrival predictions, polled every 20 seconds and streamed
+     through Redpanda and Flink into PostGIS. Where buses bunch, how far off the arrival predictions run, and
+     whether a replay of the archived bytes reproduces what the live pipeline wrote.</p>
+  <p class="note" id="window-note"></p>
+</header>
+
+<div id="map-wrap">
+  <div id="map" role="img" aria-label="Map of bus bunching hotspots in King County"></div>
+  <div id="legend"></div>
+</div>
+
+<main>
+  <div class="kpi" id="kpi"></div>
+
+  <h2>When buses bunch</h2>
+  <p>Alerts per day in each hour, Pacific time. Two buses on the same route and direction within
+     1,000 ft, in two consecutive one-minute windows, after the terminal gate. Weekdays and weekends
+     are rates, so five weekdays do not outweigh two weekend days.</p>
+  <div class="card" style="margin-top:12px">
+    <div class="note"><span class="key"><span style="background:var(--warm)"></span>weekday</span>
+      <span class="key"><span style="background:var(--accent)"></span>weekend</span></div>
+    <svg id="hours" viewBox="0 0 720 220" aria-label="Bunching alerts per day by hour"></svg>
+  </div>
+
+  <h2>Which routes</h2>
+  <p>Raw counts favour frequent routes, which is the point: bunching needs a headway short enough to
+     collapse. The PM peak share is the share of a route's alerts between 16:00 and 18:59.</p>
+  <div class="table-wrap"><table id="routes"></table></div>
+
+  <h2>How far off the arrival predictions run</h2>
+  <p>Trip-update predictions joined to the arrivals they predicted, by how far ahead each was issued.
+     The typical miss grows with lead time, and the mean error is positive at every forward lead: the estimates
+     run pessimistic, and buses arrive earlier than the sign says.</p>
+  <div class="card" style="margin-top:12px">
+    <div class="note"><span class="key"><span style="background:var(--accent)"></span>median |error|</span>
+      <span class="key"><span style="background:var(--dim)"></span>90th percentile</span>
+      <span class="key"><span style="background:var(--warm)"></span>mean signed error</span></div>
+    <svg id="curve" viewBox="0 0 720 240" aria-label="Prediction error by lead time"></svg>
+    <p class="note" id="curve-note"></p>
+  </div>
+
+  <h2>The replay: does the archive reproduce the live pipeline?</h2>
+  <p id="replay-intro"></p>
+  <div class="kpi" id="replay-kpi" style="margin-top:12px"></div>
+  <div class="grid2">
+    <div class="card">
+      <h3>The terminal gate, on and off</h3>
+      <div class="note"><span class="key"><span style="background:var(--warm)"></span>gate on (live)</span>
+        <span class="key"><span style="background:var(--dim)"></span>gate off</span></div>
+      <svg id="gate-hours" viewBox="0 0 520 200" aria-label="Alerts by hour with the gate on and off"></svg>
+    </div>
+    <div class="card">
+      <h3>Routes the gate changes most</h3>
+      <div class="table-wrap"><table id="gate-routes"></table></div>
+    </div>
+  </div>
+  <div class="finding" id="gate-finding"></div>
+
+  <h2>How much of the week the pipeline saw</h2>
+  <p>Minutes with no positions at all, per Pacific day. The pipeline's own health is part of the result:
+     every number above is only as complete as this.</p>
+  <div class="table-wrap"><table id="health"></table></div>
+</main>
+
+<footer>
+  <p>Transit scheduling, geographic, and real-time data provided by permission of King County.
+     Basemap &copy; OpenStreetMap contributors.</p>
+  <p>Source, design decisions and the full write-up:
+     <a href="https://github.com/Logan-Selley/King-County-Metro-Transit-Streaming">github.com/Logan-Selley/King-County-Metro-Transit-Streaming</a>
+     (<a href="https://github.com/Logan-Selley/King-County-Metro-Transit-Streaming/blob/main/docs/findings.md">findings</a>).
+     Every number on this page is read from <code>site/data/</code>, exported from the dbt marts by
+     <code>make exports</code>.</p>
+</footer>
+
+<script>
+const fmt = (n, d = 0) => Number(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+const pct = (x, d = 1) => fmt(x * 100, d) + '%';
+const el = (tag, attrs = {}, text) => {
+  const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (text !== undefined) e.textContent = text;
+  return e;
+};
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const load = f => fetch('data/' + f).then(r => { if (!r.ok) throw new Error(f + ': ' + r.status); return r.json(); });
+
+// A line chart in plain SVG. Small enough that a charting library would be
+// the larger part of the page.
+function lineChart(svg, { labels, series, yLabel, zero = false }) {
+  const W = svg.viewBox.baseVal.width, H = svg.viewBox.baseVal.height;
+  const m = { l: 44, r: 22, t: 22, b: 28 };
+  const all = series.flatMap(s => s.values);
+  // Ticks on 1, 2 or 5 times a power of ten, so the axis reads 0, 100, 200
+  // rather than 0, 133, 266.
+  const raw = (Math.max(...all) - Math.min(0, ...all)) / 4 || 1;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const tick = [1, 2, 5, 10].map(f => f * mag).find(t => t >= raw);
+  const lo = Math.floor(Math.min(0, ...all) / tick) * tick;
+  const hi = Math.ceil(Math.max(...all) / tick) * tick || tick;
+  const x = i => m.l + (W - m.l - m.r) * (labels.length === 1 ? 0.5 : i / (labels.length - 1));
+  const y = v => H - m.b - (H - m.t - m.b) * (v - lo) / (hi - lo);
+  for (let v = lo; v <= hi + tick / 2; v += tick) {
+    svg.append(el('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: css('--line') }));
+    svg.append(el('text', { x: m.l - 6, y: y(v) + 4, 'text-anchor': 'end' }, fmt(v, tick < 1 ? 1 : 0)));
+  }
+  if (zero && lo < 0) svg.append(el('line', { x1: m.l, x2: W - m.r, y1: y(0), y2: y(0), stroke: css('--dim'), 'stroke-dasharray': '3 3' }));
+  const step = Math.ceil(labels.length / 12);
+  labels.forEach((l, i) => { if (i % step === 0) svg.append(el('text', { x: x(i), y: H - 8, 'text-anchor': 'middle' }, l)); });
+  if (yLabel) svg.append(el('text', { x: 4, y: 11 }, yLabel));
+  for (const s of series) {
+    svg.append(el('polyline', { points: s.values.map((v, i) => `${x(i)},${y(v)}`).join(' '),
+      fill: 'none', stroke: s.color, 'stroke-width': s.width || 2, 'stroke-linejoin': 'round' }));
+  }
+}
+
+function table(node, head, rows) {
+  node.innerHTML = '<tr>' + head.map(h => `<th>${h}</th>`).join('') + '</tr>' +
+    rows.map(r => '<tr>' + r.map(c => `<td>${c}</td>`).join('') + '</tr>').join('');
+}
+
+const hours = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'));
+
+Promise.all(['kpis.json', 'bunching_by_hour.json', 'routes.json', 'hotspots.geojson',
+             'prediction_curve.json', 'feed_health.json', 'replay.json'].map(load))
+.then(([kpis, byHour, routes, spots, curve, health, replay]) => {
+  const k = kpis.data;
+  document.getElementById('window-note').textContent =
+    `Study window: ${k.first} to ${k.last} (${k.days} days, Pacific). ` +
+    'A snapshot: the site is static, and the numbers are the ones the marts held when it was exported.';
+
+  document.getElementById('kpi').innerHTML = [
+    ['Positions', fmt(k.positions), `${pct(k.live_share)} of minutes live`],
+    ['Bunching alerts', fmt(k.alerts), `${fmt(k.alerts_per_day, 1)} a day`],
+    ['In the PM peak', pct(k.pm_peak_share), '16:00 to 18:59'],
+    ['On the map', pct(k.located_share), 'alerts placed by their vehicles'],
+    ['Predictions checked', fmt(k.predictions), 'against observed arrivals'],
+    ['Typical miss', `${k.median_abs_error_short_s} s to ${k.median_abs_error_long_s} s`, 'shortest to longest lead'],
+  ].map(([h, v, s]) => `<div class="card"><h3>${h}</h3><div>${v}</div><small>${s}</small></div>`).join('');
+
+  // --- map ---------------------------------------------------------------
+  // Standard OSM raster darkened client-side, the parcel site's no-key
+  // basemap; its reasons are in that repo's index.html. Light use only.
+  const map = new maplibregl.Map({
+    container: 'map', center: [-122.25, 47.55], zoom: 9.4, attributionControl: { compact: true },
+    // The map is the top of a long page. Without this, a scroll or trackpad
+    // swipe over it zooms the map instead of moving the page, and on a phone
+    // the map fills the screen and traps the reader. Ctrl+scroll (or two
+    // fingers) zooms instead, and MapLibre says so on the map.
+    cooperativeGestures: true,
+    style: { version: 8, sources: { osm: { type: 'raster', tileSize: 256,
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      attribution: '&copy; OpenStreetMap contributors' } },
+      layers: [{ id: 'osm', type: 'raster', source: 'osm',
+        paint: { 'raster-saturation': -1, 'raster-brightness-max': 0.35, 'raster-contrast': 0.1 } }] },
+  });
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+  const maxAlerts = Math.max(...spots.features.map(f => f.properties.alerts));
+  map.on('load', () => {
+    map.addSource('spots', { type: 'geojson', data: spots });
+    map.addLayer({ id: 'spots', type: 'circle', source: 'spots', paint: {
+      'circle-radius': ['interpolate', ['linear'], ['sqrt', ['get', 'alerts']], 1, 2.5, Math.sqrt(maxAlerts), 16],
+      'circle-color': ['interpolate', ['linear'], ['/', ['get', 'pm_peak_alerts'], ['get', 'alerts']],
+        0, css('--accent'), 0.4, css('--warm'), 0.8, css('--hot')],
+      'circle-opacity': 0.8, 'circle-stroke-width': 0.5, 'circle-stroke-color': '#10141a' } });
+    map.on('click', 'spots', e => {
+      const p = e.features[0].properties, rs = JSON.parse(p.routes);
+      new maplibregl.Popup({ offset: 8 }).setLngLat(e.lngLat).setHTML(
+        `<b>${p.stop_name || 'Stop ' + p.stop_id}</b>${fmt(p.alerts)} alerts, ${fmt(p.pm_peak_alerts)} in the PM peak<br>` +
+        rs.map(([r, n]) => `${r ?? 'no route'}: ${n}`).join(' &middot; ')).addTo(map);
+    });
+    map.on('mouseenter', 'spots', () => map.getCanvas().style.cursor = 'pointer');
+    map.on('mouseleave', 'spots', () => map.getCanvas().style.cursor = '');
+  });
+  document.getElementById('legend').innerHTML =
+    `<b>Bunching by stop</b><div class="note">Size: alerts. Colour: share in the PM peak.</div>` +
+    [['--accent', 'mostly off-peak'], ['--warm', 'about 40%'], ['--hot', 'mostly PM peak']]
+      .map(([c, t]) => `<div class="row"><span class="dot" style="width:10px;height:10px;background:var(${c})"></span>${t}</div>`).join('') +
+    `<div class="note" style="margin-top:6px">${fmt(spots.features.length)} stops. Click one for its routes.</div>`;
+
+  // --- charts ------------------------------------------------------------
+  lineChart(document.getElementById('hours'), { labels: hours, yLabel: 'alerts / day', series: [
+    { values: byHour.data.weekday, color: css('--warm') },
+    { values: byHour.data.weekend, color: css('--accent') }] });
+
+  table(document.getElementById('routes'), ['Route', 'Alerts', 'Per day', 'PM peak share', 'Median gap'],
+    routes.data.slice(0, 15).map(r => [r.route ?? 'no route', fmt(r.alerts), fmt(r.per_day, 1),
+      pct(r.pm_peak_share), r.median_gap_ft == null ? '' : fmt(r.median_gap_ft) + ' ft']));
+
+  const fwd = curve.data.filter(p => p.lead_bucket !== 'past');
+  lineChart(document.getElementById('curve'), { labels: fwd.map(p => p.lead_bucket), yLabel: 'seconds', zero: true, series: [
+    { values: fwd.map(p => p.p90_abs_error_s), color: css('--dim'), width: 1.5 },
+    { values: fwd.map(p => p.median_abs_error_s), color: css('--accent') },
+    { values: fwd.map(p => p.mean_error_s), color: css('--warm') }] });
+  const past = curve.data.find(p => p.lead_bucket === 'past');
+  document.getElementById('curve-note').textContent =
+    `${fmt(fwd.reduce((a, p) => a + p.predictions, 0))} predictions, by UTC day (the prediction tables' unit).` +
+    (past ? ` Not drawn: ${fmt(past.predictions)} issued after the bus had already arrived.` : '');
+
+  // --- replay ------------------------------------------------------------
+  const R = replay, F = R.fidelity, E = R.experiment;
+  const day = R.window.start.slice(0, 10);
+  document.getElementById('replay-intro').textContent =
+    `One day, ${day} Pacific, re-run from the raw archive through the same producer, enrichment and Flink code the ` +
+    'live pipeline runs, into an isolated namespace. The baseline has to reproduce what live wrote before an ' +
+    'experiment on top of it means anything.';
+  document.getElementById('replay-kpi').innerHTML = [
+    ['Live rows reproduced', F.enriched.matched === F.enriched.live_rows ? `all ${fmt(F.enriched.live_rows)}`
+      : `${fmt(F.enriched.matched)} of ${fmt(F.enriched.live_rows)}`, `${fmt(F.enriched.live_only)} missing from the replay`],
+    ['Live alerts matched', `${fmt(F.alerts.matched)} of ${fmt(F.alerts.live)}`,
+      Object.keys(F.alerts.field_mismatches).length ? 'some fields differ on those' : 'zero field differences on those'],
+    ['Rows live lost', fmt(F.enriched.replay_only), 'the archive kept them; live never landed them'],
+    ['Gate off', `${fmt(E.gate_off)} alerts`, `against ${fmt(E.gate_on)} with it on`],
+  ].map(([h, v, s]) => `<div class="card"><h3>${h}</h3><div>${v}</div><small>${s}</small></div>`).join('');
+
+  lineChart(document.getElementById('gate-hours'), { labels: hours, yLabel: 'alerts', series: [
+    { values: hours.map((_, h) => E.by_hour.gate_off[h]), color: css('--dim'), width: 1.5 },
+    { values: hours.map((_, h) => E.by_hour.gate_on[h]), color: css('--warm') }] });
+  const moved = E.routes.filter(r => r.gate_off > r.gate_on)
+    .sort((a, b) => (b.gate_off - b.gate_on) - (a.gate_off - a.gate_on)).slice(0, 8);
+  table(document.getElementById('gate-routes'), ['Route', 'Gate on', 'Gate off', 'Removed'],
+    moved.map(r => [r.route, fmt(r.gate_on), fmt(r.gate_off), pct(1 - r.gate_on / r.gate_off, 0)]));
+  document.getElementById('gate-finding').innerHTML =
+    `<b>The gate hides noise, and its absence hides signal.</b> With the gate off, ${fmt(E.added)} alerts appear, ` +
+    `${fmt(E.added_by_cause.terminal || 0)} of them with a bus still in its first three stops, which the gate drops by design. ` +
+    `But ${fmt(E.removed)} alerts also disappear, ${fmt(E.removed_min_seq['4+'] || 0)} of them with both buses past ` +
+    `their third stop, and ${fmt(E.removed_by_cause.suppressed || 0)} because an alert the gate would have dropped ` +
+    `had already started the same pair's ten-minute cooldown. ` +
+    `The PM peak's share is ${pct(E.pm_peak_share.gate_on)} with the gate and ${pct(E.pm_peak_share.gate_off)} without.`;
+
+  table(document.getElementById('health'), ['Day', 'Minutes', 'Silent', 'Live', 'Positions', 'Typical lag'],
+    health.data.map(d => [d.date, fmt(d.minutes), fmt(d.silent_minutes), pct(d.live_share),
+      fmt(d.positions), d.median_ingest_lag_s == null ? '' : d.median_ingest_lag_s + ' s']));
+})
+.catch(err => {
+  document.querySelector('main').insertAdjacentHTML('afterbegin',
+    `<div class="finding">Could not load the data files (${err.message}). ` +
+    'Serve this directory over HTTP; browsers block fetch() from file:// pages.</div>');
+});
+</script>
+</body>
+</html>

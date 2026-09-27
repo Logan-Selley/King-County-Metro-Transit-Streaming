@@ -1,0 +1,32 @@
+{
+ "data": [
+  {
+   "date": "2026-09-24",
+   "live_share": 0.9889,
+   "median_ingest_lag_s": 43,
+   "minutes": 1440,
+   "positions": 1359657,
+   "silent_minutes": 16
+  },
+  {
+   "date": "2026-09-25",
+   "live_share": 0.9778,
+   "median_ingest_lag_s": 45,
+   "minutes": 1440,
+   "positions": 1268228,
+   "silent_minutes": 32
+  },
+  {
+   "date": "2026-09-26",
+   "live_share": 0.9347,
+   "median_ingest_lag_s": 42,
+   "minutes": 1440,
+   "positions": 849647,
+   "silent_minutes": 94
+  }
+ ],
+ "window": {
+  "first": "2026-09-24",
+  "last": "2026-09-26"
+ }
+}

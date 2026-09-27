@@ -12,6 +12,33 @@ it has already seen.
 > Transit scheduling, geographic, and real-time data provided by permission of
 > King County.
 
+## The findings site
+
+`site/` is a static page that shows what the pipeline measured: where buses
+bunch, the hours and routes they bunch on, how far off Metro's arrival
+predictions run by lead time, whether a replay of the archive reproduces the
+live pipeline, and how much of each day the feed actually delivered.
+
+Every number on it is cut from the dbt marts by `publish/export.py`, so the page
+cannot disagree with the tests that enforce those marts. Nothing is built at
+deploy time: `site/data/` is committed, `.github/workflows/pages.yml` publishes
+`site/` to GitHub Pages on push, and `make site-preview` serves it locally the
+way Pages will.
+
+```bash
+make exports          # re-cut site/data/ from the marts
+make og-card          # re-render the link preview from that data
+make site-preview     # http://localhost:8765
+```
+
+The committed snapshot covers 2026-09-24 to 09-26 Pacific, the days the stack
+had finished when it was cut: **1,496 bunching alerts, 3.48M vehicle positions,
+a 96.7% live share, and 8.54M checked predictions**, with a median absolute
+prediction error of 44 s at two minutes out and 204 s at an hour. The study
+window is a stated choice rather than whatever happened to be in the warehouse:
+[ADR 0011](docs/decisions/0011-the-findings-site.md) records the design, and
+[findings section 14](docs/findings.md) is the page's own write-up.
+
 Built and verified end to end: the stack starts from a clean clone, CI runs three
 jobs on every push, and the numbers below are measured rather than estimated.
 The measurements are written up in [`docs/findings.md`](docs/findings.md),
@@ -38,6 +65,9 @@ including the ones that contradicted the original design.
   producer, consumer, and Flink job into an isolated namespace, and the baseline
   has to reproduce what live wrote before the experiment on top of it means
   anything. ([findings §13](docs/findings.md), [ADR 0010](docs/decisions/0010-replay-from-the-archive.md))
+- **A deliverable that stays honest under repetition.** The page reads the
+  tested layer only, carries the window every file was cut from, and is
+  byte-identical when it is re-cut. ([findings §14](docs/findings.md), [ADR 0011](docs/decisions/0011-the-findings-site.md))
 
 ## Architecture
 
@@ -57,19 +87,25 @@ including the ones that contradicted the original design.
             - spatial join      bunching)            (partitioned by day)
               to route buffers                            │
             - schedule                                    ▼
-              deviation                               dbt models
+              deviation                              dbt models
                                                           │
-                                                          ▼
-                                                   Airflow (batch side)
-                                                   - static GTFS refresh
-                                                   - dbt run
-                                                   - partition maintenance
+                                        ┌─────────────────┴───────────────┐
+                                        ▼                                 ▼
+                                 Airflow (batch side)          publish/export.py
+                                 - static GTFS refresh         site/data/*.json
+                                 - dbt run                             │
+                                 - partition maintenance               ▼
+                                 - feed health                      site/ (Pages)
 ```
 
 The producer is a plain Python process, not a framework job, because the ordering
 inside it is load-bearing: the 304 short-circuit runs before the archive write,
 the archive write before the decode, the decode before the dedupe, and the dedupe
 before the publish.
+
+The site is the other end of that line, and the only consumer that reads nothing
+but the marts. It has no server behind it, which is why its data is committed and
+why re-cutting an unchanged window leaves git with nothing to show.
 
 ## Results
 
@@ -78,9 +114,9 @@ median gap between archived payloads 21 s, and zero gaps over 90 s. 75 polls
 failed, all transient network faults, all absorbed by per-feed isolation; no
 decode, delivery, or archive failures. Value-level dedup suppressed **81.9%** of
 trip-update rows, so 83.5M published records became 15.2M. The same run produced
-a free fleet-health signal: a small population of chronically broken GPS units generated every
-out-of-bounds position, and one vehicle reported null island 2,172 times, which
-is a maintenance ticket rather than a data-quality nuisance.
+a free fleet-health signal: a small population of chronically broken GPS units
+generated every out-of-bounds position, and one vehicle reported null island
+2,172 times, which is a maintenance ticket rather than a data-quality nuisance.
 
 **Enrichment against the static schedule** ([findings §10](docs/findings.md)).
 100% of live positions joined to a same-day static load, median schedule
@@ -110,9 +146,14 @@ the warehouse mart draws the same curve again.
 re-run through the live code: **1,359,657 enriched rows reproduced with every
 live row matched**, and 607 of 626 live alerts matched with zero field
 differences. The differences that remain sit inside three windows where live was
-measurably misbehaving, and in one of them 1,138 positions never landed in the
-warehouse at all. The gate experiment on top reproduces Phase 3's result on a second
-day, from archived bytes.
+measurably misbehaving: the replay holds 1,143 enriched rows that live never
+landed, 1,138 of them in a single two-minute window. The gate experiment on top reproduces Phase 3's result on a
+second day, from archived bytes.
+
+**The page** ([findings §14](docs/findings.md)). Over the snapshot's three days:
+1,496 alerts, 38.8% of them in the PM peak, 96.7% of the minutes live, and a
+prediction error curve that still climbs. The map covers every alert, and
+`kpis.json` carries that share rather than leaving it implied.
 
 ## Quickstart
 
@@ -130,7 +171,9 @@ make stream-up            # build the pipeline image, start producer + enrichmen
 ```
 
 `make check` reports container status, cluster health, topics, and disk.
-`make help` lists every target.
+`make help` lists every target. The site targets need the warehouse and nothing
+else, since they read marts: on a fresh clone those are empty until `make dbt`
+has run.
 
 The order matters after the Terraform step: `make platform` creates the roles
 every client logs in as, and `make migrate` is what hands `staging` and `marts`
@@ -140,6 +183,7 @@ until `make platform` has run, then reconnect on their own.
 
 | Service | URL |
 |---|---|
+| Findings site (`make site-preview`) | http://localhost:8765 |
 | Redpanda Console | http://localhost:8085 |
 | MinIO Console | http://localhost:9001 |
 | Kafka broker | `localhost:19092` |
@@ -208,14 +252,16 @@ consumers/               enrichment, bunching, prediction accuracy
 static/                  GTFS static load and the manifest that keeps it honest
 schemas/                 protobuf source plus the JSON Schemas for the Flink sinks
 recon/                   the Phase 0 instrument (snapshot + cadence probes)
-replay/                  the replay comparison: fidelity and the experiment
+replay/                  the replay comparison and the report behind the site's replay panel
+publish/                 marts -> site/data, and the link preview rendered from it
+site/                    the static page and its committed data; no server
 connect/                 Kafka Connect sink configs, one file per connector
 dbt/                     staging views, marts, and the singular tests over them
 airflow/dags/            static refresh, dbt build, partitions, feed health
 terraform/               core/ (topics, bucket, roles) and connectors/
 tests/                   the contract suites, plus wire-semantics fixtures
 docs/findings.md         every measurement, phase by phase
-docs/decisions/          ten ADRs, four of them carrying dated corrections
+docs/decisions/          eleven ADRs, four of them carrying dated corrections
 ```
 
 ## Design notes worth reading
@@ -239,6 +285,14 @@ The traps below each cost real time, and each one is documented where it bit:
 - **Two topics can disagree about a date format and both be right.** The raw
   topic carries ISO dates and the enriched topic carries GTFS form, which is
   invisible until a join key built from both never matches ([findings §11](docs/findings.md)).
+- **An index probe and a counted join look alike and differ by sevenfold.** The
+  map's mart asks each vehicle for one position, which the partition's key
+  serves; counting the window's positions instead does not use that index
+  ([findings §14](docs/findings.md)).
+- **A committed data file should not carry a timestamp.** The site's JSON holds
+  the window it was cut from and nothing about when it was written, so re-cutting
+  an unchanged window is byte-identical and a diff proves the files came from the
+  code ([ADR 0011](docs/decisions/0011-the-findings-site.md)).
 
 ## Data source and terms
 
@@ -255,8 +309,8 @@ road-oriented route buffer.
 
 Redistribution and derivative works are explicitly permitted. **Attribution is
 mandatory and must be prominently displayed**, which is what the blockquote at
-the top of this file is for; it belongs on any published chart as well. King
-County service marks and logos may not be used.
+the top of this file is for; it belongs on any published chart as well, the
+site's map included. King County service marks and logos may not be used.
 
 Data is provided as-is with no uptime guarantee, and access may be modified or
 discontinued without notice. That is a real argument for the MinIO raw archive
@@ -265,11 +319,15 @@ rather than a footnote: if the feed disappears, the archive is the project.
 ## Status
 
 - **The pipeline is complete and runs locally**, from the producer through
-  Connect, dbt, and Airflow. Terraform manages the local stack's topics, bucket,
-  connectors, and roles; there is no cloud deployment, and
-  [ADR 0009](docs/decisions/0009-terraform-local-platform.md) records why.
-- **420 tests** across eleven suites, ten of them contract suites, all enforced
-  in CI; each was written before the code it tests. CI is green on `main`.
+  Connect, dbt, Airflow, and the findings site. Terraform manages the local
+  stack's topics, bucket, connectors, and roles; there is no cloud deployment,
+  and [ADR 0009](docs/decisions/0009-terraform-local-platform.md) records why.
+- **443 contract tests** across twelve suites, plus 10 wire-semantics tests, all
+  enforced in CI; each was written before the code it tests. CI is green on
+  `main`.
+- **The site is a snapshot by design.** Its data is committed and re-cut by
+  `make exports`, so publishing an update is a commit rather than a deploy step
+  that can fail halfway, and the link preview is rendered from the same JSON.
 - **Known limits, stated rather than implied.** The gate experiment covers two
   days, and a claim about routes in general would want a week. The prediction
   job is not replayable, because its state expires on processing time. 35 of

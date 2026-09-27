@@ -49,10 +49,9 @@ dirs:  ## Create + chown the bind-mounted data directories (needs sudo; safe to 
 	@# machines) stays unreadable and postgres fails AFTER initdb rather than
 	@# before, which is a much more confusing failure.
 	@#
-	@# BUT ONLY WHEN THE TOP-LEVEL OWNER IS WRONG. The first version walked every
-	@# tree on every run, and a re-run beside a live stack failed: MinIO creates
-	@# and deletes temp files under .minio.sys/tmp continuously, one vanished
-	@# between the directory listing and the chown, and chown exits 1 on
+	@# BUT ONLY WHEN THE TOP-LEVEL OWNER IS WRONG. MinIO creates and deletes temp
+	@# files under .minio.sys/tmp continuously, so one can vanish between the
+	@# directory listing and the chown, and chown then exits 1 on
 	@# "No such file or directory". A directory already owned by the right uid
 	@# is left alone, which makes the target idempotent and keeps it off live
 	@# data trees.
@@ -70,9 +69,7 @@ dirs:  ## Create + chown the bind-mounted data directories (needs sudo; safe to 
 	@#   ValueError: Unable to configure handler 'processor'
 	@#
 	@# before it can even migrate its own database, which is a log-permission
-	@# error wearing a logging-config error's clothes. Added 2026-09-23, when
-	@# `make airflow-up` was found to have never produced a running Airflow on
-	@# this machine.
+	@# error wearing a logging-config error's clothes.
 	@sudo mkdir -p $(DATA)/transit-warehouse $(DATA)/transit-redpanda \
 	  $(DATA)/transit-minio $(DATA)/transit-airflow-db $(ROOT)/airflow/logs
 	@own() { \
@@ -104,9 +101,6 @@ connect-up: $(ROOT)/.env  ## Build + start Kafka Connect, and wait until its RES
 	@# apply, then failed on every connector with
 	@#
 	@#   Error: Post "http://connect:8083/connectors": ... connection refused
-	@#
-	@# Found by rehearsing the `platform` CI job on an empty daemon, 2026-09-25.
-	@# On this machine the worker had always been up long before anyone applied.
 	@$(DC) --profile connect up -d --build --wait connect
 
 # PUT, not POST: PUT /connectors/<name>/config creates or updates, so this is
@@ -125,8 +119,7 @@ down:  ## Stop the stack (data directories are preserved)
 	@# Every profile a start target can bring up, or a container outside them
 	@# survives `make down` and keeps writing to a stopped broker. flink is
 	@# absent on purpose: it has its own target pair, and leaving the cluster
-	@# running against a stopped broker is the pre-existing behaviour rather
-	@# than one this change introduces.
+	@# running against a stopped broker is deliberate.
 	@$(DC) --profile connect --profile stream down
 
 ps:  ## Show container status
@@ -136,24 +129,17 @@ logs:  ## Tail logs (SVC=redpanda to narrow)
 	@$(DC) logs -f $(SVC)
 
 # --- topics ------------------------------------------------------------------
-# MOVED TO TERRAFORM, build step 5B. Topic config lives in
-# terraform/core/topics.tf, and `make platform` is what applies it.
+# Topic config lives in terraform/core/topics.tf, and `make platform` is what
+# applies it.
 #
-# WHY IT MOVED. This target ran a broker-CLI topic create per topic, which is a
-# no-op on a topic that already exists and applies no config either. Two topics
-# were recreated by 4B's re-framing migration and silently lost their 30-day
-# retention; the fix was a second block of `rpk topic alter-config` calls right
-# here. Two sources for one setting is how that happened, and neither of them
-# could say whether the running stack still matched what was written down.
+# tests/test_platform_contract.py fails while any raw topic-create call appears
+# in this file -- a blunt substring check, so this comment cannot quote the
+# command either. `make tf-drift` answers whether the live broker matches the
+# repository.
 #
-# tests/test_platform_contract.py now fails while any raw topic-create call
-# appears in this file -- a blunt substring check, so this comment cannot quote
-# the command either. `make tf-drift` answers the question the target could not:
-# does the live broker match the repository?
-#
-# The reasoning that used to live below (partition counts are for rebalancing
-# rather than throughput; retention is grounded in the Phase 0 measurements) is
-# next to the values in topics.tf.
+# Partition counts are for rebalancing rather than throughput, and retention is
+# grounded in the Phase 0 measurements; the reasoning sits next to the values in
+# topics.tf.
 
 topic-describe:  ## Show config for one topic (T=raw.service_alerts)
 	@test -n "$(T)" || { echo "usage: make topic-describe T=raw.service_alerts"; exit 2; }
@@ -219,7 +205,7 @@ schema-register:  ## Register the enriched protobuf schema
 	@$(ENV) $(PY) -m consumers.enrichment.register
 
 # The two Flink output topics, which are JSON rather than protobuf and need a
-# schema of their own before the JDBC sink will read them (ADR 0008, step 4B).
+# schema of their own before the JDBC sink will read them (ADR 0008).
 # Separate from `schema-register` because they are a different registry type
 # against a different producer; `--check` and `--status` work the same way.
 schema-register-sinks:  ## Register the JSON Schemas for alerts.bunching and analytics.prediction_accuracy
@@ -332,9 +318,9 @@ flink-logs:  ## Tail TaskManager logs (where Python job errors surface)
 test:  ## Run the wire-semantics tests (no stack, no network needed)
 	@$(PY) -m pytest $(ROOT)/tests -q
 
-# The producer spec. Fails until the stubs in producer/ are implemented --
-# that is the point. Excluded from `make test` and CI so work in progress
-# does not show up as a broken build. K=dedupe to narrow.
+# The producer spec, excluded from `make test` by marker so a quick run stays
+# fast; it runs under `make contract` and in CI with an explicit -m.
+# K=dedupe to narrow.
 contract:  ## Run the producer contract tests (the Phase 1 spec)
 	@$(PY) -m pytest $(ROOT)/tests/test_producer_contract.py -m contract \
 	  $(if $(K),-k $(K)) -v
@@ -356,9 +342,9 @@ sink-roundtrip:  ## Produce one framed record to alerts.bunching; wait for the r
 # `make dbt` works under the scheduler.
 
 DBT_IMAGE := transit-dbt:1.11.0
-# dbt_transform, not the superuser, since build step 5C. The password comes from
-# .env as DBT_TRANSFORM_PASSWORD and is passed straight through; the user name is
-# the role name and has no second spelling.
+# dbt_transform, not the superuser: the password comes from .env as
+# DBT_TRANSFORM_PASSWORD and is passed straight through; the user name is the
+# role name and has no second spelling.
 DBT_RUN = $(ENV) docker run --rm --network transit-stream_default \
 	  -v $(ROOT)/dbt:/dbt -e DBT_PROFILES_DIR=/dbt -e DBT_USE_COLORS=false \
 	  -e DBT_HOST -e DBT_PORT -e DBT_USER=dbt_transform \
@@ -399,7 +385,7 @@ airflow-logs:  ## Tail the Airflow scheduler/webserver logs
 #
 # THE ENVIRONMENT HERE MATTERS. The DAGs read their task containers' credentials
 # at import time, so every variable they name has to exist or the import fails and
-# the DAG reports as missing. Since 5C those are the per-role passwords rather
+# the DAG reports as missing. The variables are the per-role passwords rather
 # than POSTGRES_USER/POSTGRES_PASSWORD: x is fine for all of them, because this
 # only imports, it never connects.
 airflow-check:  ## Import every DAG and check required tasks (runs in the Airflow image)
@@ -453,7 +439,7 @@ lag:  ## Show consumer group lag (the Phase 1 "did it stall overnight" check)
 #
 # Two roots, applied in order (terraform/connectors/versions.tf says why):
 #
-#     make tf-apply R=core         topics, bucket, (5C) roles
+#     make tf-apply R=core         topics, bucket, roles
 #     make connect-up              the worker needs core's _connect_* topics
 #     make tf-apply R=connectors   the sinks
 #
@@ -471,7 +457,7 @@ lag:  ## Show consumer group lag (the Phase 1 "did it stall overnight" check)
 # stay out of `ps` and shell history. The variables that carry them are
 # ephemeral (terraform/core/variables.tf), so they stay out of the state too.
 # `-e NAME` with no value passes the variable through from this shell.
-# 5C adds its role passwords to TF_PASS.
+# The role passwords are passed through the same way.
 
 R ?= core
 TF_IMAGE := hashicorp/terraform:1.15.9
@@ -494,13 +480,11 @@ TF_APPROVE := $(if $(AUTO),-auto-approve,)
 #   Error: could not execute revoke query: pq: tuple concurrently updated
 #   STATEMENT: REVOKE UPDATE,SELECT,INSERT ON TABLE "raw"."prediction_accuracy",...
 #
-# Found by rehearsing the `platform` CI job on an empty daemon (2026-09-25); on
-# this machine the grants were adopted or added a few at a time and never raced.
-# The provider's own max_connections = 1 was tried first and did NOT fix it:
-# the next run still showed two backends (pids 139 and 145) failing in the same
-# second. -parallelism=1 removes the concurrency instead of trusting a setting
-# that measurably did not. The cost is the twelve topics applying in sequence
-# on a fresh stack; plan and tf-drift only read, and stay parallel.
+# The provider's own max_connections = 1 does not remove it, measured: two
+# backends (pids 139 and 145) failed in the same second. -parallelism=1 removes
+# the concurrency instead of trusting a setting that measurably does not. The
+# cost is the twelve topics applying in sequence on a fresh stack; plan and
+# tf-drift only read, and stay parallel.
 TF_SERIAL = $(if $(filter core,$(1)),-parallelism=1,)
 TF_PASS := TF_VAR_warehouse_db TF_VAR_warehouse_admin_user TF_VAR_warehouse_admin_password \
            TF_VAR_minio_root_user TF_VAR_minio_root_password TF_VAR_raw_bucket \
@@ -580,7 +564,7 @@ platform: $(ROOT)/.env  ## Create everything Terraform owns, in order (core, wor
 	@$(MAKE) -s connect-up
 	@$(MAKE) -s tf-apply R=connectors
 
-# --- CI fixture (Phase 5A) ---------------------------------------------------
+# --- CI fixture (Phase 5) ----------------------------------------------------
 
 ci-fixture:  ## Re-export the real-data slice CI's dbt build runs against
 	@$(ENV) bash $(ROOT)/tests/fixtures/warehouse/export.sh
@@ -624,14 +608,11 @@ ci-pg-up: ci-net  ## CI: start a throwaway PostGIS and wait until it is really r
 	@#  1. pg_isready over the socket answers during the temporary phase, so the
 	@#     apply raced the image's own CREATE EXTENSION postgis and lost:
 	@#       duplicate key value violates unique constraint "pg_extension_name_index"
-	@#     Measured on this machine.
-	@#  2. The fix for (1) waited until postgis was VISIBLE, on the assumption that
-	@#     the image had then finished. It had not: the extension is created on
-	@#     the temporary server, which is then shut down. On a cold runner
-	@#     (rehearsed on an empty daemon, 2026-09-25) the DDL started in that gap
-	@#     and died mid-file with
+	@#     Measured.
+	@#  2. Waiting until postgis is VISIBLE is not enough, because the extension
+	@#     is created on the temporary server, which is then shut down. The DDL
+	@#     can start in that gap and die mid-file with
 	@#       FATAL:  terminating connection due to administrator command
-	@#     This machine had passed only by being fast enough to win.
 	@#
 	@# -h 127.0.0.1 on every probe closes both: the temporary server has no TCP
 	@# listener, so a TCP answer can only come from the final server, and every
@@ -660,8 +641,7 @@ ci-pg-ddl:  ## CI: apply every initdb file, then exercise both maintenance funct
 	  docker exec -i $(CI_PG) psql -U $(CI_USER) -d $(CI_DB) -v ON_ERROR_STOP=1 -q < $$f || exit 1; \
 	done
 	@# The functions have to be exercised ON TABLES THAT SURVIVE 06, which drops
-	@# three of the Phase 0 raw tables. The scaffold's version called them on
-	@# raw.vehicle_positions, which no longer exists by this point.
+	@# three of the Phase 0 raw tables.
 	@#
 	@# ensure_partition runs twice on purpose: Airflow calls it on a schedule and
 	@# a second call must not error.
@@ -720,7 +700,7 @@ ci-ddl:  ## CI: throwaway Postgres, all six initdb files, both functions, cleane
 # throwaway database by name, with credentials passed inline. That last part is
 # why this is not DBT_RUN: `make dbt` deliberately sources .env, and a CI
 # checkout has no .env and should not need one. The credentials are DBT_USER and
-# DBT_PASSWORD, which is what profiles.yml reads since 5C; as the CI SUPERUSER,
+# DBT_PASSWORD, which is what profiles.yml reads; as the CI SUPERUSER,
 # deliberately, because this warehouse is a fresh PostGIS with no roles at all:
 # nothing in this target runs Terraform, so there is no dbt_transform to be.
 CI_DBT_RUN = docker run --rm --network $(CI_NET) \
@@ -745,9 +725,9 @@ ci-dbt: dbt-image  ## CI: dbt build against a throwaway warehouse, with real fix
 	@# THE TEARDOWN RUNS EVEN WHEN THE BUILD FAILS, and the exit status is
 	@# carried through: without that, a failed dbt run left a throwaway PostGIS
 	@# (and its port) running, which is the state that makes the NEXT run fail.
-	@# BUILT TWICE since the marts went incremental (2026-09-26). The first
-	@# build creates every table, so is_incremental() is false throughout and
-	@# only the full-refresh SQL runs. The second runs the incremental branch of
+	@# BUILT TWICE, because the marts are incremental. The first build creates
+	@# every table, so is_incremental() is false throughout and only the
+	@# full-refresh SQL runs. The second runs the incremental branch of
 	@# every model against the tables the first made, and all tests again on the
 	@# result, so the path the hourly production build actually takes is the
 	@# one CI proves, not just the path a fresh warehouse takes.
@@ -760,8 +740,8 @@ ci-dbt: dbt-image  ## CI: dbt build against a throwaway warehouse, with real fix
 
 ci-platform: $(ROOT)/.env  ## CI: the clean-clone path end to end (fresh stack to one row)
 	@# THE CLEAN-CLONE EXIT CRITERION as one target rather than seven steps in a
-	@# workflow, for the same reason ci-ddl and ci-dbt are targets: it can be
-	@# rehearsed, and a failure on a runner is reproducible here.
+	@# workflow, for the same reason ci-ddl and ci-dbt are targets: a failure on a
+	@# runner is reproducible here.
 	@#
 	@# NOT RUNNABLE BESIDE A RUNNING STACK. Every service in docker-compose.yml
 	@# declares a fixed container_name, so a second stack would collide on names
@@ -839,14 +819,14 @@ replay-enrich:  ## replay.raw -> replayed enrichment -> replay.enriched (exits w
 
 # PyFlink LOCAL MODE in its own container: an embedded MiniCluster, not a job
 # on the live cluster, whose 9 slots are all taken by the two live jobs.
-# Prototyped 2026-09-25: a bounded Kafka job with a Python map ran this way in
+# Measured 2026-09-25: a bounded Kafka job with a Python map ran this way in
 # 8.2 s and left no consumer group behind. Bounded, so it finishes when the
 # replayed stream is drained, and the end of input fires the last windows.
 # A TIMEOUT, because a hung replay looks exactly like a slow one. On 2026-09-27
 # the baseline over 09-24 Pacific died 7 minutes in and then neither recovered
 # nor exited, and this target sat for 5 h 22 min; a day normally takes 12
-# minutes. The job now fails fast on its own (build_env in job.py), and this is
-# the backstop for whatever else can hang.
+# minutes. The job fails fast on its own (build_env in job.py), and this is the
+# backstop for whatever else can hang.
 #
 # -k 30s, because a plain timeout does nothing here, measured: TERM goes to the
 # docker CLIENT, which forwards it to the container and then keeps waiting for
@@ -873,6 +853,34 @@ replay-detect:  ## Replayed detector over replay.enriched (RUN=baseline|variant,
 replay-compare:  ## Fidelity or experiment report (MODE=fidelity|experiment START= END=)
 	@$(ENV) $(PY) -m replay.compare $(MODE) --start $(START) --end $(END)
 
+# --- the findings site (Phase 7) -----------------------------------------------
+#
+# site/ is static and committed; GitHub Pages serves it as uploaded
+# (.github/workflows/pages.yml). These targets cut its data from the marts and
+# draw its link preview. Nothing here runs in CI: there is no warehouse there.
+#
+#     make exports         # site/data/*.json from the marts (default: 2026-09-24..30)
+#     make og-card         # site/og-card.png from those files
+#     make site-preview    # http://localhost:8765, as Pages will serve it
+#
+# site/data/replay.json is NOT re-cut by `make exports`. It came from the replay
+# topics, which expired seven days after the run; replay/report.py is how it was
+# made, and the committed file is the only copy.
+
+EXPORT_WINDOW ?=
+
+exports:  ## Cut site/data/ from the marts (EXPORT_WINDOW="--first 2026-09-24 --last 2026-09-30")
+	@$(ENV) $(PY) -m publish.export $(EXPORT_WINDOW)
+
+og-card:  ## Render site/og-card.png from site/data with headless Chromium
+	@$(PY) -m publish.card
+
+# Over HTTP, because the page fetch()es its data and browsers refuse that from
+# a file:// page. 8765: 8080 is the parcel project's Airflow.
+site-preview:  ## Serve site/ at http://localhost:8765
+	@echo "http://localhost:8765  (Ctrl-C to stop)"
+	@cd $(ROOT)/site && $(PY) -m http.server 8765 --bind 127.0.0.1
+
 # --- destructive -------------------------------------------------------------
 
 nuke-warehouse:  ## Drop the warehouse data dir so initdb re-runs (DESTRUCTIVE)
@@ -886,6 +894,7 @@ nuke-warehouse:  ## Drop the warehouse data dir so initdb re-runs (DESTRUCTIVE)
         tf-init tf-plan tf-apply tf-adopt tf-validate tf-drift tf-fmt tf-check platform ci-fixture ci-ddl ci-dbt ci-platform \
         ci-net ci-pg-up ci-pg-ddl ci-pg-load ci-pg-down \
         replay-reset replay-ingest replay-enrich replay-detect replay-compare dbt-full-check \
+        exports og-card site-preview \
         feeds produce-dry produce static-status static-load static-hoods \
         schema-gen schema-register schema-status enrich-dry enrich \
         schema-register-sinks \

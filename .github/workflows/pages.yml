@@ -1,0 +1,61 @@
+# Publish site/ to GitHub Pages.
+#
+# AN ACTIONS DEPLOY, NOT "DEPLOY FROM A BRANCH". Branch-based Pages serves the
+# repository root or /docs and nothing else. This site lives in site/, and
+# /docs is the project's written documentation (findings.md, the ADRs).
+# Uploading the directory as an artifact serves it as it is, and it also means
+# no Jekyll, which would silently drop any file or directory whose name begins
+# with an underscore.
+#
+# NOTHING IS BUILT HERE. site/data/ is committed: `make exports` cut it from
+# the dbt marts, and there is no warehouse in CI to cut it from again. What
+# this workflow publishes is exactly what the commit holds.
+#
+# ONE-TIME MANUAL STEP: Settings -> Pages -> Source -> "GitHub Actions". Without
+# it this workflow runs and the deploy step fails; a workflow file cannot set it.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    # Only when the published files change. A README edit redeploys nothing.
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:   # manual runs and reruns
+
+# What deploy-pages needs, and nothing that writes back to the repository.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and never cancel one halfway: a cancelled Pages deploy
+# can leave the site serving a partial upload.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      - name: Upload site/
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # index.html fetches data/*.json by RELATIVE path, so serving site/
+          # as the Pages root resolves them under the project's sub-path
+          # (/King-County-Metro-Transit-Streaming/). No base href: it would
+          # break `make site-preview`.
+          path: site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

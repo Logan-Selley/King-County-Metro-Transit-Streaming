@@ -1,0 +1,20 @@
+{
+ "data": {
+  "alerts": 1496,
+  "alerts_per_day": 498.7,
+  "days": 3,
+  "first": "2026-09-24",
+  "last": "2026-09-26",
+  "live_share": 0.967,
+  "located_share": 1.0,
+  "median_abs_error_long_s": 204,
+  "median_abs_error_short_s": 44,
+  "pm_peak_share": 0.388,
+  "positions": 3477532,
+  "predictions": 8540029
+ },
+ "window": {
+  "first": "2026-09-24",
+  "last": "2026-09-26"
+ }
+}

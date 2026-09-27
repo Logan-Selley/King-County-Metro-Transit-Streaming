@@ -1,0 +1,71 @@
+{
+ "data": [
+  {
+   "lead_bucket": "past",
+   "mean_error_s": -341,
+   "median_abs_error_s": 176,
+   "p90_abs_error_s": 990,
+   "predictions": 943
+  },
+  {
+   "lead_bucket": "0-2m",
+   "mean_error_s": 12,
+   "median_abs_error_s": 44,
+   "p90_abs_error_s": 86,
+   "predictions": 280248
+  },
+  {
+   "lead_bucket": "2-5m",
+   "mean_error_s": 53,
+   "median_abs_error_s": 77,
+   "p90_abs_error_s": 151,
+   "predictions": 1142945
+  },
+  {
+   "lead_bucket": "5-10m",
+   "mean_error_s": 59,
+   "median_abs_error_s": 93,
+   "p90_abs_error_s": 206,
+   "predictions": 1697758
+  },
+  {
+   "lead_bucket": "10-15m",
+   "mean_error_s": 62,
+   "median_abs_error_s": 107,
+   "p90_abs_error_s": 254,
+   "predictions": 1388611
+  },
+  {
+   "lead_bucket": "15-20m",
+   "mean_error_s": 65,
+   "median_abs_error_s": 120,
+   "p90_abs_error_s": 295,
+   "predictions": 1121737
+  },
+  {
+   "lead_bucket": "20-30m",
+   "mean_error_s": 68,
+   "median_abs_error_s": 138,
+   "p90_abs_error_s": 340,
+   "predictions": 1578577
+  },
+  {
+   "lead_bucket": "30-45m",
+   "mean_error_s": 85,
+   "median_abs_error_s": 167,
+   "p90_abs_error_s": 411,
+   "predictions": 1068467
+  },
+  {
+   "lead_bucket": "45-60m",
+   "mean_error_s": 126,
+   "median_abs_error_s": 204,
+   "p90_abs_error_s": 492,
+   "predictions": 260743
+  }
+ ],
+ "window": {
+  "first": "2026-09-24",
+  "last": "2026-09-26"
+ }
+}

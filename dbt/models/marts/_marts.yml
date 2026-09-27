@@ -2,9 +2,7 @@ version: 2
 
 # `contract: enforced` makes the column names and types part of the build.
 # A mart that drifts from them fails `dbt build` instead of quietly handing a
-# chart a renamed column. The stubs satisfy the contract with zero rows, which
-# is why they build; the data tests below and in tests/ are what fail until
-# the logic is real.
+# chart a renamed column.
 
 models:
   - name: mart_feed_health
@@ -60,8 +58,8 @@ models:
   - name: mart_prediction_error_by_lead
     description: >
       The error curve. One row per lead bucket, ordered by how far ahead the
-      prediction was issued, reproducing from the warehouse what Phase 3
-      measured from the job's output: the typical mistake grows with lead time,
+      prediction was issued, reproducing from the warehouse what the job's
+      output measured: the typical mistake grows with lead time,
       and the sign is optimistic at every lead. The two claims are asserted by
       assert_prediction_error_grows_with_lead rather than left to the reader.
     config:
@@ -91,3 +89,40 @@ models:
           errs, and how big a typical mistake is.
         data_type: integer
 
+
+  - name: mart_bunching_alerts
+    description: >
+      One row per bunching alert, placed on the map: the pair's midpoint, the
+      stop and neighborhood of the vehicle nearer its trip's start, and the
+      Pacific day and hour. Feeds the findings site. The full
+      contract, and why it has to be incremental, is in the model's header.
+    config:
+      contract: {enforced: true}
+    columns:
+      - {name: window_at,          data_type: timestamptz,      data_tests: [not_null]}
+      - {name: local_date,         data_type: date,             data_tests: [not_null]}
+      - {name: local_hour,         data_type: integer,          data_tests: [not_null]}
+      - name: day_type
+        data_type: text
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['weekday', 'saturday', 'sunday']
+      - {name: route_short_name,   data_type: text}
+      - {name: direction_id,       data_type: integer}
+      - {name: vehicle_id_a,       data_type: text,             data_tests: [not_null]}
+      - {name: vehicle_id_b,       data_type: text,             data_tests: [not_null]}
+      - {name: gap_ft,             data_type: double precision}
+      - name: latitude
+        description: >
+          Null only when the pair's positions were not found; see
+          bunching_alerts_located_when_the_feed_was_live. Where set, inside
+          producer/errors.py's KING_COUNTY_BBOX, which every position already
+          passed before it could be enriched.
+        data_type: double precision
+      - {name: longitude,          data_type: double precision}
+      - {name: min_stop_sequence,  data_type: integer}
+      - {name: stop_id,            data_type: text}
+      - {name: stop_name,          data_type: text}
+      - {name: neighborhood_name,  data_type: text}

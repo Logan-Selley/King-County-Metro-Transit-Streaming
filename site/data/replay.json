@@ -1,0 +1,815 @@
+{
+ "window": {
+  "start": "2026-09-24T07:00:00+00:00",
+  "end": "2026-09-25T07:00:00+00:00",
+  "tz": "America/Los_Angeles"
+ },
+ "generated": "2026-09-27T07:17:30+00:00",
+ "fidelity": {
+  "enriched": {
+   "live_rows": 1359657,
+   "replay_rows": 1360801,
+   "matched": 1359657,
+   "live_only": 0,
+   "replay_only": 1143,
+   "replay_only_by_minute": {
+    "17:55": 978,
+    "17:56": 160,
+    "18:16": 5
+   },
+   "field_mismatches": {
+    "feed_etag": 67,
+    "stop_id": 14,
+    "current_stop_sequence": 14,
+    "current_status": 12,
+    "occupancy_status": 1
+   },
+   "mismatch_rows_by_minute": {
+    "15:47": 55,
+    "17:46": 3,
+    "15:46": 1,
+    "15:45": 1,
+    "17:42": 1,
+    "17:45": 1,
+    "17:44": 1,
+    "17:25": 1,
+    "15:44": 1,
+    "15:06": 1,
+    "15:41": 1
+   }
+  },
+  "alerts": {
+   "live": 626,
+   "baseline": 641,
+   "matched": 607,
+   "field_mismatches": {},
+   "live_only": [
+    [
+     "4375",
+     "4385",
+     "17:48"
+    ],
+    [
+     "4375",
+     "4385",
+     "17:58"
+    ],
+    [
+     "4508",
+     "4556",
+     "00:08"
+    ],
+    [
+     "6069",
+     "6071",
+     "17:48"
+    ],
+    [
+     "6069",
+     "6071",
+     "17:58"
+    ],
+    [
+     "6075",
+     "6086",
+     "15:54"
+    ],
+    [
+     "6087",
+     "6103",
+     "15:54"
+    ],
+    [
+     "6400",
+     "6408",
+     "17:58"
+    ],
+    [
+     "6401",
+     "6409",
+     "15:54"
+    ],
+    [
+     "6953",
+     "6853",
+     "17:49"
+    ],
+    [
+     "7215",
+     "7256",
+     "17:49"
+    ],
+    [
+     "7256",
+     "7215",
+     "17:59"
+    ],
+    [
+     "8033",
+     "8075",
+     "17:49"
+    ],
+    [
+     "8033",
+     "8075",
+     "17:59"
+    ],
+    [
+     "8202",
+     "8260",
+     "17:59"
+    ],
+    [
+     "8227",
+     "8250",
+     "17:49"
+    ],
+    [
+     "8247",
+     "8237",
+     "17:59"
+    ],
+    [
+     "8250",
+     "8227",
+     "17:59"
+    ],
+    [
+     "8260",
+     "8202",
+     "17:49"
+    ]
+   ],
+   "replay_only": [
+    [
+     "4326",
+     "4399",
+     "17:45"
+    ],
+    [
+     "4344",
+     "4401",
+     "15:47"
+    ],
+    [
+     "4375",
+     "4385",
+     "17:45"
+    ],
+    [
+     "4375",
+     "4385",
+     "17:55"
+    ],
+    [
+     "4508",
+     "4556",
+     "00:02"
+    ],
+    [
+     "4561",
+     "4559",
+     "17:42"
+    ],
+    [
+     "6069",
+     "6071",
+     "17:43"
+    ],
+    [
+     "6069",
+     "6071",
+     "17:53"
+    ],
+    [
+     "6071",
+     "6069",
+     "18:04"
+    ],
+    [
+     "6075",
+     "6086",
+     "15:53"
+    ],
+    [
+     "6087",
+     "6081",
+     "17:42"
+    ],
+    [
+     "6087",
+     "6103",
+     "15:52"
+    ],
+    [
+     "6224",
+     "6093",
+     "15:47"
+    ],
+    [
+     "6400",
+     "6408",
+     "17:56"
+    ],
+    [
+     "6401",
+     "6408",
+     "17:44"
+    ],
+    [
+     "6404",
+     "6409",
+     "17:44"
+    ],
+    [
+     "6409",
+     "6401",
+     "15:53"
+    ],
+    [
+     "6411",
+     "6407",
+     "15:47"
+    ],
+    [
+     "6516",
+     "6511",
+     "15:48"
+    ],
+    [
+     "6953",
+     "6853",
+     "17:48"
+    ],
+    [
+     "7215",
+     "7256",
+     "17:48"
+    ],
+    [
+     "7256",
+     "7215",
+     "17:58"
+    ],
+    [
+     "7309",
+     "7395",
+     "17:45"
+    ],
+    [
+     "7469",
+     "7366",
+     "17:43"
+    ],
+    [
+     "8033",
+     "8075",
+     "17:53"
+    ],
+    [
+     "8075",
+     "8033",
+     "17:43"
+    ],
+    [
+     "8075",
+     "8033",
+     "18:03"
+    ],
+    [
+     "8146",
+     "8138",
+     "15:49"
+    ],
+    [
+     "8202",
+     "8260",
+     "17:55"
+    ],
+    [
+     "8227",
+     "8250",
+     "17:48"
+    ],
+    [
+     "8231",
+     "8227",
+     "15:49"
+    ],
+    [
+     "8247",
+     "8237",
+     "17:56"
+    ],
+    [
+     "8250",
+     "8227",
+     "17:58"
+    ],
+    [
+     "8260",
+     "8202",
+     "17:45"
+    ]
+   ]
+  }
+ },
+ "experiment": {
+  "gate_on": 641,
+  "gate_off": 832,
+  "both": 601,
+  "added": 231,
+  "removed": 40,
+  "pm_peak_share": {
+   "gate_on": 0.38221528861154447,
+   "gate_off": 0.33413461538461536
+  },
+  "by_hour": {
+   "gate_on": {
+    "0": 1,
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 0,
+    "5": 1,
+    "6": 8,
+    "7": 26,
+    "8": 34,
+    "9": 32,
+    "10": 32,
+    "11": 39,
+    "12": 35,
+    "13": 30,
+    "14": 39,
+    "15": 59,
+    "16": 72,
+    "17": 105,
+    "18": 68,
+    "19": 24,
+    "20": 20,
+    "21": 6,
+    "22": 8,
+    "23": 2
+   },
+   "gate_off": {
+    "0": 1,
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 0,
+    "5": 4,
+    "6": 11,
+    "7": 44,
+    "8": 52,
+    "9": 45,
+    "10": 43,
+    "11": 55,
+    "12": 47,
+    "13": 42,
+    "14": 49,
+    "15": 76,
+    "16": 85,
+    "17": 119,
+    "18": 74,
+    "19": 30,
+    "20": 26,
+    "21": 13,
+    "22": 14,
+    "23": 2
+   }
+  },
+  "routes": [
+   {
+    "route": "G Line",
+    "gate_on": 99,
+    "gate_off": 111
+   },
+   {
+    "route": "E Line",
+    "gate_on": 92,
+    "gate_off": 94
+   },
+   {
+    "route": "7",
+    "gate_on": 51,
+    "gate_off": 66
+   },
+   {
+    "route": "D Line",
+    "gate_on": 41,
+    "gate_off": 41
+   },
+   {
+    "route": "40",
+    "gate_on": 40,
+    "gate_off": 41
+   },
+   {
+    "route": "255",
+    "gate_on": 7,
+    "gate_off": 65
+   },
+   {
+    "route": "62",
+    "gate_on": 30,
+    "gate_off": 40
+   },
+   {
+    "route": "36",
+    "gate_on": 32,
+    "gate_off": 32
+   },
+   {
+    "route": "H Line",
+    "gate_on": 29,
+    "gate_off": 30
+   },
+   {
+    "route": "240",
+    "gate_on": 24,
+    "gate_off": 34
+   },
+   {
+    "route": "545",
+    "gate_on": 16,
+    "gate_off": 16
+   },
+   {
+    "route": "A Line",
+    "gate_on": 11,
+    "gate_off": 21
+   },
+   {
+    "route": "44",
+    "gate_on": 15,
+    "gate_off": 15
+   },
+   {
+    "route": "60",
+    "gate_on": 12,
+    "gate_off": 14
+   },
+   {
+    "route": "70",
+    "gate_on": 12,
+    "gate_off": 13
+   },
+   {
+    "route": "F Line",
+    "gate_on": 12,
+    "gate_off": 12
+   },
+   {
+    "route": "107",
+    "gate_on": 12,
+    "gate_off": 12
+   },
+   {
+    "route": "72",
+    "gate_on": 11,
+    "gate_off": 13
+   },
+   {
+    "route": "106",
+    "gate_on": 10,
+    "gate_off": 11
+   },
+   {
+    "route": "348",
+    "gate_on": 4,
+    "gate_off": 16
+   },
+   {
+    "route": "150",
+    "gate_on": 9,
+    "gate_off": 9
+   },
+   {
+    "route": "65",
+    "gate_on": 4,
+    "gate_off": 11
+   },
+   {
+    "route": "4",
+    "gate_on": 7,
+    "gate_off": 7
+   },
+   {
+    "route": "160",
+    "gate_on": 4,
+    "gate_off": 10
+   },
+   {
+    "route": "77",
+    "gate_on": 6,
+    "gate_off": 6
+   },
+   {
+    "route": "124",
+    "gate_on": 3,
+    "gate_off": 7
+   },
+   {
+    "route": "245",
+    "gate_on": 2,
+    "gate_off": 8
+   },
+   {
+    "route": "914",
+    "gate_on": 4,
+    "gate_off": 5
+   },
+   {
+    "route": "125",
+    "gate_on": 4,
+    "gate_off": 5
+   },
+   {
+    "route": "5",
+    "gate_on": 4,
+    "gate_off": 4
+   },
+   {
+    "route": "164",
+    "gate_on": 3,
+    "gate_off": 3
+   },
+   {
+    "route": "75",
+    "gate_on": 3,
+    "gate_off": 3
+   },
+   {
+    "route": "322",
+    "gate_on": 3,
+    "gate_off": 3
+   },
+   {
+    "route": "8",
+    "gate_on": 2,
+    "gate_off": 3
+   },
+   {
+    "route": "101",
+    "gate_on": 2,
+    "gate_off": 2
+   },
+   {
+    "route": "14",
+    "gate_on": 2,
+    "gate_off": 2
+   },
+   {
+    "route": "50",
+    "gate_on": 2,
+    "gate_off": 2
+   },
+   {
+    "route": "161",
+    "gate_on": 2,
+    "gate_off": 2
+   },
+   {
+    "route": "226",
+    "gate_on": 2,
+    "gate_off": 2
+   },
+   {
+    "route": "67",
+    "gate_on": 2,
+    "gate_off": 2
+   },
+   {
+    "route": "220",
+    "gate_on": 0,
+    "gate_off": 4
+   },
+   {
+    "route": "32",
+    "gate_on": 0,
+    "gate_off": 3
+   },
+   {
+    "route": "903",
+    "gate_on": 0,
+    "gate_off": 3
+   },
+   {
+    "route": "902",
+    "gate_on": 0,
+    "gate_off": 3
+   },
+   {
+    "route": "43",
+    "gate_on": 1,
+    "gate_off": 1
+   },
+   {
+    "route": "79",
+    "gate_on": 1,
+    "gate_off": 1
+   },
+   {
+    "route": "111",
+    "gate_on": 1,
+    "gate_off": 1
+   },
+   {
+    "route": "24",
+    "gate_on": 1,
+    "gate_off": 1
+   },
+   {
+    "route": "128",
+    "gate_on": 1,
+    "gate_off": 1
+   },
+   {
+    "route": "269",
+    "gate_on": 1,
+    "gate_off": 1
+   },
+   {
+    "route": "223",
+    "gate_on": 1,
+    "gate_off": 1
+   },
+   {
+    "route": "13",
+    "gate_on": 1,
+    "gate_off": 1
+   },
+   {
+    "route": "102",
+    "gate_on": 1,
+    "gate_off": 1
+   },
+   {
+    "route": "45",
+    "gate_on": 1,
+    "gate_off": 1
+   },
+   {
+    "route": "906",
+    "gate_on": 1,
+    "gate_off": 1
+   },
+   {
+    "route": "345",
+    "gate_on": 0,
+    "gate_off": 2
+   },
+   {
+    "route": "203",
+    "gate_on": 0,
+    "gate_off": 2
+   },
+   {
+    "route": "10",
+    "gate_on": 0,
+    "gate_off": 1
+   },
+   {
+    "route": "566",
+    "gate_on": 0,
+    "gate_off": 1
+   },
+   {
+    "route": "11",
+    "gate_on": 0,
+    "gate_off": 1
+   },
+   {
+    "route": "917",
+    "gate_on": 0,
+    "gate_off": 1
+   },
+   {
+    "route": "181",
+    "gate_on": 0,
+    "gate_off": 1
+   },
+   {
+    "route": "153",
+    "gate_on": 0,
+    "gate_off": 1
+   },
+   {
+    "route": "132",
+    "gate_on": 0,
+    "gate_off": 1
+   },
+   {
+    "route": "225",
+    "gate_on": 0,
+    "gate_off": 1
+   },
+   {
+    "route": "148",
+    "gate_on": 0,
+    "gate_off": 1
+   },
+   {
+    "route": "630",
+    "gate_on": 0,
+    "gate_off": 1
+   },
+   {
+    "route": "250",
+    "gate_on": 0,
+    "gate_off": 1
+   }
+  ],
+  "added_by_cause": {
+   "terminal": 208,
+   "shifted": 22,
+   "unexplained": 1
+  },
+  "added_by_route": [
+   {
+    "route": "255",
+    "added": 59,
+    "median_gap_ft": 0.0,
+    "stops": {
+     "NE 128th St & I-405": 54,
+     "Totem Lake Transit Center - Bay 2": 3,
+     "116th Ave NE & NE 124th St": 1
+    }
+   },
+   {
+    "route": "7",
+    "added": 15,
+    "median_gap_ft": 520.7467091345089,
+    "stops": {
+     "S Henderson St & 53rd Ave S": 14,
+     "Seward Park Ave S & S Fisher Pl": 1
+    }
+   },
+   {
+    "route": "240",
+    "added": 15,
+    "median_gap_ft": 52.82200344626108,
+    "stops": {
+     "108th Ave NE & NE 2nd St": 10,
+     "119th Ave SE & SE 47th St": 1,
+     "142nd Pl SE & SE 32nd St": 1
+    }
+   },
+   {
+    "route": "348",
+    "added": 14,
+    "median_gap_ft": 299.6070671991122,
+    "stops": {
+     "3rd Ave NW & NW 195th St": 13,
+     "3rd Ave NW & NW 191st St": 1
+    }
+   },
+   {
+    "route": "G Line",
+    "added": 13,
+    "median_gap_ft": 498.92033139584964,
+    "stops": {
+     "E Madison St & 23rd Ave E": 9,
+     "E Madison St & 22nd Ave E": 4
+    }
+   },
+   {
+    "route": "A Line",
+    "added": 10,
+    "median_gap_ft": 377.7590042506548,
+    "stops": {
+     "International Blvd & S 160th St": 7,
+     "Tukwila International Blvd Station - Bay 1": 2,
+     "Pacific Hwy S & S 316th St": 1
+    }
+   },
+   {
+    "route": "62",
+    "added": 10,
+    "median_gap_ft": 140.44421248671085,
+    "stops": {
+     "NOAA & Building 1": 7,
+     "10655": 2,
+     "NOAA & Building 3": 1
+    }
+   },
+   {
+    "route": "65",
+    "added": 8,
+    "median_gap_ft": 499.94200801532014,
+    "stops": {
+     "5th Ave NE & NE 152nd St": 5,
+     "Shoreline South/148th Station - Bay 2": 2,
+     "Roosevelt Way NE & NE 42nd St": 1
+    }
+   }
+  ],
+  "removed_by_cause": {
+   "suppressed": 39,
+   "no prior": 1
+  },
+  "removed_min_seq": {
+   "4+": 40
+  }
+ }
+}
