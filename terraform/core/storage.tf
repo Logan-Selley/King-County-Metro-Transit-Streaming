@@ -15,8 +15,8 @@ resource "minio_s3_bucket" "raw" {
   bucket = var.raw_bucket
 
   # Two prefixes live here, and both matter:
-  #   raw/                every feed payload the producer fetched, the replay
-  #                       source Phase 6 is built on
+  #   raw/                every feed payload the producer fetched, the replay's
+  #                       source
   #   flink-checkpoints/  both jobs' state
   # Destroying the bucket destroys both. force_destroy stays at its default
   # (false), so even without prevent_destroy the provider refuses a non-empty

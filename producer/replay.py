@@ -127,7 +127,7 @@ class ArchiveFetcher:
     window [start, end) in UTC, and `feeds`: the FeedSpecs this replay is for.
 
     CONTRACT
-      * ONLY THE FEEDS GIVEN. The archive holds
+      * ONLY THE FEEDS NAMED. The archive holds
         every feed in every hour, measured: 204 vehicle_positions, 203
         trip_updates and 60 service_alerts keys in 09-24 08:00. Queuing the
         other feeds would leave a one-feed replay's `exhausted` False

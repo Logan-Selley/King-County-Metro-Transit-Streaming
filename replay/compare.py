@@ -1,5 +1,6 @@
 """Compare a replay against the live pipeline, and two replays against each other.
-Phase 6, steps 6D (fidelity) and 6E (the experiment).
+Two comparisons over one replayed day: what the replay reproduced, and the
+terminal-gate experiment.
 
     python -m replay.compare fidelity --start 2026-09-24T00:00:00Z --end 2026-09-25T00:00:00Z
     python -m replay.compare experiment --start ... --end ...

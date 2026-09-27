@@ -48,7 +48,7 @@ TIMEOUT_S = 45
 #
 # The retry lives on the adapter rather than in fetch() for two reasons: it is
 # the layer that can see a DNS or connect failure, and a session-level policy
-# leaves the contract tests' stub session, which is not a real session, on its
+# leaves the contract tests' fake session, which is not a real session, on its
 # existing single-attempt semantics.
 RETRY_TOTAL = 5
 RETRY_BACKOFF_S = 1.5

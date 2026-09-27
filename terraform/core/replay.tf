@@ -1,4 +1,4 @@
-# The replay namespace. Phase 6. ADR 0010 has the design; this is the part of it
+# The replay namespace. ADR 0010 has the design; this is the part of it
 # that is infrastructure.
 #
 # WHY A NAMESPACE AND NOT A RUN-ID PER REPLAY. A replay has to be unable to touch

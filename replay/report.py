@@ -1,4 +1,4 @@
-"""The Phase 6 experiment, as data: every number in docs/findings.md section 13.
+"""The replay experiment, as data: every number in docs/findings.md section 13.
 
     python -m replay.report --start 2026-09-24T07:00:00Z --end 2026-09-25T07:00:00Z \\
         --out site/data/replay.json

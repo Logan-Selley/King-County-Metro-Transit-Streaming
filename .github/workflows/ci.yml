@@ -22,8 +22,8 @@
 # means a design assumption needs revisiting, which is exactly the signal
 # worth having.
 #
-# Anything needing the stack belongs in `make check` and the Phase 1
-# 24-hour collection run.
+# Anything needing the stack belongs in `make check` and a full
+# 24-hour run.
 #
 # --- WHAT THIS FILE CHECKS, AND WHAT IT DELIBERATELY DOES NOT ----------------
 #
