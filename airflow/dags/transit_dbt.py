@@ -73,4 +73,12 @@ with DAG(
     tags=["transit", "dbt"],
 ) as dag:
     dbt("source_freshness", "source freshness")
-    dbt("build", "build")
+    # recent_hours scopes the TESTS over the big tables to the last 6 hours
+    # (dbt/macros/recent_window.sql); the incremental marts scope themselves.
+    # Measured 2026-09-26: 1,628 s per build with every test over all of
+    # history (~2,250 node-seconds of it tests), 491 s with a 48-hour window,
+    # where four tests still took 90-157 s each re-reading two days that
+    # earlier builds had already tested. 6 hours is the new hour plus five
+    # hours of slack: a row escapes the hourly tests only if five runs in a
+    # row fail, and `make dbt-full-check` covers that and everything older.
+    dbt("build", "build --vars '{recent_hours: 6}'")

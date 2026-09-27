@@ -49,6 +49,9 @@ from producer.publish import TopicPublisher
 
 log = logging.getLogger("enrichment")
 
+# The live defaults. settings_from_args uses these when --source, --target, --dlq
+# or --group is absent, which is how the live path keeps running exactly what it
+# ran before Phase 6C.
 SOURCE_TOPIC = "raw.vehicle_positions"
 TARGET_TOPIC = "enriched.vehicle_positions"
 DLQ_TOPIC = "dlq.vehicle_positions"
@@ -97,7 +100,51 @@ def dsn() -> str:
     )
 
 
-def main(argv: list[str] | None = None) -> int:
+# --- how a run is wired: live, or a Phase 6 replay ----------------------------
+#
+# Phase 6 replays archived payloads through this same consumer, so the four
+# names it reads and writes and the group it commits under have to be
+# overridable. The defaults are the live ones, and a run may not mix: reading
+# the replay topic while writing the live enriched topic would push replayed
+# history into the warehouse through the live sink, which is the one thing the
+# namespace exists to prevent (ADR 0010).
+
+# A deliberate second copy of the namespace prefix, not an import: this module
+# and consumers.bunching.config both name it, neither can import the other's
+# (the Flink image mounts consumers/ only, and the enrichment is not in the job
+# image), and test_replay_contract.py pins both strings.
+REPLAY_PREFIX = "replay"
+
+
+@dataclass(frozen=True)
+class EnrichmentSettings:
+    """Where this run reads, where it writes, and when it stops.
+
+    The operational flags are fields too, so main() parses its arguments once
+    and every use below reads a resolved value rather than a namespace.
+    """
+
+    # wiring
+    source: str
+    target: str
+    dlq: str
+    group: str
+    # None for the live consumer, which runs until it is stopped. A replay
+    # passes a number of seconds: its input is bounded, so it must end, and
+    # "no records for N seconds" is the only signal a Kafka consumer gets that
+    # the end has been reached.
+    exit_when_idle_s: float | None
+    # operational
+    status: bool
+    dry_run: bool
+    schema_version: int
+    from_beginning: bool
+    batch: int
+    report_every: float
+    verbose: bool
+
+
+def _cli() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="consumers.enrichment.run", description=__doc__)
     ap.add_argument("--status", action="store_true", help="show version + schema state, exit")
     ap.add_argument("--dry-run", action="store_true", help="enrich but publish nothing")
@@ -108,16 +155,63 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--batch", type=int, default=500, help="records per commit")
     ap.add_argument("--report-every", type=float, default=60.0)
     ap.add_argument("-v", "--verbose", action="store_true")
-    args = ap.parse_args(argv)
+    # Phase 6. Defaults are the live wiring, so a run that names none of these
+    # is byte-for-byte the consumer Phases 2-5 ran.
+    ap.add_argument("--source", default=SOURCE_TOPIC)
+    ap.add_argument("--target", default=TARGET_TOPIC)
+    ap.add_argument("--dlq", default=DLQ_TOPIC)
+    ap.add_argument("--group", default=GROUP)
+    ap.add_argument("--exit-when-idle", type=float, default=None, metavar="SECONDS",
+                    help="exit after this long with no records (a replay's end)")
+    return ap
+
+
+def settings_from_args(argv: list[str] | None = None) -> EnrichmentSettings:
+    """Parse the CLI, and refuse a run that spans the live and replay namespaces."""
+    ns = _cli().parse_args(argv)
+    _refuse_mixed_namespaces(ns.source, ns.target, ns.dlq, ns.group)
+    return EnrichmentSettings(
+        source=ns.source, target=ns.target, dlq=ns.dlq, group=ns.group,
+        exit_when_idle_s=ns.exit_when_idle,
+        status=ns.status, dry_run=ns.dry_run, schema_version=ns.schema_version,
+        from_beginning=ns.from_beginning, batch=ns.batch,
+        report_every=ns.report_every, verbose=ns.verbose,
+    )
+
+
+def _refuse_mixed_namespaces(source: str, target: str, dlq: str,
+                             group: str) -> None:
+    """All four names in the replay namespace, or none of them.
+
+    The group is matched without the dot: a consumer group is named for humans
+    in `rpk group list`, so a replay's is `replay-enrichment` while its topics
+    are `replay.raw.vehicle_positions`. Same convention as
+    consumers.bunching.config.run_settings.
+    """
+    names = {"source": source, "target": target, "dlq": dlq, "group": group}
+    replayed = {k: v for k, v in names.items() if v.startswith(REPLAY_PREFIX)}
+    if replayed and len(replayed) != len(names):
+        live = ", ".join(f"--{k} {names[k]}"
+                         for k in sorted(set(names) - set(replayed)))
+        raise ValueError(
+            f"refusing to mix namespaces: {', '.join(sorted(replayed))} "
+            f"resolve(s) to replay names while {live} are live. A run that read "
+            "the replay topic and wrote the live enriched topic would put "
+            "replayed history into the warehouse; give all four "
+            "--source/--target/--dlq/--group")
+
+
+def main(argv: list[str] | None = None) -> int:
+    cfg = settings_from_args(argv)
 
     logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
+        level=logging.DEBUG if cfg.verbose else logging.INFO,
         format="%(asctime)s %(levelname)-7s %(message)s", datefmt="%H:%M:%S",
     )
     load_dotenv()
 
     sr = schema_mod.registry_client()
-    if args.status:
+    if cfg.status:
         print(json.dumps(schema_mod.describe(sr), indent=2, default=str))
         with psycopg.connect(dsn()) as conn:
             try:
@@ -133,19 +227,19 @@ def main(argv: list[str] | None = None) -> int:
         ref.load(conn)
     log.info("reference %s", ref.summary())
 
-    enrich = enrich_v1 if args.schema_version == 1 else enrich_v2
-    log.info("enriching with v%d -> %s", args.schema_version, TARGET_TOPIC)
+    enrich = enrich_v1 if cfg.schema_version == 1 else enrich_v2
+    log.info("enriching with v%d -> %s", cfg.schema_version, cfg.target)
 
     consumer = Consumer({
         "bootstrap.servers": os.environ.get("KAFKA_BOOTSTRAP", "localhost:19092"),
-        "group.id": GROUP,
+        "group.id": cfg.group,
         # Manual commit: see the module docstring. Committing before the
         # produce is flushed would drop records Kafka thinks are done.
         "enable.auto.commit": False,
-        "auto.offset.reset": "earliest" if args.from_beginning else "latest",
+        "auto.offset.reset": "earliest" if cfg.from_beginning else "latest",
     })
-    consumer.subscribe([SOURCE_TOPIC])
-    publisher = None if args.dry_run else TopicPublisher(
+    consumer.subscribe([cfg.source])
+    publisher = None if cfg.dry_run else TopicPublisher(
         os.environ.get("KAFKA_BOOTSTRAP", "localhost:19092"))
 
     # Serializer only when there is something to serialize. The generated
@@ -156,7 +250,16 @@ def main(argv: list[str] | None = None) -> int:
     if publisher:
         from schemas.enriched_vehicle_position_pb2 import EnrichedVehiclePosition
 
-        serializer = schema_mod.build_serializer(sr, EnrichedVehiclePosition)
+        serializer = schema_mod.build_serializer(
+            sr, EnrichedVehiclePosition,
+            # A replay writes records of the LIVE schema into a replay topic, so
+            # it must be framed with the LIVE subject id: deriving it from the
+            # topic would look up replay.enriched.vehicle_positions-value, which
+            # nobody registered, and auto-registration is off (ADR 0010). The
+            # live run passes None, which derives exactly the same subject.
+            subject=f"{TARGET_TOPIC}-value"
+            if cfg.target.startswith(REPLAY_PREFIX) else None,
+        )
         log.info("serializing with %s (%s)", schema_mod.SUBJECT,
                  schema_mod.describe(sr).get("latest_version", "?"))
 
@@ -165,6 +268,10 @@ def main(argv: list[str] | None = None) -> int:
 
     counters = Counters()
     last_report = time.monotonic()
+    # When a record last arrived, for --exit-when-idle. Seeded here rather than
+    # at the first record, so a replay whose input is already drained still
+    # finishes instead of waiting forever for a first message.
+    last_record = time.monotonic()
     batch: list = []
 
     try:
@@ -173,6 +280,7 @@ def main(argv: list[str] | None = None) -> int:
             msg = consumer.poll(1.0)
             if msg is not None and not msg.error():
                 counters.consumed += 1
+                last_record = time.monotonic()
                 try:
                     raw = json.loads(msg.value())
                     result = enrich(raw, ref)
@@ -190,14 +298,22 @@ def main(argv: list[str] | None = None) -> int:
                     counters.dlq += 1
                     if publisher:
                         publisher.publish_dlq(
-                            DLQ_TOPIC, result.reason or DlqReason.UNKNOWN_TRIP_ID,
+                            cfg.dlq, result.reason or DlqReason.UNKNOWN_TRIP_ID,
                             msg.value(), detail=result.detail,
                             entity_key=msg.key().decode() if msg.key() else None)
             elif msg is not None and msg.error() and msg.error().code() != KafkaError._PARTITION_EOF:
                 counters.errors += 1
                 log.error("consume error: %s", msg.error())
 
-            if batch and (len(batch) >= args.batch or _stop):
+            # A replay's end. A bounded source has no EOF on the wire: silence is
+            # the only signal, so a run that must finish exits after N seconds
+            # with no record. Folded into the flush condition below so the last
+            # partial batch is published before the exit, which matters because
+            # the fidelity comparison counts what this run wrote.
+            idle_over = (cfg.exit_when_idle_s is not None
+                         and time.monotonic() - last_record >= cfg.exit_when_idle_s)
+
+            if batch and (len(batch) >= cfg.batch or _stop or idle_over):
                 if publisher:
                     for record in batch:
                         # Protobuf from here on. The schema id travels in the
@@ -219,11 +335,11 @@ def main(argv: list[str] | None = None) -> int:
                         # partition and break per-vehicle ordering for the
                         # whole history (ADR 0002).
                         publisher._producer.produce(
-                            TARGET_TOPIC,
+                            cfg.target,
                             key=record["vehicle_id"].encode(),
                             value=serializer(
                                 schema_mod.dict_to_message(record, EnrichedVehiclePosition),
-                                SerializationContext(TARGET_TOPIC, MessageField.VALUE)),
+                                SerializationContext(cfg.target, MessageField.VALUE)),
                             on_delivery=publisher._on_delivery)
                         publisher._producer.poll(0)
                     # TWO failure modes, and flush() only reports one.
@@ -257,7 +373,12 @@ def main(argv: list[str] | None = None) -> int:
                 consumer.commit(asynchronous=False)
                 batch.clear()
 
-            if time.monotonic() - last_report >= args.report_every:
+            if idle_over:
+                log.info("no records for %.0fs: finishing (%s)",
+                         cfg.exit_when_idle_s, counters)
+                break
+
+            if time.monotonic() - last_report >= cfg.report_every:
                 log.info("%s | %s | %s", counters, ENRICH_STATS, ref.summary())
                 last_report = time.monotonic()
     finally:

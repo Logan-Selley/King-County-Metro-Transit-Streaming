@@ -129,7 +129,7 @@ def process_feed(spec: FeedSpec, pipeline: Pipeline, dry_run: bool = False) -> N
         counters.dlq += 1
         log.error("[%s] malformed payload -> DLQ: %s", spec.name, exc)
         if not dry_run and pipeline.publisher is not None:
-            pipeline.publisher.publish_dlq(f"dlq.{spec.name}", DlqReason.MALFORMED_PAYLOAD,
+            pipeline.publisher.publish_dlq(spec.dlq_topic, DlqReason.MALFORMED_PAYLOAD,
                                            result.body, detail=str(exc))
         return
 
@@ -145,7 +145,7 @@ def process_feed(spec: FeedSpec, pipeline: Pipeline, dry_run: bool = False) -> N
         if not dry_run and pipeline.publisher is not None:
             for record in quarantine:
                 pipeline.publisher.publish_dlq(
-                    f"dlq.{spec.name}",
+                    spec.dlq_topic,
                     DlqReason.POSITION_OUT_OF_BOUNDS,
                     serialize(record),
                     detail=f"lat={record.latitude} lon={record.longitude}",

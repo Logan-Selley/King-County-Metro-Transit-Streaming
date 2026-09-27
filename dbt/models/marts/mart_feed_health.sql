@@ -84,9 +84,61 @@
    make ci-dbt passes stall_mart_readers: [] and the grant is skipped. #}
 {% set stall_mart_readers = var('stall_mart_readers', ['airflow_ops']) %}
 
-{{ config(grants={'select': stall_mart_readers}) }}
+{#
+  INCREMENTAL, recomputing only a recent tail. Measured 2026-09-26: as a full
+  rebuild this model took 775 s of every hourly build, re-deriving every minute
+  since the first position from a 6.2M-row table that grows ~730 MB a day.
 
-with staging as (
+  THE RECOMPUTE STARTS AT A NON-SILENT MINUTE, and that is the whole of the
+  correctness argument. stall_minutes is the length of the WHOLE silent run a
+  minute belongs to, so a recompute that began inside a run would count only
+  its tail and write a shorter stall over the true one. The restart point is
+  therefore the last non-silent minute at or before (newest minute - lookback).
+  No silent run can contain a non-silent minute, so every run that touches the
+  recomputed range lies entirely inside it, and every run before it is
+  already final.
+
+  THE LOOKBACK is 6 hours. A position can only move a minute's counts if it
+  arrives late, and a position more than an hour late is is_stale_timestamp
+  and excluded here anyway, so one hour would be enough while every hourly
+  build succeeds. The margin covers late sinks and a skipped run; a longer
+  outage of the build is covered by the restart being relative to this
+  table's own newest minute rather than to now(): after a day of failed
+  builds, the next one recomputes from where the table stopped.
+
+  delete+insert on minute_utc replaces exactly the recomputed minutes. The
+  table also keeps minutes older than the raw retention window once
+  drop_partitions_before removes their positions, which a full rebuild would
+  have lost; a stall history is cheap (1,440 rows a day) and worth keeping.
+
+  on_schema_change='fail' because the contract is enforced: a column change
+  here must be a deliberate --full-refresh, not a silent append.
+#}
+{{ config(
+    materialized='incremental',
+    incremental_strategy='delete+insert',
+    unique_key='minute_utc',
+    on_schema_change='fail',
+    grants={'select': stall_mart_readers},
+) }}
+
+{% set lookback = '6 hours' %}
+
+with
+{% if is_incremental() %}
+restart as (
+
+    -- -infinity when no minute is old enough, which recomputes everything:
+    -- correct for a table that is still young, and cheap because it is.
+    select coalesce(max(minute_utc), '-infinity'::timestamptz) as from_minute
+    from {{ this }}
+    where not is_silent
+      and minute_utc <= (select max(minute_utc) from {{ this }}) - interval '{{ lookback }}'
+
+),
+{% endif %}
+
+staging as (
 
     select
         position_at,
@@ -94,6 +146,12 @@ with staging as (
         ingest_lag_s
     from {{ ref('stg_vehicle_positions') }}
     where not is_stale_timestamp
+    {% if is_incremental() %}
+      -- Through the staging view to raw.enriched_vehicle_positions' daily
+      -- partitions: Postgres prunes them at executor start from this
+      -- init-plan value, so the scan is the tail, not the table.
+      and position_at >= (select from_minute from restart)
+    {% endif %}
 
 ),
 

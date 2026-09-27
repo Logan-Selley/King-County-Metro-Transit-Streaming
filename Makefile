@@ -293,6 +293,17 @@ flink-smoke:  ## Prove the Flink->Kafka path works and records DECODE (bounded)
 bunching:  ## Submit the bunching detection job to the cluster
 	@$(DC) exec -T flink-jobmanager $(FLINK_RUN_D) /opt/jobs/consumers/bunching/job.py
 
+bunching-source-check:  ## Build the detector's Kafka source both ways (needs the PyFlink image)
+	@# PyFlink is not in the project venv, so no pytest can build a source. This
+	@# is the check that catches set_bounded being handed a bool instead of a
+	@# KafkaOffsetsInitializer, which breaks the LIVE job on its next resubmit,
+	@# not only the replay. Seconds, and no stack needed: building a source
+	@# configures the client, it does not connect.
+	@docker run --rm --name transit_bunching_source_check \
+	  -v $(ROOT)/consumers:/opt/jobs/consumers:ro -v $(ROOT)/tests:/opt/jobs/tests:ro \
+	  -w /opt/jobs -e PYTHONPATH=/opt/jobs \
+	  transit-pyflink:2.2.0 python tests/flink_source_check.py
+
 prediction:  ## Submit the prediction-accuracy join to the cluster
 	@# Needs 6 slots (raw.trip_updates has 6 partitions); `make flink-jobs`
 	@# first, because a second job on a full cluster fails with
@@ -361,6 +372,14 @@ dbt:  ## Run a dbt command in its container (ARGS="build --select stg_vehicle_po
 
 dbt-freshness:  ## dbt source freshness: is the sink still receiving data?
 	@$(DBT_RUN) source freshness
+
+# The hourly Airflow build tests only the last 6 hours of the big tables
+# (--vars recent_hours; dbt/macros/recent_window.sql). This is the other half:
+# every test over the whole history, on demand, and it is SLOW by design (the
+# scans the hourly run avoids: ~2,250 node-seconds at a week of data, measured
+# 2026-09-26). Run it after a replay, a backfill or a --full-refresh.
+dbt-full-check:  ## Run every dbt test over the full history (slow; the hourly run is windowed)
+	@$(DBT_RUN) test
 
 AIRFLOW := $(ENV) PWD=$(ROOT) docker compose -f $(ROOT)/docker-compose.airflow.yml
 
@@ -488,7 +507,7 @@ TF_PASS := TF_VAR_warehouse_db TF_VAR_warehouse_admin_user TF_VAR_warehouse_admi
            TF_VAR_connect_sink_password TF_VAR_static_loader_password \
            TF_VAR_enrichment_password TF_VAR_dbt_transform_password \
            TF_VAR_airflow_ops_password TF_VAR_archive_writer_secret \
-           TF_VAR_flink_state_secret
+           TF_VAR_flink_state_secret TF_VAR_archive_reader_secret
 TF_ENV := $(ENV) export TF_VAR_warehouse_db=$$POSTGRES_DB \
   TF_VAR_warehouse_admin_user=$$POSTGRES_USER \
   TF_VAR_warehouse_admin_password=$$POSTGRES_PASSWORD \
@@ -501,7 +520,8 @@ TF_ENV := $(ENV) export TF_VAR_warehouse_db=$$POSTGRES_DB \
   TF_VAR_dbt_transform_password=$$DBT_TRANSFORM_PASSWORD \
   TF_VAR_airflow_ops_password=$$AIRFLOW_OPS_PASSWORD \
   TF_VAR_archive_writer_secret=$$ARCHIVE_WRITER_SECRET \
-  TF_VAR_flink_state_secret=$$FLINK_STATE_SECRET;
+  TF_VAR_flink_state_secret=$$FLINK_STATE_SECRET \
+  TF_VAR_archive_reader_secret=$$ARCHIVE_READER_SECRET;
 TF = docker run --rm --network transit-stream_default \
   -u $$(id -u):$$(id -g) -e HOME=/tmp $(foreach v,$(TF_PASS),-e $(v)) \
   -v $(ROOT):/repo -w /repo/terraform/$(1) $(TF_IMAGE)
@@ -632,7 +652,7 @@ ci-pg-up: ci-net  ## CI: start a throwaway PostGIS and wait until it is really r
 	@echo "$(CI_PG) ready on $(CI_NET)"
 
 ci-pg-ddl:  ## CI: apply every initdb file, then exercise both maintenance functions
-	@# ALL SIX, in order, which is the whole point: `psql -f` against a real
+	@# EVERY FILE, in order, which is the whole point: `psql -f` against a real
 	@# server is the only honest syntax check for DDL. There is no offline parser
 	@# that agrees with Postgres about partitioning and plpgsql.
 	@for f in $(ROOT)/docker/initdb/*.sql; do \
@@ -725,8 +745,16 @@ ci-dbt: dbt-image  ## CI: dbt build against a throwaway warehouse, with real fix
 	@# THE TEARDOWN RUNS EVEN WHEN THE BUILD FAILS, and the exit status is
 	@# carried through: without that, a failed dbt run left a throwaway PostGIS
 	@# (and its port) running, which is the state that makes the NEXT run fail.
+	@# BUILT TWICE since the marts went incremental (2026-09-26). The first
+	@# build creates every table, so is_incremental() is false throughout and
+	@# only the full-refresh SQL runs. The second runs the incremental branch of
+	@# every model against the tables the first made, and all tests again on the
+	@# result, so the path the hourly production build actually takes is the
+	@# one CI proves, not just the path a fresh warehouse takes.
 	@status=0; $(CI_DBT_RUN) build \
 	  --vars '{require_fixture: true, stall_mart_readers: []}' || status=$$?; \
+	[ $$status -ne 0 ] || { echo "second build: incremental path"; $(CI_DBT_RUN) build \
+	  --vars '{require_fixture: true, stall_mart_readers: []}' || status=$$?; }; \
 	$(MAKE) -s ci-pg-down; \
 	exit $$status
 
@@ -761,6 +789,90 @@ ci-platform: $(ROOT)/.env  ## CI: the clean-clone path end to end (fresh stack t
 	@# partition routing, on a stack that did not exist a minute earlier.
 	@$(MAKE) -s sink-roundtrip ARGS="--clean"
 
+# --- replay (Phase 6) ----------------------------------------------------------
+#
+# Archived payloads -> replay.raw -> replayed enrichment -> replay.enriched ->
+# replayed detector (baseline and variant) -> replay.alerts.bunching.* ->
+# replay.compare. Every step writes only into the replay namespace
+# (terraform/core/replay.tf); ADR 0010 has the design.
+#
+#     make replay-reset
+#     make replay-ingest START=2026-09-24T00:00:00Z END=2026-09-25T00:00:00Z
+#     make replay-enrich
+#     make replay-detect RUN=baseline
+#     make replay-compare MODE=fidelity START=... END=...
+#     make replay-detect RUN=variant GATE=0
+#     make replay-compare MODE=experiment START=... END=...
+#
+# Order matters and nothing enforces it but this list: each step reads what
+# the previous one wrote. The two detector runs read the same replayed enriched
+# stream, which is what makes the gate the only difference between them.
+
+REPLAY_TOPICS := replay.raw.vehicle_positions replay.enriched.vehicle_positions \
+                 replay.dlq.vehicle_positions replay.alerts.bunching.baseline \
+                 replay.alerts.bunching.variant
+REPLAY_GROUPS := replay-enrichment
+
+replay-reset:  ## Empty every replay topic and drop the replay consumer groups
+	@# Trimmed, not deleted and recreated: the topics are Terraform's, and a
+	@# delete would be drift. `@<now>` moves each partition's start offset up to
+	@# its high watermark, which empties it (tested on a scratch topic:
+	@# start 0 hwm 30 -> start 30 hwm 30).
+	@now=$$(date +%s%3N); for t in $(REPLAY_TOPICS); do \
+	  $(DC) exec -T redpanda rpk topic trim-prefix $$t -o "@$$now" --no-confirm >/dev/null \
+	    && echo "  emptied $$t" || exit 1; done
+	@for g in $(REPLAY_GROUPS); do \
+	  $(DC) exec -T redpanda rpk group delete $$g >/dev/null 2>&1 && echo "  dropped group $$g" || true; done
+
+replay-ingest:  ## Archive -> replay.raw.vehicle_positions (START= END=, UTC ISO)
+	@test -n "$(START)" -a -n "$(END)" || { echo "START= and END= required" >&2; exit 1; }
+	@$(ENV) $(PY) -m producer.replay --feed vehicle_positions --start $(START) --end $(END)
+
+# The SAME --schema-version as the live enrichment container in
+# docker-compose.yml. tests/test_replay_contract.py compares the two, because a
+# replay enriched with different logic than live cannot reproduce it.
+replay-enrich:  ## replay.raw -> replayed enrichment -> replay.enriched (exits when idle)
+	@$(ENV) $(PY) -m consumers.enrichment.run --schema-version 2 \
+	  --source replay.raw.vehicle_positions --target replay.enriched.vehicle_positions \
+	  --dlq replay.dlq.vehicle_positions --group replay-enrichment \
+	  --from-beginning --exit-when-idle 60
+
+# PyFlink LOCAL MODE in its own container: an embedded MiniCluster, not a job
+# on the live cluster, whose 9 slots are all taken by the two live jobs.
+# Prototyped 2026-09-25: a bounded Kafka job with a Python map ran this way in
+# 8.2 s and left no consumer group behind. Bounded, so it finishes when the
+# replayed stream is drained, and the end of input fires the last windows.
+# A TIMEOUT, because a hung replay looks exactly like a slow one. On 2026-09-27
+# the baseline over 09-24 Pacific died 7 minutes in and then neither recovered
+# nor exited, and this target sat for 5 h 22 min; a day normally takes 12
+# minutes. The job now fails fast on its own (build_env in job.py), and this is
+# the backstop for whatever else can hang.
+#
+# -k 30s, because a plain timeout does nothing here, measured: TERM goes to the
+# docker CLIENT, which forwards it to the container and then keeps waiting for
+# a job that ignores it, so a 5 s timeout was still running at 2 minutes. KILL
+# ends the client; the container keeps running without it, so it is removed by
+# name afterwards. timeout exits 124 on TERM and 137 when KILL was needed.
+REPLAY_DETECT_TIMEOUT ?= 45m
+
+replay-detect:  ## Replayed detector over replay.enriched (RUN=baseline|variant, GATE= for variant)
+	@test "$(RUN)" = baseline -o "$(RUN)" = variant || { echo "RUN=baseline|variant" >&2; exit 1; }
+	@status=0; timeout -k 30s $(REPLAY_DETECT_TIMEOUT) \
+	docker run --rm --name transit_replay_detect_$(RUN) --network transit-stream_default \
+	  -m 4g --memory-swap 4g \
+	  -v $(ROOT)/consumers:/opt/jobs/consumers:ro -v $(ROOT)/schemas:/opt/jobs/schemas:ro \
+	  -w /opt/jobs -e PYTHONPATH=/opt/jobs \
+	  -e KAFKA_BOOTSTRAP_INTERNAL=redpanda:9092 -e SCHEMA_REGISTRY_INTERNAL=http://redpanda:8081 \
+	  -e BUNCHING_REPLAY=$(RUN) $(if $(GATE),-e BUNCHING_REPLAY_MIN_STOP_SEQUENCE=$(GATE),) \
+	  transit-pyflink:2.2.0 python -m consumers.bunching.job || status=$$?; \
+	if [ $$status -eq 124 ] || [ $$status -eq 137 ]; then \
+	  echo "replay-detect: no result after $(REPLAY_DETECT_TIMEOUT); removing the container" >&2; \
+	  docker rm -f transit_replay_detect_$(RUN) >/dev/null 2>&1 || true; fi; \
+	exit $$status
+
+replay-compare:  ## Fidelity or experiment report (MODE=fidelity|experiment START= END=)
+	@$(ENV) $(PY) -m replay.compare $(MODE) --start $(START) --end $(END)
+
 # --- destructive -------------------------------------------------------------
 
 nuke-warehouse:  ## Drop the warehouse data dir so initdb re-runs (DESTRUCTIVE)
@@ -773,11 +885,12 @@ nuke-warehouse:  ## Drop the warehouse data dir so initdb re-runs (DESTRUCTIVE)
 .PHONY: help dirs up connect-up connect-register connect-status down ps logs topic-describe recon cadence \
         tf-init tf-plan tf-apply tf-adopt tf-validate tf-drift tf-fmt tf-check platform ci-fixture ci-ddl ci-dbt ci-platform \
         ci-net ci-pg-up ci-pg-ddl ci-pg-load ci-pg-down \
+        replay-reset replay-ingest replay-enrich replay-detect replay-compare dbt-full-check \
         feeds produce-dry produce static-status static-load static-hoods \
         schema-gen schema-register schema-status enrich-dry enrich \
         schema-register-sinks \
         pipeline-image stream-up stream-logs \
-        flink-up flink-down flink-ui flink-smoke bunching flink-jobs flink-logs resume \
+        flink-up flink-down flink-ui flink-smoke bunching bunching-source-check flink-jobs flink-logs resume \
         migrate test contract contract-p2 contract-p3 contract-p3f contract-schema \
         prediction smoke sink-roundtrip psql \
         check lag nuke-warehouse dbt-image dbt dbt-freshness airflow-up airflow-down \

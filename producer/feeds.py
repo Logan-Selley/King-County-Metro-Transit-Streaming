@@ -76,6 +76,16 @@ class FeedSpec:
     # poll evicts its own earliest entries and suppression drops straight to
     # 0%. See the header comment in dedupe.py for the measurement.
     dedupe_maxsize: int = 60_000
+    # Where this feed's rejects go. None means `dlq.<name>`, the live
+    # convention. Phase 6's replay sets `replay.dlq.<name>`, because a replay's
+    # rejects landing in the LIVE dlq would be counted by transit_health's
+    # dlq_report as if the live feed had produced them.
+    dlq: str | None = None
+
+    @property
+    def dlq_topic(self) -> str:
+        """The topic rejects are published to: the override, or dlq.<name>."""
+        return self.dlq or f"dlq.{self.name}"
 
     @property
     def archive_prefix(self) -> str:

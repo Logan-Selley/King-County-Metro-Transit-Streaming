@@ -221,12 +221,25 @@ services:
     image: cgr.dev/chainguard/minio@sha256:bd014394a80898e68c149f2311fdf8d5a2c2f3bb2c33b9327ae6d02b4b065ae1
     container_name: transit_minio
     restart: unless-stopped
-    mem_limit: 512m
-    memswap_limit: 512m
+    # 1536m, up from 512m, because the 2026 server does not fit where the 2025
+    # one did. Measured after the image change: the kernel OOM-killed it inside
+    # the 512m cgroup 16 times in 6 hours (138 restarts in ~36 h, anon-rss
+    # ~408 MB at the kill), and every restart cost archive writes, so the
+    # producer, which refuses to publish what it could not archive, dropped
+    # polls. A limit, not a reservation: the idle footprint is unchanged.
+    mem_limit: 1536m
+    memswap_limit: 1536m
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      # The background scanner walks every object's metadata. On 16.6 GB of
+      # small objects on the spinning /mnt/F disk it competes with Postgres
+      # and Redpanda for the same spindle, and a server killed mid-scan starts
+      # over on its next boot. Its work here is the checkpoint-expiry rule
+      # (terraform/core/storage.tf), which a 7-day expiry does not need
+      # finished quickly. `slowest` trades scan latency for disk time.
+      MINIO_SCANNER_SPEED: slowest
     ports:
       - "${MINIO_API_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
@@ -415,7 +428,15 @@ services:
       #     DELETES a job's checkpoints when the job terminates. The bunching
       #     job completed checkpoint 1750 at 20:35:38 UTC, the JobManager took
       #     a SIGTERM 13s later, and MinIO held nothing afterwards.
-      #     RETAIN_ON_CANCELLATION below keeps them.
+      #     RETAIN_ON_CANCELLATION keeps them.
+      #
+      #     CORRECTED AGAIN 2026-09-25: setting it HERE never worked. A job's
+      #     checkpoint settings are fixed by the client that submits it, and
+      #     the REST API showed both running jobs with externalization
+      #     disabled and 0 tolerable failures despite the retention line that
+      #     used to sit below. It is now set in the job code,
+      #     consumers/checkpointing.py, which also records the restart loop
+      #     that exposed it.
       #
       #   * There is no JobManager HA, so a restarted JobManager logs
       #     "Successfully recovered 0 persisted job graphs" and the job is
@@ -443,7 +464,6 @@ services:
         parallelism.default: 3
         state.backend: hashmap
         execution.checkpointing.interval: 30s
-        execution.checkpointing.externalized-checkpoint-retention: RETAIN_ON_CANCELLATION
         state.checkpoints.dir: s3://${RAW_BUCKET:-transit-raw}/flink-checkpoints
         s3.endpoint: http://minio:9000
         s3.path.style.access: true

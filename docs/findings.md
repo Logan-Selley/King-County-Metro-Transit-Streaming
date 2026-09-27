@@ -338,8 +338,6 @@ routing rejects to a DLQ instead of dropping them.
 
 ---
 
----
-
 # 9. A service change happened mid-project
 
 *2026-09-14. Observed while scoping Phase 2, not simulated.*
@@ -423,8 +421,6 @@ have failed against every earlier feed.
 
 ---
 
----
-
 # 10. Phase 2: enrichment, and what the schema gate does not check
 
 *2026-09-16 to 2026-09-20, against FAL26-161.1.*
@@ -478,7 +474,8 @@ An earlier helper returned UTC midnight, which was 7 hours wrong every day.
 
 ## Units: `shape_dist_traveled` is in feet, except once
 
-`ST_Length(geom::geography) / max_dist` = **0.3048** across 423 of 424 shapes: the foot-to-metre constant falling out of the data, which also proves the
+`ST_Length(geom::geography) / max_dist` = **0.3048** across 423 of 424 shapes:
+the foot-to-metre constant falling out of the data, which also proves the
 linestrings assembled in the right order. Shape `63424` publishes **metres**.
 
 Harmless only because of how the comparison is framed: `stop_times` agrees
@@ -533,6 +530,8 @@ DLQ check**, not by the schema gate. The compatibility check does not protect
 the one field pair where a swap is both plausible and catastrophic.
 
 ---
+
+# 11. Phase 3: the bunching detector, and the prediction curve
 
 ## Phase 3 scoping: two things that would have made the detector lie
 
@@ -721,6 +720,13 @@ capture                   100%             41%        100%
 Hour by hour and route by route, parallelism 3 reproduces the offline result
 exactly. Parallelism 2 had been losing 59% of alerts, uniformly across the
 day, with no error and a healthy-looking dashboard.
+
+**823 and 824 are not the 607 further down.** This comparison runs with the
+terminal gate off, which is where the detector stood before the route 255
+investigation; the result section applies it. The replay in section 13
+measures that same gate on a second day, 832 alerts with it off against 641
+with it on. Same corpus here, different gate, so the two sections are two
+configurations rather than two estimates of one number.
 
 Two lessons worth separating. A watermark bound has to be measured where the
 watermark is computed, not where the data is produced. And when a framework
@@ -1003,6 +1009,21 @@ against.
    JobManager HA, so the restarted JobManager logged "Successfully recovered 0
    persisted job graphs". Now `RETAIN_ON_CANCELLATION`: resumable by hand with
    `flink run -s`, not automatic.
+
+   > **Correction, 2026-09-25.** That setting lived in the JobManager's
+   > `FLINK_PROPERTIES`, and it never reached a job. A job's checkpoint
+   > settings are fixed by the client that submits it; the REST API showed both
+   > running jobs with `externalization: enabled False` and
+   > `tolerable_failed_checkpoints: 0`. It surfaced during a restart loop: with
+   > the host short on memory (15 GB in swap, IO pressure ~48%), MinIO on the
+   > spinning disk slowed, prediction-accuracy's checkpoint uploads timed out,
+   > and with zero tolerance each one failed the whole job: 279 failed
+   > checkpoints, 162 restores, and 1,143 zombie Python workers left in the
+   > TaskManager. Both settings now live in the jobs
+   > (`consumers/checkpointing.py`): retention on cancellation, and 10
+   > tolerated failures (five minutes of slow storage at the 30 s interval).
+   > After the change, under the same IO pressure: both jobs 10+ checkpoints
+   > completed, 0 failed, 0 restores, 0 zombies over five minutes.
 2. **The TTL code could not run where it runs.** `AccuracyJoin.open()` built
    its TTL with `Duration.of_seconds()`, which calls into the JVM through
    py4j. `open()` executes in the Python UDF worker, which has no gateway. The
@@ -1033,6 +1054,10 @@ coincidence, not cause.
 The producer's `stale=` counter measured the whole gap, peaking at 3,998 s.
 It lives in a log line. **Nothing alerted**, which is the Phase 4 requirement
 this night produced: feed health has to be a queryable table, not a log.
+
+---
+
+# 12. Phase 4: the warehouse boundary, and the marts that follow
 
 ## Phase 4 start: the warehouse boundary, measured into existence
 
@@ -1260,6 +1285,185 @@ thinnest owl-service minute held 3 positions when the mart says 30. That is the
 same class as the framing bug that cost a day in 4B, where the code was right
 about intent and wrong about effect. Prose is not a test, and a comment that
 restates a decision is a comment that will eventually disagree with it.
+
+# 13. Phase 6: the archive, replayed through the live code
+
+Phase 3 chose the terminal gate (`MIN_STOP_SEQUENCE = 4`) from an offline
+experiment on one day. Phase 6 reruns that experiment through the real
+pipeline: archived feed payloads go back through the live producer code,
+the live enrichment consumer and the live Flink job, into an isolated
+`replay.` namespace, once with the live gate (`baseline`) and once with it off
+(`variant`, `GATE=0`). ADR 0010 has the design. The rule it sets is that the
+baseline has to reproduce what the live pipeline wrote before the variant
+means anything, so the fidelity numbers come first.
+
+The run is one Pacific service day, **09-24 00:00-24:00 PDT** (07:00Z to
+07:00Z). Ingest started 30 minutes early, so the detector's state was warm at
+the window's start, and ran 10 minutes past its end, so positions published
+late still arrived. The comparison uses exactly the day.
+
+```
+ingest   4,385 payloads -> 1,379,613 records      3 min
+enrich   1,379,613 delivered, 0 errors             8 min
+detect   baseline 12 min, variant 12 min           PyFlink local mode
+compare  both reports                              3 min
+```
+
+## Fidelity: the replay matches live wherever live was healthy
+
+```
+enriched   1,359,657 live rows, all matched; 0 live-only; 1,143 replay-only
+           108 field differences on matched rows (feed_etag 67, stop_id 14,
+           current_stop_sequence 14, current_status 12, occupancy_status 1)
+alerts     626 live, 641 replay; 607 matched with 0 field differences;
+           19 live-only, 34 replay-only
+```
+
+Every difference falls inside one of three windows, and in each of them the
+live pipeline was the one that misbehaved:
+
+| window (PDT) | what live did | what it explains |
+|---|---|---|
+| 15:41-15:54 | ingest lag spiked to 419 s (normal is 60-80 s) | 55 of the rows with field differences (all at 15:47); 3 live-only and 9 replay-only alerts, 3 of them the same pair firing 1-2 minutes later live |
+| 17:42-18:04 | lag of 286 s at 17:42 and 150-195 s at 17:54-17:57; **1,138 positions never landed** at 17:55-17:56 | all but 5 of the 1,143 replay-only rows; 15 live-only and 24 replay-only alerts, the matching pairs 1-6 minutes later on the live side every time |
+| 00:02 vs 00:08 | one pair's cooldown chain started from different state (the replay's warm-up began at 23:30) | 1 alert on each side |
+
+The replay-only rows are positions the archive kept and the live pipeline
+never landed. Which stage lost the 17:55 rows is not traced; in the UTC-day run
+below, the live producer published about a third of its usual volume during
+the loss. Minute 17:45 is thin on both sides (one row each), which makes it a
+gap in Metro's feed rather than in this pipeline.
+
+Across the two late-data windows, 18 alerts are the same pair firing on both
+sides, later on the live side, and 15 appear only in the replay. Data minutes
+late changes what each window held when it fired (the lateness bound is 360 s,
+and lag reached 419 s), and the 600 s cooldown carries the change forward
+through that pair's later alerts. The replay feeds the same positions
+in order, so its alerts are what the live job would have produced on an
+undisturbed evening.
+
+The same comparison over the UTC day 09-24 (00:00Z-24:00Z) gave the same
+pattern: every live row matched, and the differences sat in three live
+disturbances. The largest was a stall at 06:12Z: no live rows for 06:12-06:15,
+a thin trickle to 06:24, and a live producer that published 2,063 records in
+ten minutes, about a third of normal.
+
+## The experiment: what the terminal gate does
+
+```
+              gate on (baseline)   gate off
+alerts               641          832
+in both                    601
+only gate off              231
+only gate on                40
+PM peak share      38.2%         33.4%     (16:00-18:59 PDT, 3 hourly bins)
+AM peak share      14.4%         16.9%     (07:00-09:59 PDT)
+```
+
+| route | gate on | gate off | the gate removes | Phase 3 (offline, another day) |
+|---|---:|---:|---:|---:|
+| 255 | 7 | 65 | 89% | 87% (79 -> 10) |
+| A Line | 11 | 21 | 48% | |
+| 240 | 24 | 34 | 29% | |
+| 62 | 30 | 40 | 25% | |
+| 7 | 51 | 66 | 23% | 17% |
+| G Line | 99 | 111 | 11% | 9% |
+| E Line | 92 | 94 | 2% | 3% |
+| 36 | 32 | 32 | 0% | 5% |
+| D Line | 41 | 41 | 0% | |
+
+**The replay reproduces Phase 3's result through the real job.** Route 255
+loses nearly all of its alerts again, the RapidRide lines barely move, and
+the PM peak's share rises with the gate on (33.4% to 38.2% here, 35% to 40% in
+Phase 3). Terminal staging happens all day while real bunching concentrates in
+the evening, so a filter that raises the peak's share is removing the right
+records. That was the argument in Phase 3, and this is a second day and a
+second implementation agreeing with it.
+
+**Where the extra alerts are.** Of the 231 alerts that appear only with the
+gate off, 208 had a vehicle at stop sequence 1-3 inside the window, which is
+what the gate exists to drop. 22 more are the same pair alerting within 600 s
+of a baseline alert, shifted by a different cooldown chain; 1 is unexplained.
+By route and stop (the stop the lower-sequence vehicle was at or heading to):
+
+```
+255     59 added   median gap 0 ft     NE 128th St & I-405 (54), Totem Lake TC Bay 2 (3)
+240     15 added   median gap 53 ft    108th Ave NE & NE 2nd St (10)
+7       15 added   median gap 521 ft   S Henderson St & 53rd Ave S (14)
+G Line  13 added   median gap 499 ft   E Madison St & 22nd/23rd Ave E (11)
+```
+
+Route 255 is the Phase 3 artifact again: coaches staging near Totem Lake,
+projecting to the same point on the shape (a median gap of zero feet). Route
+240's cluster also sits a few dozen feet apart at one stop. Routes 7 and G Line
+are different: 500 ft is two buses genuinely close together, at the start of
+the route. That is the cost Phase 3 accepted, bunching at a terminal discarded
+because buses leave there on a dispatch schedule, and the replay puts a number
+on it for this day: up to 28 alerts across those two routes.
+
+**Turning the gate off also REMOVES 40 alerts, and they are real ones.** All 40
+had both vehicles past stop 3, so they are mid-route bunching. 39 of them
+disappeared because, without the gate, the same pair had already alerted in the
+previous 600 s, every time with an alert that exists only when the gate is off.
+The cooldown then suppressed the later, genuine one. So the gate does more than
+drop false positives: without it, terminal alerts use up the cooldown and hide
+real bunching on the same pair further along the route. Per-route totals show
+this only as a smaller net change, which is how Phase 3 reported it.
+
+## What running it found in the pipeline
+
+Four things, each found by running the replay against the real archive
+rather than the contract suite:
+
+1. **THE FETCHER WOULD HAVE CRASHED EVERY REPLAY.** The archive holds all
+   three feeds in every hour (204 vehicle-position, 203 trip-update and 60
+   alert payloads in 09-24 08:00Z). The first `ArchiveFetcher` queued all of
+   them for a vehicle-positions replay, so it never reached `exhausted` and
+   raised `IndexError` on an empty queue, after downloading roughly 1 GB of
+   trip updates and alerts per replayed day that it would never use. The
+   contract's fake archive held only vehicle positions. The fetcher now takes
+   the feeds it replays and reads each body at fetch time.
+2. **`set_bounded(False)` WOULD HAVE STOPPED LIVE BUNCHING ALERTS.**
+   `KafkaSource.set_bounded` takes the offsets to stop at, not a flag, and the
+   live job took the same line with `False`. The running job predated the
+   change, so nothing broke, but the next JobManager restart would have
+   resubmitted it and failed. PyFlink is not in the venv the tests run in, so
+   no test could build a source; `make bunching-source-check` builds both in
+   the PyFlink image now.
+3. **A REPLAY HUNG FOR 5 HOURS 22 MINUTES.** The first baseline over this day
+   died 7 minutes in, when PyFlink's Python worker raised "A serializer has
+   already been registered for the state; re-registration is not allowed"
+   from the state-restore path. Under Flink's default restart-on-failure the
+   job neither recovered nor failed. A replay now runs without checkpoints
+   and with restart strategy `none`, so a failure exits, and
+   `make replay-detect` has a timeout. A plain `timeout` did not work either:
+   the docker client forwards TERM to the job and keeps waiting, so a 5 s
+   limit was still running at 2 minutes. `timeout -k 30s` kills the client and
+   the container is removed by name.
+4. **THE WINDOW EDGES LOOK LIKE DIFFERENCES.** A replay cut exactly at the
+   window's end loses the positions published a minute later (1,537 live-only
+   rows in a one-hour test, all but one in its last minute), and one that
+   starts cold shifts the first cooldown chains. Hence the warm-up and the
+   10-minute tail above.
+
+The comparison's peak share also had to change: Phase 3's "16:00-18:00" was
+three hourly bins (73 + 96 + 75 = 244 alerts), and the first version of the
+report used two.
+
+## What this does not show
+
+One day. Phase 3 and this replay agree on the direction and roughly the size of
+the gate's effect across two different days, but that is two days, and a
+week-long study window is what a claim about routes in general would need.
+The prediction-accuracy job is not replayed at all: its state expires on
+processing time, so a day replayed in minutes would match nothing the way the
+live run did (ADR 0010).
+
+---
+
+# Appendix: corrections to the proposal
+
+Four assumptions in the proposal that the measurements replaced.
 
 1. Basic JSON mirrors do not exist (403). Only enhanced JSON. §2's feed table
    should say protobuf + enhanced JSON.

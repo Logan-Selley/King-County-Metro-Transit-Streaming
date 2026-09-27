@@ -24,7 +24,53 @@
   that has no deviation to be late by.
 #}
 
-with staging as (
+{#
+  INCREMENTAL BY WHOLE SERVICE DAY. Measured 2026-09-26: 536 s of every hourly
+  build as a full rebuild over 6.2M positions, growing ~730 MB a day.
+
+  THE UNIT IS THE SERVICE DAY, NOT THE HOUR, because the grain is
+  (route_short_name, service_date, local_hour) and an hour is not a clean unit
+  of it. At the November fall-back, local hour 1 happens twice in one service
+  day, so two UTC hours feed one row; recomputing by UTC hour would write that
+  row twice. Recomputing a whole service_date and replacing it
+  (delete+insert on service_date) cannot split a row, because every row lives
+  inside exactly one service day.
+
+  WHICH DAYS: from the day before this table's newest service_date onward.
+  Yesterday is included because trips cross midnight (4.5% of them, findings
+  section 10): a 00:40 fix belongs to the previous service day, so that day is
+  still receiving rows after midnight. Relative to the table's own newest day
+  rather than now(), so a build that has been failing for days catches up on
+  its next success instead of skipping the gap.
+
+  WHY THE position_at FILTER as well as service_date. Only position_at reaches
+  raw.enriched_vehicle_positions' daily partitions (service_date is derived
+  from start_date), so it is the filter that keeps the scan to a couple of
+  days. A service day's positions all fall on or after that date's local
+  midnight; the extra day is margin, not a requirement. service_date then picks
+  exactly the recomputed days, so no partial day is written.
+
+  Cost is now ~2 service days per build whatever the retention, which is the
+  point.
+#}
+{{ config(
+    materialized='incremental',
+    incremental_strategy='delete+insert',
+    unique_key='service_date',
+    on_schema_change='fail',
+) }}
+
+with
+{% if is_incremental() %}
+restart as (
+
+    select coalesce(max(service_date) - 1, '-infinity'::date) as from_date
+    from {{ this }}
+
+),
+{% endif %}
+
+staging as (
 
     -- The four filters here are also what tests/route_deviation_reconciles_
     -- with_staging.sql recomputes, so `positions` summing to its `expected`
@@ -39,6 +85,11 @@ with staging as (
     where not is_stale_timestamp
       and route_short_name is not null
       and schedule_deviation_seconds is not null
+    {% if is_incremental() %}
+      and position_at >= ((select from_date from restart)::timestamp
+                          at time zone 'America/Los_Angeles') - interval '1 day'
+      and service_date >= (select from_date from restart)
+    {% endif %}
 
 )
 

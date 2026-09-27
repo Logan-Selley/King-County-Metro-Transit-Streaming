@@ -63,6 +63,7 @@ def build_serializer(
     client: SchemaRegistryClient,
     message_type,
     auto_register: bool = False,
+    subject: str | None = None,
 ) -> ProtobufSerializer:
     """Serializer for EnrichedVehiclePosition.
 
@@ -77,28 +78,36 @@ def build_serializer(
     a producer whose schema is not already registered fails loudly at startup.
     That is the correct failure: it means the deploy skipped a step.
 
+    `subject` pins the registry subject instead of deriving it from the topic,
+    which is what Phase 6's replay needs: it writes records of EXACTLY the live
+    schema into replay.enriched.vehicle_positions, so it must frame them with
+    the live `enriched.vehicle_positions-value` id. Deriving it from the topic
+    would look up a subject nobody registered, and auto-registration is off, so
+    the run would die on its first record instead of the first deploy review.
+    The callable's arguments are ignored, so this does not depend on the order
+    the client passes them in.
+
     `use.deprecated.format=False` selects the current protobuf wire format for
     the message-index prefix. The deprecated format is not interoperable with
     it, and defaulting wrong here produces records that decode as garbage
     rather than failing cleanly.
     """
-    return ProtobufSerializer(
-        message_type,
-        client,
-        {
-            "auto.register.schemas": auto_register,
-            "use.deprecated.format": False,
-            # MUST be False against Redpanda's registry, and this is not a
-            # style choice. The client looks a protobuf schema up as a
-            # base64-encoded FileDescriptorProto; Redpanda resolves that form
-            # on the NON-normalizing lookup path and answers 404 on the
-            # normalizing one (its canonicalisation is Avro-shaped, so a
-            # protobuf schema never matches through it). With this True, every
-            # produce fails with "Schema not found (40403)" even though the
-            # subject is registered and `make schema-status` lists it.
-            "normalize.schemas": False,
-        },
-    )
+    config = {
+        "auto.register.schemas": auto_register,
+        "use.deprecated.format": False,
+        # MUST be False against Redpanda's registry, and this is not a
+        # style choice. The client looks a protobuf schema up as a
+        # base64-encoded FileDescriptorProto; Redpanda resolves that form
+        # on the NON-normalizing lookup path and answers 404 on the
+        # normalizing one (its canonicalisation is Avro-shaped, so a
+        # protobuf schema never matches through it). With this True, every
+        # produce fails with "Schema not found (40403)" even though the
+        # subject is registered and `make schema-status` lists it.
+        "normalize.schemas": False,
+    }
+    if subject is not None:
+        config["subject.name.strategy"] = lambda _topic, _record: subject
+    return ProtobufSerializer(message_type, client, config)
 
 
 def dict_to_message(record: dict, message_type=None):

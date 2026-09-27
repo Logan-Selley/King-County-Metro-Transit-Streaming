@@ -31,7 +31,7 @@ resource "minio_s3_bucket" "raw" {
 # THE PROBLEM, measured 2026-09-24: flink-checkpoints/ held 272 MiB across SIX
 # job-id directories while exactly two jobs were running. The other four were
 # left by earlier submissions. Every resubmission gets a new job id, and
-# RETAIN_ON_CANCELLATION (docker-compose.yml) deliberately keeps the old
+# RETAIN_ON_CANCELLATION (consumers/checkpointing.py) deliberately keeps the old
 # directory so a cancelled job can be resumed by hand (flink-submit.sh shows
 # how). Nothing ever removed them, and the machine restarted four times on
 # 2026-09-23 alone.

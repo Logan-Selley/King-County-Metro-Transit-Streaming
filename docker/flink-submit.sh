@@ -16,10 +16,10 @@
 # a re-run on a machine where the jobs survived does nothing. Without that
 # check, every compose restart would stack another copy of the same job.
 #
-# RESUMING FROM A RETAINED CHECKPOINT IS STILL MANUAL, deliberately. The
-# JobManager keeps checkpoints across a cancellation
-# (externalized-checkpoint-retention: RETAIN_ON_CANCELLATION), so the option
-# exists:
+# RESUMING FROM A RETAINED CHECKPOINT IS STILL MANUAL, deliberately. Each job
+# keeps its checkpoints across a cancellation (RETAIN_ON_CANCELLATION, set in
+# consumers/checkpointing.py; until 2026-09-25 it sat in the JobManager's
+# config, where it had no effect on submitted jobs), so the option exists:
 #
 #     flink run -s s3://transit-raw/flink-checkpoints/<job-id>/chk-N \
 #       --pyFiles /opt/jobs -py /opt/jobs/consumers/bunching/job.py

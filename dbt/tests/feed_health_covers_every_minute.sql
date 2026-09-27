@@ -9,11 +9,22 @@
 -- minute of positions having arrived between building the mart and running this
 -- test. That gap was always reachable; adding the 4B marts made the build slow
 -- enough to hit it on every run.
+--
+-- COUNTED INSIDE THE SPAN, not over the whole mart, since the mart became
+-- incremental (2026-09-26). It now keeps minutes whose positions have aged
+-- out of the raw table's 90-day retention, so a total row count would exceed
+-- the span staging can still see. Counting mart minutes between the span's
+-- first and last minute asks exactly the original question.
+--
+-- WINDOWED IN THE HOURLY RUN (var recent_hours; macros/recent_window.sql):
+-- the span is measured over recent positions only. Unset, it is the full
+-- history, which is what CI and `make dbt-full-check` run.
 with mart_window as (
 
     select min(minute_utc) as lo,
            max(minute_utc) + interval '1 minute' as stop
     from {{ ref('mart_feed_health') }}
+    where {{ recent_predicate('minute_utc') }}
 
 ),
 
@@ -26,13 +37,22 @@ span as (
     where not v.is_stale_timestamp
       and v.position_at >= w.lo
       and v.position_at <  w.stop
+      and {{ recent_predicate('v.position_at') }}
+
+),
+
+counted as (
+
+    select count(*) as n
+    from {{ ref('mart_feed_health') }} m
+    cross join span s
+    where m.minute_utc between s.lo and s.hi
 
 )
 
 select
-    (extract(epoch from hi - lo) / 60)::integer + 1 as expected_minutes,
-    (select count(*) from {{ ref('mart_feed_health') }}) as mart_minutes
-from span
-where (extract(epoch from hi - lo) / 60)::integer + 1
-      <> (select count(*) from {{ ref('mart_feed_health') }})
-
+    (extract(epoch from s.hi - s.lo) / 60)::integer + 1 as expected_minutes,
+    c.n as mart_minutes
+from span s
+cross join counted c
+where (extract(epoch from s.hi - s.lo) / 60)::integer + 1 <> c.n

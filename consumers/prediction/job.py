@@ -60,6 +60,7 @@ from pyflink.datastream.functions import KeyedCoProcessFunction
 from pyflink.datastream.state import StateTtlConfig, ValueStateDescriptor
 
 from consumers import framing
+from consumers.checkpointing import configure_checkpoints
 from consumers.bunching.decode import decode
 from consumers.prediction.accuracy import (
     PredictionBuffer,
@@ -109,7 +110,9 @@ def build_env() -> StreamExecutionEnvironment:
     job starts, reads both topics, and never fires a timer.
     """
     env = StreamExecutionEnvironment.get_execution_environment()
-    env.enable_checkpointing(30_000)
+    # Interval, tolerated failures and retention: consumers/checkpointing.py,
+    # which also records why none of them can live in the cluster config.
+    configure_checkpoints(env)
     env.set_parallelism(6)
     return env
 

@@ -25,4 +25,12 @@ models:
     marts:
       +materialized: table
       +schema: marts
+    # Incremental building blocks that marts aggregate from. In the MARTS
+    # schema, not a schema of their own, because dbt_transform can CREATE only
+    # inside the two schemas it owns (checked: has_database_privilege(...,
+    # 'CREATE') is false), and granting it CREATE on the database to make one
+    # more schema would widen the role 5C narrowed.
+    intermediate:
+      +materialized: incremental
+      +schema: marts
 

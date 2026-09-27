@@ -234,6 +234,7 @@ def detect_in_window(
     key: str,
     records: list[dict],
     window_end_s: float,
+    min_stop_sequence: int = MIN_STOP_SEQUENCE,
 ) -> list[dict]:
     """Find bunched pairs among one route-direction's positions in one window.
 
@@ -258,10 +259,14 @@ def detect_in_window(
         ago.
 
       * Vehicles under MIN_PROGRESS_FT, or still within their first
-        MIN_STOP_SEQUENCE stops, are dropped. Gate 2 -- see the module
+        `min_stop_sequence` stops, are dropped. Gate 2 -- see the module
         docstring. Two buses at the terminal are a layover, and the stop
         sequence is what catches it on routes whose terminal is not at the
-        shape's origin.
+        shape's origin. The gate is a PARAMETER, defaulting to
+        MIN_STOP_SEQUENCE, because Phase 6's replay runs this same function
+        twice with the gate on (a baseline that must reproduce the live output)
+        and off (the variant). A copy of this function with the gate removed
+        would not be the live logic under test.
 
       * Sorted by shape_dist_traveled, CONSECUTIVE pairs only. All-pairs is
         O(n^2) and wrong besides: three buses in a row are two bunched pairs,
@@ -296,7 +301,7 @@ def detect_in_window(
         # Absent stop sequence fails the gate rather than passing it. The
         # field is 99.6% populated (Phase 0), so the rare miss is cheaper
         # than admitting a vehicle whose progress cannot be checked.
-        and (rec.get("current_stop_sequence") or 0) >= MIN_STOP_SEQUENCE
+        and (rec.get("current_stop_sequence") or 0) >= min_stop_sequence
     ]
     sorted_records = sorted(usable_record, key=lambda x: x["shape_dist_traveled"])
     alerts = []

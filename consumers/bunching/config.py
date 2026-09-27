@@ -30,11 +30,200 @@ alert -- see ADR 0007 and consumers/bunching/detect.py.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 SOURCE_TOPIC = "enriched.vehicle_positions"
 SINK_TOPIC = "alerts.bunching"
 CONSUMER_GROUP = "bunching"
+
+
+# --- how a run is wired: live, or a Phase 6 replay ----------------------------
+#
+# The live job reads the constants above. A replay runs the SAME job.py with
+# different wiring, chosen by environment variable, so the replayed detector is
+# the live detector and not a copy of it. What changes is only where it reads,
+# where it writes, whether its input ends, and (for the variant run) the gate.
+#
+# The resolution lives HERE rather than in job.py because job.py imports
+# pyflink, which the project venv does not carry (ADR 0006). As a pure function
+# over a Mapping, tests/test_replay_contract.py can pin it: in particular, that
+# an environment with no replay variables resolves to exactly the live wiring,
+# since this function sits on the live job's startup path.
+
+REPLAY_ENV = "BUNCHING_REPLAY"            # unset, "baseline" or "variant"
+REPLAY_GATE_ENV = "BUNCHING_REPLAY_MIN_STOP_SEQUENCE"
+
+# The two runs, and the namespace prefix they write under.
+#
+# THE PREFIX IS A DELIBERATE SECOND COPY of producer.replay.REPLAY_PREFIX, and
+# not an import: this module runs inside the Flink image, which mounts
+# consumers/ and schemas/ and NOT producer/ (docker-compose.yml's replay-detect
+# target, and ADR 0006 on why the job image carries no Kafka client). Importing
+# it would fail in the replay container, which is the one place it is needed.
+# The two cannot drift silently: run_settings below refuses to return a replay
+# whose names are not under this prefix, and test_replay_contract.py pins both
+# this module's strings and the producer's.
+REPLAY_RUNS = ("baseline", "variant")
+REPLAY_PREFIX = "replay."
+
+
+@dataclass(frozen=True)
+class RunSettings:
+    """Everything job.py needs to know about where it is running."""
+
+    source_topic: str
+    sink_topic: str
+    # The registry subject whose schema id frames the output. A replay keeps
+    # the LIVE subject: the records it writes have exactly that schema, and
+    # resolving the id from a replay subject would mean registering subjects
+    # nobody owns (ADR 0010).
+    sink_subject: str
+    group: str
+    # Bounded: read from the earliest offset to the offsets current at start,
+    # then finish. A bounded source's end emits the final watermark, which is
+    # what closes the last event-time windows, so a replay ends with every
+    # window fired rather than waiting for data that will never come.
+    bounded: bool
+    # Offsets are committed only for the live job, which resumes from them. A
+    # replay has nothing to resume, and a committed group would be one more
+    # abandoned group in `rpk group list` (the Phase 5 lag-check finding).
+    commit_offsets: bool
+    min_stop_sequence: int
+    job_name: str
+
+
+def run_settings(env: Mapping[str, str]) -> RunSettings:
+    """Resolve the run's wiring from the environment.
+
+    CONTRACT
+      * REPLAY_ENV unset or empty -> the live wiring EXACTLY: SOURCE_TOPIC,
+        SINK_TOPIC, f"{SINK_TOPIC}-value", CONSUMER_GROUP, unbounded, committing
+        offsets, detect.MIN_STOP_SEQUENCE, job name "bunching-detector". The
+        live job's startup path runs through this function, so this case is
+        the one that must not change.
+      * REPLAY_ENV = "baseline" or "variant":
+          source  replay.enriched.vehicle_positions
+          sink    replay.alerts.bunching.<run>
+          subject the LIVE subject, f"{SINK_TOPIC}-value"
+          group   f"replay-bunching-<run>"
+          bounded, NOT committing offsets
+          job     f"bunching-replay-<run>"
+      * The gate: baseline uses the live detect.MIN_STOP_SEQUENCE and REFUSES a
+        REPLAY_GATE_ENV value (a baseline with a different gate is not a
+        baseline). variant REQUIRES REPLAY_GATE_ENV, an int >= 0; no default,
+        because a variant that silently ran the live gate would report "no
+        difference" and be believed.
+      * Any other REPLAY_ENV value -> ValueError naming the allowed values.
+      * INVARIANT, checked before returning: in a replay, neither topic nor the
+        group is a live name. A resolution that fails it raises rather than
+        returning, because the caller is about to produce.
+
+    detect.py imports this module, so import MIN_STOP_SEQUENCE inside the
+    function, not at the top of the file.
+    """
+    # Inside the function, because detect.py imports this module at module
+    # scope: a top-level import here would be circular.
+    from consumers.bunching.detect import MIN_STOP_SEQUENCE
+
+    run = env.get(REPLAY_ENV, "").strip()
+
+    if not run:
+        # The live job's startup path. Every value is the constant above, so
+        # nothing in this function can change how the live detector runs.
+        return RunSettings(
+            source_topic=SOURCE_TOPIC,
+            sink_topic=SINK_TOPIC,
+            sink_subject=f"{SINK_TOPIC}-value",
+            group=CONSUMER_GROUP,
+            bounded=False,
+            commit_offsets=True,
+            min_stop_sequence=MIN_STOP_SEQUENCE,
+            job_name="bunching-detector",
+        )
+
+    if run not in REPLAY_RUNS:
+        raise ValueError(
+            f"{REPLAY_ENV}={run!r} is not a run; use one of "
+            f"{', '.join(REPLAY_RUNS)}, or leave {REPLAY_ENV} unset to run live")
+
+    settings = RunSettings(
+        source_topic=f"{REPLAY_PREFIX}enriched.vehicle_positions",
+        sink_topic=f"{REPLAY_PREFIX}alerts.bunching.{run}",
+        # The LIVE subject, deliberately: these records have exactly the live
+        # schema, so framing them with the live id is correct, and a
+        # replay.<topic>-value subject would be one nobody registered (ADR 0010
+        # and ADR 0005's auto-registration rule).
+        sink_subject=f"{SINK_TOPIC}-value",
+        # Hyphens, unlike the topics: a consumer group is named for humans in
+        # `rpk group list`, and the Makefile's REPLAY_GROUPS uses the same form.
+        group=f"replay-bunching-{run}",
+        # Bounded, so the job ends when the replayed stream does and the final
+        # watermark fires the last windows. Not committing offsets, because
+        # there is nothing to resume and an abandoned group is clutter (the
+        # Phase 5 lag-check finding).
+        bounded=True,
+        commit_offsets=False,
+        min_stop_sequence=_replay_gate(run, env.get(REPLAY_GATE_ENV),
+                                       MIN_STOP_SEQUENCE),
+        job_name=f"bunching-replay-{run}",
+    )
+
+    # INVARIANT, checked before returning anything a caller could produce with.
+    # A replay that resolved to a live name would write history into the live
+    # topics, where the sinks would upsert it into the warehouse and the live
+    # detector would alert on it. Raising rather than returning, because the
+    # caller's next step is to produce.
+    live_names = {SOURCE_TOPIC, SINK_TOPIC, CONSUMER_GROUP}
+    namespace = REPLAY_PREFIX.rstrip(".")
+    for label, value in (("source_topic", settings.source_topic),
+                         ("sink_topic", settings.sink_topic),
+                         ("group", settings.group)):
+        if value in live_names or not value.startswith(namespace):
+            raise ValueError(
+                f"{label} resolved to {value!r}, which is not in the replay "
+                f"namespace; refusing to run")
+
+    return settings
+
+
+def _replay_gate(run: str, raw: str | None, live_gate: int) -> int:
+    """The terminal-stop gate for a replay run.
+
+    The variant's gate is REQUIRED rather than defaulted: a variant that
+    silently ran the live gate would report "no difference" and be believed,
+    which is the one failure mode this whole experiment cannot detect later.
+    The baseline's is FORBIDDEN for the mirror reason: a baseline with a
+    different gate is not the live logic, so comparing it against the live
+    output would measure the gate rather than the replay.
+    """
+    value = (raw or "").strip()
+
+    if run == "baseline":
+        if value:
+            raise ValueError(
+                f"{REPLAY_GATE_ENV}={value!r} is set for the baseline run, "
+                f"which must use the live gate ({live_gate}); the baseline "
+                "exists to reproduce the live logic")
+        return live_gate
+
+    if not value:
+        raise ValueError(
+            f"the variant run requires {REPLAY_GATE_ENV} (an integer >= 0); "
+            "without it the variant would run the live gate and report no "
+            "difference")
+
+    try:
+        gate = int(value)
+    except ValueError:
+        raise ValueError(
+            f"{REPLAY_GATE_ENV}={value!r} is not an integer") from None
+
+    if gate < 0:
+        raise ValueError(
+            f"{REPLAY_GATE_ENV}={gate} is negative; the gate is a stop "
+            "sequence, so 0 is the lowest meaningful value")
+    return gate
 
 
 @dataclass(frozen=True)

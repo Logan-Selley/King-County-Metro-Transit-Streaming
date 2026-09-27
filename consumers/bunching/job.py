@@ -44,7 +44,7 @@ import logging
 import os
 from functools import partial
 
-from pyflink.common import Duration, Types, WatermarkStrategy
+from pyflink.common import Configuration, Duration, Types, WatermarkStrategy
 from pyflink.common.serialization import ByteArraySchema
 from pyflink.common.time import Time
 from pyflink.common.watermark_strategy import TimestampAssigner
@@ -61,7 +61,8 @@ from pyflink.datastream.state import ValueStateDescriptor
 from pyflink.datastream.window import TumblingEventTimeWindows
 
 from consumers import framing
-from consumers.bunching.config import CONFIG, CONSUMER_GROUP, SINK_TOPIC, SOURCE_TOPIC
+from consumers.checkpointing import configure_checkpoints
+from consumers.bunching.config import CONFIG, run_settings
 from consumers.bunching.decode import decode
 from consumers.bunching.detect import (
     BunchingState,
@@ -79,6 +80,17 @@ log = logging.getLogger("bunching")
 # resolves, connects to nothing, and reports no partitions assigned.
 BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_INTERNAL", "redpanda:9092")
 
+# WHERE THIS RUN READS AND WRITES, resolved once at startup. Every topic, group
+# and gate below comes from here rather than from the constants, so a Phase 6
+# replay cannot half-apply: reading the replay topic while writing the live one
+# is the failure this indirection exists to make impossible. With no replay
+# variables set, run_settings returns exactly the live wiring, which is the case
+# that must not change (tests/test_replay_contract.py pins both).
+SETTINGS = run_settings(os.environ)
+log.info("run %s: %s -> %s (group %s, bounded=%s, gate=%s)",
+         SETTINGS.job_name, SETTINGS.source_topic, SETTINGS.sink_topic,
+         SETTINGS.group, SETTINGS.bounded, SETTINGS.min_stop_sequence)
+
 # Where the job reads its sink schema's id from, at submit time. Defaults to the
 # compose service name for the same reason BOOTSTRAP does: .env carries the
 # HOST-facing address (localhost:18081) and a container cannot reach that.
@@ -91,12 +103,30 @@ RECORD_TYPE = Types.MAP(Types.STRING(), Types.PICKLED_BYTE_ARRAY())
 
 
 def build_env() -> StreamExecutionEnvironment:
-    """Execution environment with event time and checkpointing."""
-    env = StreamExecutionEnvironment.get_execution_environment()
-    # Checkpointing is what makes keyed state survive a TaskManager restart.
-    # Without it a crash loses every vehicle's last-known position and the
-    # detector silently under-reports until state refills.
-    env.enable_checkpointing(30_000)
+    """Execution environment: checkpointed for the live job, fail-fast for a replay."""
+    if SETTINGS.bounded:
+        # A REPLAY FAILS FAST: no checkpoints, no restarts. Measured
+        # 2026-09-27: the baseline replay of 09-24 Pacific died 7 minutes in,
+        # when the Python worker raised "A serializer has already been
+        # registered for the state; re-registration is not allowed" from
+        # StateSerializerProvider.registerNewSerializerForRestoredState, which
+        # is the restore path. Under Flink's default restart-on-failure the job
+        # neither recovered nor failed, and the container sat for 5 h 22 min
+        # (the same job on the UTC day finished in 12 minutes). A bounded
+        # replay has nothing worth restoring, since rerunning it from the start
+        # gives the same output, so a failure now ends the job, execute()
+        # raises, and `make replay-detect` exits nonzero.
+        conf = Configuration()
+        conf.set_string("restart-strategy.type", "none")
+        env = StreamExecutionEnvironment.get_execution_environment(conf)
+    else:
+        env = StreamExecutionEnvironment.get_execution_environment()
+        # Checkpointing is what makes keyed state survive a TaskManager
+        # restart. Without it a crash loses every vehicle's last-known position
+        # and the detector silently under-reports until state refills.
+        # Interval, tolerated failures and retention: consumers/checkpointing.py,
+        # which also records why none of them can live in the cluster config.
+        configure_checkpoints(env)
     # 3, matching the partition count of enriched.vehicle_positions, and this
     # is a CORRECTNESS setting rather than a throughput one.
     #
@@ -204,17 +234,38 @@ def kafka_source() -> KafkaSource:
     produces a healthy job emitting garbage. decode.py turns the bytes into a
     dict; see its docstring for why it does not use ProtobufDeserializer.
     """
-    return (
+    builder = (
         KafkaSource.builder()
         .set_bootstrap_servers(BOOTSTRAP)
-        .set_topics(SOURCE_TOPIC)
-        .set_group_id(CONSUMER_GROUP)
+        .set_topics(SETTINGS.source_topic)
+        .set_group_id(SETTINGS.group)
         .set_starting_offsets(
             KafkaOffsetsInitializer.committed_offsets(
                 KafkaOffsetResetStrategy.EARLIEST))
+        # Offsets are committed only for the live job, which resumes from them.
+        # A replay has nothing to resume, and its group would be one more
+        # abandoned group in `rpk group list` (the Phase 5 lag-check finding).
+        .set_property("commit.offsets.on.checkpoint",
+                      "true" if SETTINGS.commit_offsets else "false")
         .set_value_only_deserializer(ByteArraySchema())
-        .build()
     )
+    # BOUNDED IS AN OFFSETS INITIALIZER, NOT A FLAG. set_bounded takes a
+    # KafkaOffsetsInitializer, the offsets to STOP at, and latest() means "stop
+    # at the offsets current when the job started". A replay reads to there and
+    # ENDS, which is what makes the final watermark fire and the last event-time
+    # windows close. The live job must never finish, so it stays
+    # CONTINUOUS_UNBOUNDED and nothing is set for it.
+    #
+    # This was `set_bounded(SETTINGS.bounded)` until 2026-09-26, which raised
+    # AttributeError on `_j_initializer` for BOTH runs. The live job passed
+    # False, so a JobManager restart, `make resume` or a reboot would have
+    # resubmitted this code and stopped bunching alerts. The contract suite
+    # cannot catch it: PyFlink is not in the venv the tests run in, so nothing
+    # there ever builds a source. `make bunching-source-check` builds both in
+    # the image that runs them.
+    if SETTINGS.bounded:
+        builder = builder.set_bounded(KafkaOffsetsInitializer.latest())
+    return builder.build()
 
 
 def kafka_sink() -> KafkaSink:
@@ -235,7 +286,7 @@ def kafka_sink() -> KafkaSink:
         .set_bootstrap_servers(BOOTSTRAP)
         .set_record_serializer(
             KafkaRecordSerializationSchema.builder()
-            .set_topic(SINK_TOPIC)
+            .set_topic(SETTINGS.sink_topic)
             .set_value_serialization_schema(ByteArraySchema())
             .build()
         )
@@ -292,8 +343,13 @@ class BunchingWindowFunction(ProcessWindowFunction):
         # known timestamp type format" without writing a row). This value is
         # also what every alert carries as window_end, so the coercion is
         # stated once, here.
+        # The gate is the RUN's, not the module's: with no replay variables set
+        # this is the live MIN_STOP_SEQUENCE, and a variant passes its own, so
+        # the two replayed detectors differ in that one value and nothing else
+        # (consumers/bunching/config.py's run_settings).
         yield from detect_in_window(key, list(elements),
-                                    int(context.window().end / 1000))
+                                    int(context.window().end / 1000),
+                                    min_stop_sequence=SETTINGS.min_stop_sequence)
 
 
 class BunchingCooldown(KeyedProcessFunction):
@@ -379,8 +435,8 @@ def build_pipeline(env: StreamExecutionEnvironment) -> None:
     # The sink schema's id, resolved ONCE here rather than per record. See
     # consumers/framing.py for why, and for what a re-registration later does
     # to a job that is already running.
-    sid = framing.schema_id(SCHEMA_REGISTRY, f"{SINK_TOPIC}-value")
-    log.info("sink schema %s-value -> id %s", SINK_TOPIC, sid)
+    sid = framing.schema_id(SCHEMA_REGISTRY, SETTINGS.sink_subject)
+    log.info("sink schema %s -> id %s", SETTINGS.sink_subject, sid)
 
     alerts.map(partial(framing.frame, sid=sid),
                output_type=Types.PRIMITIVE_ARRAY(Types.BYTE())).sink_to(kafka_sink())
@@ -390,7 +446,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)-7s %(message)s")
     env = build_env()
     build_pipeline(env)
-    env.execute("bunching-detector")
+    env.execute(SETTINGS.job_name)
 
 
 if __name__ == "__main__":

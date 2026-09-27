@@ -19,6 +19,21 @@ sources:
         freshness:
           warn_after: {count: 5, period: minute}
           error_after: {count: 15, period: minute}
+          # BOUNDED BY EVENT TIME. enriched_at is not the partition key, so an
+          # unfiltered max(enriched_at) read every partition: 365 s and 212 s
+          # for the two attempts of the 20:15 UTC run on 2026-09-26, every
+          # hour, growing with retention. A one-day filter pruned to two
+          # partitions and still took 107 s; two hours lets the BRIN index
+          # (docker/initdb/08-brin-event-time.sql) read only the newest ranges.
+          # With both: 3.5 s for the two sources together (21:39 UTC).
+          #
+          # THE TRADE: a feed dead for more than two hours still fails, since
+          # the max over nothing is null, which dbt reads as "infinitely long
+          # ago" (dbt-adapters BaseAdapter._create_freshness_response), so
+          # ERROR STALE. It just reports that age instead of the real one.
+          # Two hours is 8x the error threshold, so every real reading below
+          # it is kept.
+          filter: "position_timestamp > now() - interval '2 hours'"
 
       # Sunk in build step 4B, which framed both topics as registered JSON
       # (consumers/framing.py, schemas/json/) after the JDBC sink rejected them
@@ -56,6 +71,11 @@ sources:
         freshness:
           warn_after: {count: 15, period: minute}
           error_after: {count: 30, period: minute}
+          # observed_at IS the partition key, but a bare max() planned a
+          # parallel seq scan of every partition (EXPLAIN, 2026-09-26: 13
+          # scans). Filtered and BRIN-indexed like the enriched table above,
+          # with the same trade; two hours is 4x this table's error threshold.
+          filter: "observed_at > now() - interval '2 hours'"
       - name: bunching_alerts
         description: >
           alerts.bunching, sunk by connect/bunching_alerts.json with upsert on

@@ -181,10 +181,11 @@ All host ports route around the parcel project, which holds **5433** and
   `block_id`'s real source, 0005 on what the Schema Registry actually
   enforces for protobuf, and 0006 on the PyFlink version pin and the
   gencode/runtime conflict its isolation created.
-- **365 tests**, all enforced in CI, across ten suites: wire semantics (10),
+- **420 tests**, all enforced in CI, across eleven suites: wire semantics (10),
   producer contract (46), enrichment contract (44), schema/semantic-gate (23),
   the bunching detector (63), the prediction-accuracy join (48), sink framing
-  (11), the platform contract (57), privileges (55), and operations (8).
+  (11), the platform contract (62), privileges (55), operations (8), and the
+  replay contract (50).
   The contract suites are the executable specs the implementations were
   written against, and each was written before the code it tests.
 
@@ -259,7 +260,7 @@ what was left out. Build order:
 | 5B | Terraform owns topics and the bucket; `make topics` and `minio-init` retire | **done**: 12 topics + the bucket adopted (13 imported, 1 added, 0 changed), the ILM rule live at 7 days, both creators retired, `make tf-drift` exits 0 |
 | 5C | One Postgres role and MinIO user per client, write-only passwords | **done**: 5 login-only roles + 2 MinIO users with prefix-scoped policies, every credential write-only from an ephemeral variable (measured: each of the 7 values occurs 0 times in `terraform.tfstate`, where `password` is null and `secret` empty); both maintenance functions `SECURITY DEFINER` with a pinned `search_path` and EXECUTE revoked from PUBLIC; every client off the superuser, which is left to initdb, migrate and Terraform; spec 55/55, promoted from `wip` |
 | 5D | Health checks on the long-running services; a `consumer_lag` task | **done**: loop-liveness for the two consumers, REST for the JobManager, JM-visibility for the TaskManager; per-group lag thresholds in `transit_health`; `make airflow-check` 4 of 4 |
-| 5E | A clean-clone CI job: fresh stack, `terraform apply`, zero drift, one record through the sink | **rehearsed, first push pending**: all three jobs run step for step on an empty Docker-in-Docker daemon from exactly the files a commit contains, and all three green (`platform`: 47 + 3 resources, no drift in either root, the probe row visible on the first check). The rehearsal found five things that would each have failed the first push, none visible on this machine: `minio/minio` no longer exists on Docker Hub (now Chainguard's build, pinned by digest), parallel Postgres grants collide (`tuple concurrently updated`; core applies with `-parallelism=1`), `connect-up` returned before the worker listened (`--wait`), and two Postgres init races (probes now go over TCP). |
+| 5E | A clean-clone CI job: fresh stack, `terraform apply`, zero drift, one record through the sink | **done**: all three jobs run step for step on an empty Docker-in-Docker daemon from exactly the files a commit contains, and all three green (`platform`: 47 + 3 resources, no drift in either root, the probe row visible on the first check), and green on main's first run (2m41s, 2026-09-25). The rehearsal found five things that would each have failed the first push, none visible on this machine: `minio/minio` no longer exists on Docker Hub (now Chainguard's build, pinned by digest), parallel Postgres grants collide (`tuple concurrently updated`; core applies with `-parallelism=1`), `connect-up` returned before the worker listened (`--wait`), and two Postgres init races (probes now go over TCP). |
 
 Exit (from the proposal): a green CI badge, and the stack coming up from a
 clean clone, which 5E proves on every push rather than once by hand.
@@ -271,7 +272,36 @@ make ci-fixture                                      # re-export the CI slice
 uv run pytest -m contract                            # every implemented spec
 ```
 
-Phase 6 (replay demo) is unstarted.
+**In progress (Phase 6), the replay demo.** Archived payloads re-run through
+the live code into an isolated `replay.` namespace; the baseline replay must
+reproduce what the live pipeline wrote before the changed logic means anything
+([ADR 0010](docs/decisions/0010-replay-from-the-archive.md)). The experiment is
+the bunching detector's terminal gate. Build order:
+
+| step | what | state |
+|---|---|---|
+| 6A | Replay namespace (5 topics mirroring live partitions) and a read-only `archive_reader` MinIO user | **done**: `terraform/core/replay.tf`, under the same drift check as every other topic; `archive_reader` may list and get under `raw/` and nothing else |
+| 6B | Re-ingest: `ArchiveFetcher` + `run_replay` over `process_feed`; `FeedSpec.dlq_topic` | **done**: the replayed ingest is the live `process_feed` with the archive in the fetcher's seat, and `spec.dlq_topic` keeps a replay's rejects out of the live DLQ (`producer/replay.py`) |
+| 6C | Isolation: `run_settings` for the detector (topics, bounded, gate), enrichment `--source/--target/--dlq/--group/--exit-when-idle`, the gate as a `detect_in_window` parameter | **done**: `run_settings` supplies the topic set, group, bounded source and gate override; the enrichment consumer takes `--source/--target/--dlq/--group/--exit-when-idle`; both jobs set checkpoint retention and failure tolerance in the job graph (`consumers/checkpointing.py`) |
+| 6D | Fidelity: replayed enriched rows and baseline alerts against the warehouse | **done**: both comparisons key as the sinks key, restricted to event times inside the window; 1,359,657 live rows all matched, and 607 of 626 live alerts matched with zero field differences (`replay/compare.py`) |
+| 6E | The experiment and the write-up | **done**: the gate experiment over 09-24 Pacific, run 2026-09-27 ([findings §13](docs/findings.md)) |
+
+The spec is `tests/test_replay_contract.py` (50 tests, `contract`), proven
+satisfiable: a throwaway reference implementation passed the whole suite before
+the real one existed, and the replayed detector then ran end to end as a probe.
+Over a copy of the live 16:00-18:00 PDT slice of 09-24 (190,196 records), the
+replayed detector ran in PyFlink local mode in 93 s and matched 137 of 150 live
+alerts exactly, with zero field differences. The rest were the same pairs in a
+shifted cooldown chain from the replay's cold start, which the fidelity step has
+to account for (`replay/compare.py` records the measurement).
+
+```
+make replay-reset
+make replay-ingest START=2026-09-24T00:00:00Z END=2026-09-25T00:00:00Z
+make replay-enrich && make replay-detect RUN=baseline
+make replay-compare MODE=fidelity START=... END=...
+make replay-detect RUN=variant GATE=0 && make replay-compare MODE=experiment START=... END=...
+```
 
 ## Phase 0 headlines
 

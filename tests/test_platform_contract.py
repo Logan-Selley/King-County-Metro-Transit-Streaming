@@ -88,10 +88,29 @@ def _resources(root: str, rtype: str) -> dict[str, dict]:
     return out
 
 
+# The replay namespace (terraform/core/replay.tf) is one for_each resource named
+# `replay`, whose `name` is an expression rather than a literal. It is the live
+# platform's scratch space, not part of it, so it is excluded from the live-topic
+# checks below and has its own class at the end of this file.
+REPLAY_RESOURCE = "replay"
+
+
 def _topics() -> dict[str, dict]:
-    """{topic name: body}, keyed by the topic's name attribute."""
+    """{topic name: body} for the LIVE topics, keyed by the name attribute."""
     return {_unquote(body["name"]): body
-            for body in _resources("core", "kafka_topic").values()}
+            for name, body in _resources("core", "kafka_topic").items()
+            if name != REPLAY_RESOURCE}
+
+
+def _replay_topics() -> dict[str, dict]:
+    """{replay topic: {partitions, mirrors}} from replay.tf's local map."""
+    for block in _load("core").get("locals", []):
+        if "replay_topics" in block:
+            return {_unquote(k): {kk: _unquote(vv) for kk, vv in v.items()
+                                  if not kk.startswith("__")}
+                    for k, v in block["replay_topics"].items()
+                    if not k.startswith("__")}
+    return {}
 
 
 def _prevents_destroy(body: dict) -> bool:
@@ -206,6 +225,10 @@ class TestTopics:
                 f"import to {block.get('to')} is not gated on var.adopt_existing")
             targets.add(str(block["to"]))
         for name in _resources("core", "kafka_topic"):
+            if name == REPLAY_RESOURCE:
+                # Nothing to adopt: the replay namespace was created by
+                # Terraform, never by hand.
+                continue
             assert any(f"kafka_topic.{name}" in t for t in targets), (
                 f"kafka_topic.{name} has no import block")
 
@@ -332,3 +355,48 @@ class TestCredentials:
         for f in (ROOT / "connect").glob("*.json"):
             cfg = json.loads(f.read_text())
             assert cfg["connection.password"].startswith("${env:"), f.name
+
+
+# =============================================================================
+# 5. The replay namespace (Phase 6)
+# =============================================================================
+
+class TestReplayNamespace:
+    """terraform/core/replay.tf, the namespace the replay actually runs in (6A).
+
+    The rules are about isolation and fidelity, the two things that make a
+    replay worth believing: nothing in the namespace can be a live name, and
+    every replay topic partitions exactly like the live topic it stands in for,
+    because the bunching job's parallelism is pinned to that count.
+    """
+
+    def test_namespace_exists(self):
+        assert _replay_topics(), "no replay_topics local in terraform/core/replay.tf"
+
+    def test_every_replay_topic_is_namespaced(self):
+        for topic in _replay_topics():
+            assert topic.startswith("replay."), topic
+            assert topic not in LIVE_TOPICS, f"{topic} is a live topic name"
+
+    def test_every_replay_topic_mirrors_a_live_topic(self):
+        for topic, spec in _replay_topics().items():
+            assert spec["mirrors"] in LIVE_TOPICS, (
+                f"{topic} mirrors {spec['mirrors']!r}, which is not a live topic")
+
+    def test_partitions_match_the_live_topic_they_stand_in_for(self):
+        """A replay topic partitioned differently from its live counterpart
+        makes the replayed job drop (or keep) late data the live job did not,
+        and the fidelity check would then blame the logic."""
+        for topic, spec in _replay_topics().items():
+            live_partitions = LIVE_TOPICS[spec["mirrors"]][0]
+            assert int(spec["partitions"]) == live_partitions, (
+                f"{topic}: {spec['partitions']} partitions, "
+                f"{spec['mirrors']} has {live_partitions}")
+
+    def test_the_replayed_source_is_there_for_the_bunching_job(self):
+        """The replayed detector reads replay.enriched.vehicle_positions with
+        the live job's parallelism."""
+        replay = _replay_topics()
+        assert "replay.enriched.vehicle_positions" in replay
+        assert int(replay["replay.enriched.vehicle_positions"]["partitions"]) == \
+            _parallelism(ROOT / "consumers/bunching/job.py")
