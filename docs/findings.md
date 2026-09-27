@@ -1501,6 +1501,12 @@ Pacific day and hour. Three things about it are worth recording.
   had both vehicles' positions inside their windows. In the snapshot's window
   the map covers every alert, and `kpis.json` carries that share rather than
   leaving it implied.
+- **An alert the build could not place is retried.** Positions and alerts arrive
+  through separate connectors, so a build can place an alert with nothing to
+  place it by when the positions sink falls behind. Those rows are rebuilt until
+  they are placed, bounded at two days so an alert raised into a silent feed is
+  not retried forever. On 2026-09-27 the mart held no unplaced alert: 2,728 of
+  2,728 were placed.
 - **The lookup's shape is the cost.** The positions are partitioned and keyed by
   (vehicle_id, position_timestamp), so one vehicle's last position before the
   window is an index probe. Counting the window's positions instead is not

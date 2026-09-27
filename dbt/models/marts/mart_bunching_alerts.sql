@@ -84,8 +84,8 @@ unplaced as (
     -- until they are placed. Two days, because an alert raised while the feed
     -- was silent can never be placed, and unbounded those rows would be
     -- retried every hour forever; a sink down longer than that wants a
-    -- --full-refresh anyway. Normally this is empty: 2,719 of 2,719 live
-    -- alerts were placed on 2026-09-27.
+    -- --full-refresh anyway. The set is normally empty: an alert whose
+    -- vehicles moved inside its window has positions to be placed by.
     select distinct window_at
     from {{ this }}
     where latitude is null
