@@ -133,7 +133,7 @@ rider-facing, and the gate removes 87% of them. Parallelism 3 turned out to be
 required rather than a tuning choice: at parallelism 2 the job silently lost 59%
 of alerts with a healthy-looking dashboard.
 
-**Prediction accuracy** ([findings §12](docs/findings.md)). A two-stream
+**Prediction accuracy** ([findings §11 and §12](docs/findings.md)). A two-stream
 join keyed on `trip_id` (45.8% of trip updates carry a vehicle, and those are
 the trips that have not started, which is exactly the long-lead-time half the
 analysis needs). Metro's arrival estimates run **pessimistic**: median absolute

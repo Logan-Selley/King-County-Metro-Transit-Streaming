@@ -95,7 +95,8 @@
   <h2>When buses bunch</h2>
   <p>Alerts by hour, as a rate per day, Pacific time. Two buses on the same route and direction within
      1,000 ft, in two consecutive one-minute windows, after the terminal gate. Weekdays and weekends
-     are rates, so five weekdays do not outweigh two weekend days.</p>
+     are each divided by their own number of days, so the more numerous weekdays do not outweigh the
+     weekend.</p>
   <div class="card" style="margin-top:12px">
     <div class="note"><span class="key"><span style="background:var(--warm)"></span>weekday</span>
       <span class="key"><span style="background:var(--accent)"></span>weekend</span></div>
@@ -303,7 +304,8 @@ Promise.all(['kpis.json', 'bunching_by_hour.json', 'routes.json', 'hotspots.geoj
   document.getElementById('gate-finding').innerHTML =
     `<b>Two things happen with the gate off.</b> ${fmt(E.added)} alerts appear, ` +
     `${fmt(E.added_by_cause.terminal || 0)} of them with a bus still in its first three stops, which the gate drops by design. ` +
-    `It also removes ${fmt(E.removed)} alerts. ${fmt(E.removed_min_seq['4+'] || 0)} of them have both buses past ` +
+    `It also removes ${fmt(E.removed)} alerts. ` +
+    `${(E.removed_min_seq['4+'] || 0) === E.removed ? 'All of them' : fmt(E.removed_min_seq['4+'] || 0) + ' of them'} have both buses past ` +
     `their third stop, and ${fmt(E.removed_by_cause.suppressed || 0)} were swallowed by a ten-minute cooldown ` +
     `started by an alert the gate would have dropped. ` +
     `The PM peak's share is ${pct(E.pm_peak_share.gate_on)} with the gate and ${pct(E.pm_peak_share.gate_off)} without.`;

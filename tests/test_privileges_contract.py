@@ -95,9 +95,25 @@ class Session:
             cur.execute("SAVEPOINT probe")
             try:
                 cur.execute(f'SET LOCAL ROLE "{role}"')
+                # GIVE WAY TO THE LIVE WAREHOUSE. Some probes take an exclusive
+                # lock on a live object (DROP TABLE marts.mart_feed_health,
+                # CREATE OR REPLACE VIEW staging.*) until the rollback. On
+                # 2026-09-27 at 16:19:53 one deadlocked with the hourly dbt
+                # build's own tests; Postgres killed this side that time, and
+                # the victim is arbitrary, so it could as well have been the
+                # build or the stall check. 500 ms is under Postgres's 1 s
+                # deadlock_timeout, so this probe gives up before a deadlock can
+                # even be detected, and the live side never has to lose.
+                cur.execute("SET LOCAL lock_timeout = '500ms'")
                 cur.execute(sql, params)
             except psycopg.Error as exc:
                 cur.execute("ROLLBACK TO SAVEPOINT probe")
+                # A lock we could not get says nothing about a privilege, in
+                # either direction: returned, it would pass every "must be
+                # denied" assertion. So it skips, and the run says why.
+                if exc.sqlstate in ("55P03", "40P01"):
+                    pytest.skip(f"live object busy ({exc.sqlstate}), probably the "
+                                f"hourly dbt build: {sql[:60]}")
                 return exc.sqlstate or "unknown"
             cur.execute("ROLLBACK TO SAVEPOINT probe")
             cur.execute("RELEASE SAVEPOINT probe")
