@@ -1389,7 +1389,7 @@ of a baseline alert, shifted by a different cooldown chain; 1 is unexplained.
 By route and stop (the stop the lower-sequence vehicle was at or heading to,
 inside the alert's window). Every number in this section is in
 `site/data/replay.json`, written by `python -m replay.report` from the run of
-2026-09-27; the replay topics themselves expired seven days later.
+2026-09-27; the replay topics themselves expire seven days after a run.
 
 ```
 255     59 added   median gap 0 ft     NE 128th St & I-405 (54), Totem Lake TC Bay 2 (3)

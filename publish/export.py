@@ -1,6 +1,6 @@
 """Marts -> site/data/*.json for the findings site.
 
-    make exports                       # the study window, 2026-09-24..30 Pacific
+    make exports                       # the study window, to the last closed day
     python -m publish.export --first 2026-09-24 --last 2026-09-26
 
 The site is static: GitHub Pages serves site/ as uploaded, with no server and
@@ -15,6 +15,11 @@ THE STUDY WINDOW is Pacific calendar days, 2026-09-24 (Thursday) to 09-30
 (Wednesday): five weekdays and a weekend, starting from the first day the stack
 ran complete. Every file carries the window it was cut from, and the site
 prints it.
+
+A CUT STOPS AT THE LAST CLOSED DAY (closed_window below). The study is a week;
+the days of it that have finished are what a cut can hold. Runs are expected
+while the week is still filling, so the default --last of 09-30 is clamped
+rather than trusted, and once 09-30 is over the clamp does nothing.
 
 OUTPUT CONTRACT (the site reads exactly these; change one and change
 site/index.html with it):
@@ -38,15 +43,21 @@ import os
 import statistics
 import sys
 from collections import Counter, defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "site" / "data"
 
 STUDY_FIRST = date(2026, 9, 24)
 STUDY_LAST = date(2026, 9, 30)
+
+# The calendar every day in this module is on: local_date, minute_local and the
+# study window are all Pacific. Named once, so the clamp and the marts cannot
+# disagree about which "today" is meant.
+PACIFIC = "America/Los_Angeles"
 
 # Phase 3's peak: three hourly bins, 16:00, 17:00 and 18:00 (73 + 96 + 75 = its
 # 244 alerts). Not range(16, 18); see replay/compare.py's experiment().
@@ -62,6 +73,35 @@ def window_days(first: date, last: date) -> list[date]:
     if last < first:
         raise ValueError(f"window ends before it starts: {first} .. {last}")
     return [first + timedelta(days=i) for i in range((last - first).days + 1)]
+
+
+def closed_last(now: datetime | None = None) -> date:
+    """The last day whose data has finished: yesterday, in Pacific time.
+
+    A DAY IS ONLY A RATE ONCE IT HAS ENDED. alerts_per_day divides by the days in
+    the window and days_by_type divides by the weekdays in it, so a window that
+    reaches into today, or past it, counts days holding nothing. Cut on
+    2026-09-27, the study window reports a three-day total as a seven-day rate:
+    213.9 alerts a day instead of 498.7, with the page printing "7 days" over
+    three days of data.
+    """
+    stamp = now or datetime.now(timezone.utc)
+    return stamp.astimezone(ZoneInfo(PACIFIC)).date() - timedelta(days=1)
+
+
+def closed_window(first: date, last: date,
+                  now: datetime | None = None) -> tuple[date, date]:
+    """[first, last] with its end clamped to the last closed Pacific day.
+
+    The study window stays what it is; this says how much of it exists to cut. A
+    window starting after the last closed day is an error rather than an empty
+    cut, because "no days yet" is not a snapshot.
+    """
+    closed = closed_last(now)
+    if first > closed:
+        raise ValueError(f"nothing closed to cut: {first} .. {last}, the last "
+                         f"closed day is {closed}")
+    return first, min(last, closed)
 
 
 def day_type(d: date) -> str:
@@ -391,20 +431,29 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--first", type=date.fromisoformat, default=STUDY_FIRST)
     ap.add_argument("--last", type=date.fromisoformat, default=STUDY_LAST)
     args = ap.parse_args(argv)
-    days = window_days(args.first, args.last)
+    try:
+        first, last = closed_window(args.first, args.last)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from None
+    if last != args.last:
+        # Said out loud, because every file records the window it was cut from:
+        # a request for the study week that produced three days should not look
+        # like a cut that was asked for.
+        print(f"  --last {args.last} has not finished; cutting to {last}")
+    days = window_days(first, last)
     OUT.mkdir(parents=True, exist_ok=True)
 
-    alerts = load_alerts(args.first, args.last)
-    health = feed_health_by_day(load_feed_health(args.first, args.last))
-    curve = prediction_curve(*load_prediction_intermediates(args.first, args.last))
+    alerts = load_alerts(first, last)
+    health = feed_health_by_day(load_feed_health(first, last))
+    curve = prediction_curve(*load_prediction_intermediates(first, last))
 
     written = [
-        write("bunching_by_hour.json", alerts_by_hour(alerts, days), args.first, args.last),
-        write("routes.json", route_ranking(alerts, days), args.first, args.last),
-        write("hotspots.geojson", hotspots(alerts), args.first, args.last),
-        write("prediction_curve.json", curve, args.first, args.last),
-        write("feed_health.json", health, args.first, args.last),
-        write("kpis.json", kpis(alerts, health, curve, days), args.first, args.last),
+        write("bunching_by_hour.json", alerts_by_hour(alerts, days), first, last),
+        write("routes.json", route_ranking(alerts, days), first, last),
+        write("hotspots.geojson", hotspots(alerts), first, last),
+        write("prediction_curve.json", curve, first, last),
+        write("feed_health.json", health, first, last),
+        write("kpis.json", kpis(alerts, health, curve, days), first, last),
     ]
     for p in written:
         print(f"  {p.relative_to(ROOT)}  {p.stat().st_size:,} bytes")

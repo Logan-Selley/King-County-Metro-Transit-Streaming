@@ -74,11 +74,34 @@ restart as (
 ),
 {% endif %}
 
+{% if is_incremental() %}
+unplaced as (
+
+    -- AN ALERT BUILT BEFORE ITS POSITIONS LANDED IS RETRIED. Positions and
+    -- alerts arrive through separate connectors, so if the positions sink
+    -- falls behind, a build can place an alert with nothing to place it by,
+    -- and the lookback above would never revisit it. These rows are rebuilt
+    -- until they are placed. Two days, because an alert raised while the feed
+    -- was silent can never be placed, and unbounded those rows would be
+    -- retried every hour forever; a sink down longer than that wants a
+    -- --full-refresh anyway. Normally this is empty: 2,719 of 2,719 live
+    -- alerts were placed on 2026-09-27.
+    select distinct window_at
+    from {{ this }}
+    where latitude is null
+      and window_at >= (select max(window_at) from {{ this }}) - interval '2 days'
+
+),
+{% endif %}
+
 alerts as (
 
     select * from {{ ref('stg_bunching_alerts') }}
     {% if is_incremental() %}
+    -- delete+insert on window_at replaces every alert sharing a retried
+    -- window_at, and this selects all of them again, so no neighbour is lost.
     where window_at >= (select from_at from restart)
+       or window_at in (select window_at from unplaced)
     {% endif %}
 
 ),

@@ -869,7 +869,7 @@ replay-compare:  ## Fidelity or experiment report (MODE=fidelity|experiment STAR
 
 EXPORT_WINDOW ?=
 
-exports:  ## Cut site/data/ from the marts (EXPORT_WINDOW="--first 2026-09-24 --last 2026-09-30")
+exports:  ## Cut site/data/ from the marts, clamped to the last closed day (EXPORT_WINDOW="--first 2026-09-24 --last 2026-09-30")
 	@$(ENV) $(PY) -m publish.export $(EXPORT_WINDOW)
 
 og-card:  ## Render site/og-card.png from site/data with headless Chromium

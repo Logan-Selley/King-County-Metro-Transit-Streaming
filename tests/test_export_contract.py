@@ -6,13 +6,15 @@ Every input is a plain dict shaped like the loader's rows, so nothing here needs
 a warehouse. The numbers are small and hand-checkable on purpose.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 import pytest
 
 from publish.export import (
     PM_PEAK_HOURS,
     alerts_by_hour,
+    closed_last,
+    closed_window,
     days_by_type,
     feed_health_by_day,
     hotspots,
@@ -45,6 +47,34 @@ def test_the_study_week_is_five_weekdays_and_a_weekend():
 def test_a_backwards_window_is_refused():
     with pytest.raises(ValueError):
         window_days(date(2026, 9, 30), date(2026, 9, 24))
+
+
+def test_the_last_closed_day_is_yesterday_in_pacific_time():
+    # 05:00 UTC on the 27th is 22:00 PDT on the 26th, so the 26th is still
+    # today and the last closed day is the 25th.
+    assert closed_last(datetime(2026, 9, 27, 5, 0, tzinfo=timezone.utc)) == date(2026, 9, 25)
+    # 08:00 UTC is 01:00 PDT on the 27th: the 26th has ended.
+    assert closed_last(datetime(2026, 9, 27, 8, 0, tzinfo=timezone.utc)) == date(2026, 9, 26)
+    assert closed_last(datetime(2026, 9, 28, 7, 30, tzinfo=timezone.utc)) == date(2026, 9, 27)
+
+
+def test_the_study_week_is_clamped_to_the_days_that_have_finished():
+    """Cut on 2026-09-27: three days have finished. Unclamped, those three days
+    are divided by seven, so the page prints "7 days" over three days of data
+    and 213.9 alerts a day where the answer is 498.7."""
+    now = datetime(2026, 9, 27, 20, 0, tzinfo=timezone.utc)          # 13:00 PDT
+    assert closed_window(date(2026, 9, 24), date(2026, 9, 30), now) == (
+        date(2026, 9, 24), date(2026, 9, 26))
+    # Once the week is over the clamp does nothing: the study window IS the cut.
+    later = datetime(2026, 10, 2, 20, 0, tzinfo=timezone.utc)
+    assert closed_window(date(2026, 9, 24), date(2026, 9, 30), later) == (
+        date(2026, 9, 24), date(2026, 9, 30))
+
+
+def test_a_window_that_has_not_started_is_refused():
+    now = datetime(2026, 9, 27, 20, 0, tzinfo=timezone.utc)
+    with pytest.raises(ValueError):
+        closed_window(date(2026, 9, 29), date(2026, 9, 30), now)
 
 
 # --- alerts_by_hour ----------------------------------------------------------
