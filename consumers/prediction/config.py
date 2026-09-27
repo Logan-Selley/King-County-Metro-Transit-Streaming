@@ -12,11 +12,10 @@ rider how much to trust the sign at the stop.
 
 --- why this joins on (trip_id, stop_id) and not on vehicle ---
 
-Phase 0 measured only **45.8% of trip updates carrying a vehicle**, which
-looked fatal for this join and is in fact the whole point. The missing 54%
-are trips that have not started yet, which is exactly the long-lead-time end
-of the curve. Keying on vehicle_id would silently drop the interesting half
-and leave a plausible-looking chart of short-lead predictions.
+Only **45.8% of trip updates carry a vehicle**, and the missing 54% are the
+whole point: they are trips that have not started yet, which is exactly the
+long-lead-time end of the curve. Keying on vehicle_id would silently drop that
+half and leave a plausible-looking chart of short-lead predictions.
 
 `trip_id` overlap between the two feeds was 280/280 = 100%, so the key is
 safe. See findings section 5.
@@ -100,17 +99,15 @@ class PredictionConfig:
     # 2.8% of raw predictions have a NEGATIVE lead: the predicted time is
     # already behind the moment the prediction was issued.
     #
-    # CORRECTED 2026-09-22. This comment used to justify keeping all of them
-    # as "the sign said 3 minutes ago", a real rider experience. Joined
-    # against observed arrivals, 99.5% of them were issued AFTER the bus had
-    # already arrived: not a late bus the sign lags behind, but a bus that
-    # came and went while the feed restated its time. accuracy_record now
-    # drops every prediction issued at or after the arrival, which removes
-    # those, and "past" falls from 26,042 records to 135.
+    # Joined against observed arrivals, 99.5% of them were issued AFTER the bus
+    # had already arrived: not a late bus the sign lags behind, but a bus that
+    # came and went while the feed restated its time. accuracy_record drops
+    # every prediction issued at or after the arrival, which removes those, and
+    # "past" falls from 26,042 records to 135.
     #
-    # The 135 left are the case the old comment described: issued before the
-    # arrival, predicting a time that had already passed, for a bus that then
-    # turned up even later. Those are kept.
+    # The 135 left are the case worth keeping: issued before the arrival,
+    # predicting a time that had already passed, for a bus that then turned up
+    # even later. Those are kept.
     keep_negative_lead: bool = True
 
 
@@ -144,7 +141,7 @@ LEAD_BUCKET_LABELS = (
 )
 
 
-# The exit criterion for 3F, stated as a shape rather than a number.
+# The expected result, stated as a shape rather than a number.
 #
 # A credible result has |error| rising monotonically with lead time. If the
 # 30-minute bucket is no worse than the 2-minute bucket, the join is matching

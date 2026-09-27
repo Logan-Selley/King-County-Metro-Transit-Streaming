@@ -1,1 +1,1 @@
-"""Phase 3: windowed bunching detection (PyFlink). See ADR 0006."""
+"""Windowed bunching detection over enriched.vehicle_positions (PyFlink). See ADR 0006."""

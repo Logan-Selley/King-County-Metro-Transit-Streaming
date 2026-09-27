@@ -294,8 +294,7 @@ class ReferenceData:
     def locate_on_shape(self, shape_id: str, lon: float, lat: float) -> float | None:
         """Distance along the trip's shape for a position, in feed units.
 
-        This is the linear referencing that makes schedule deviation possible,
-        and it is the substantive spatial work in the project.
+        This is the linear referencing that makes schedule deviation possible.
 
         shapely's LineString.project() returns distance along the line in the
         line's own coordinate units -- which here are DEGREES, because the

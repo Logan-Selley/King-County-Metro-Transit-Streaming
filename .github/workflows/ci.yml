@@ -27,30 +27,21 @@
 #
 # --- WHAT THIS FILE CHECKS, AND WHAT IT DELIBERATELY DOES NOT ----------------
 #
-# FIRST, THE STATE OF IT (2026-09-25): CI has still run exactly once, on the
-# init commit, where it failed at collection (ModuleNotFoundError: producer).
-# Phases 1-5 are uncommitted, so nothing below has been seen by a runner yet.
-# Every step is a make target and has been replayed locally, including the
-# platform job's steps, but a runner has its own surprises, and the README badge
-# reports what a runner says rather than what this comment says.
-#
-# 5A IS DONE (2026-09-24), and the detail moved where the code is. The validate
-# job now checks all six initdb files, both terraform roots and the DAG imports;
-# a second `dbt` job builds against the committed fixture slice. Each step is a
-# make target for one reason: a step that lives only in this file cannot be run
-# before it is pushed, and both of the ones below were wrong when run locally.
-# Read them there:
+# The validate job checks all six initdb files, both terraform roots and the DAG
+# imports; a second `dbt` job builds against the committed fixture slice. Each
+# step is a make target for one reason: a step that lives only in this file
+# cannot be run before it is pushed. Read them there:
 #
 #   * make ci-ddl    docker/initdb in order, then both maintenance functions on
 #                    tables that survive 06, against a throwaway PostGIS. It
 #                    also waits for the postgis image's own init to finish,
-#                    which pg_isready does not report and which made the
-#                    scaffold's version of this step race CREATE EXTENSION.
+#                    which pg_isready does not report and which otherwise
+#                    races CREATE EXTENSION.
 #   * make ci-load   the fixtures into raw.*, then their counts against MANIFEST
 #   * make ci-dbt    the two above, then dbt build --vars require_fixture:true
 #   * make tf-check  fmt -check + validate, both roots, no credentials needed
 #
-# 5E. `make ci-platform`, run by the `platform` job: the clean-clone exit
+# `make ci-platform`, run by the `platform` job: the clean-clone exit
 #   criterion, proven here rather than asserted in the README. From a checkout
 #   with no .env, it brings up redpanda, warehouse and minio (no Flink, no
 #   Airflow: nothing in the job needs them), applies both Terraform roots with
@@ -68,8 +59,8 @@
 #   real broker and a real object store, so the argument points the other way.
 #   That is why they are separate jobs: `validate` and `dbt` stay broker-free
 #   and run on every push, and `platform` takes the minutes a stack costs.
-#   Measured while building this: `make sink-roundtrip` against the local stack
-#   produced one file and the row was visible on the first probe.
+#   Measured: `make sink-roundtrip` against the local stack produced one file
+#   and the row was visible on the first probe.
 
 name: CI
 
@@ -119,19 +110,15 @@ jobs:
         # point in the job because the compose stack starts further down.
         #
         # `wip` is the escape hatch for a spec written ahead of its
-        # implementation. No suite carries it now -- the Phase 3 detector was
-        # promoted to `contract` on 2026-09-21, and the privilege suite on
-        # 2026-09-25 -- but the marker stays, because excluding by marker rather
+        # implementation. The marker stays, because excluding by marker rather
         # than by filename makes promoting a suite into CI a one-line edit in
         # the suite itself, not a change here that someone has to remember.
         #
-        # Excluding ALL contract tests was the previous setting and it hid a
-        # real break: `make test` uses `python -m pytest`, which puts CWD on
-        # sys.path, while this step uses the console script, which does not.
-        # CI failed at COLLECTION with ModuleNotFoundError on `producer` and
-        # `consumers` while make stayed green, so the two contract suites ran
-        # nowhere but locally. `pythonpath` in pyproject.toml fixes the cause;
-        # running them here is what would have caught it.
+        # `make test` uses `python -m pytest`, which puts CWD on sys.path, while
+        # this step uses the console script, which does not, so `pythonpath` in
+        # pyproject.toml is what makes both invocations resolve imports the same
+        # way. Running the contract suites here as well as under `make contract`
+        # is what catches that difference.
         run: uv run pytest tests/ -v -m 'not wip'
 
       - name: Recon instrument imports and parses its CLI
@@ -148,20 +135,16 @@ jobs:
 
       - name: Warehouse DDL is valid Postgres
         # One `make` target rather than inline shell, so this step can be run on
-        # a laptop before it is pushed. That is not a style preference: running
-        # it locally is how the race below was found.
+        # a laptop before it is pushed.
         #
         # It applies ALL SIX docker/initdb files in order and then calls both
-        # maintenance functions on tables that survive 06. The previous version
-        # applied 01 only and called them on raw.vehicle_positions, which
-        # 06-drop-unsunk-raw.sql drops -- so it would have failed on the first
-        # push that included 06.
+        # maintenance functions on tables that survive 06.
         #
         # The race: postgis/postgis runs its initdb scripts against a TEMPORARY
         # server, and pg_isready answers during that phase, so a two-second wait
         # lets the apply collide with the image's own CREATE EXTENSION postgis
         # ("duplicate key value violates unique constraint
-        # pg_extension_name_index"). Measured here. `make ci-ddl` waits for the
+        # pg_extension_name_index"). Measured. `make ci-ddl` waits for the
         # extension to be visible instead.
         run: make ci-ddl
 
@@ -213,11 +196,6 @@ jobs:
         # This is also why require_fixture matters: without the var,
         # dbt/tests/fixture_is_loaded.sql is disabled and a load that silently
         # produced nothing would pass.
-        #
-        # Rehearsed locally on 2026-09-24, again after 5B, and again on
-        # 2026-09-25 after the 5C credential switch (DBT_USER matters here: the
-        # step passed POSTGRES_USER for a day and failed on `Env var required but
-        # not provided: 'DBT_USER'`). 48 PASS of 48, which is what this prints.
         run: make ci-dbt
 
   platform:
@@ -239,9 +217,8 @@ jobs:
       - name: Install (locked)
         # ci-platform is not only docker: `schema-register-sinks` and
         # `sink-roundtrip` run in the project venv (.venv/bin/python), which a
-        # fresh checkout does not have. The first version of this job had no
-        # such step and would have died at the schema registration, after the
-        # stack and the core root were already up.
+        # fresh checkout does not have, so the install has to happen before the
+        # stack comes up.
         run: uv sync --frozen
 
       - name: Data directories, owned by the uids the services run as
@@ -252,10 +229,10 @@ jobs:
         # same target a new machine runs; the runner has passwordless sudo.
         run: make dirs
 
-      - name: The clean-clone path (see the 5E note in the header)
-        # One make target, for the same reason `make ci-dbt` is: it can be
-        # rehearsed locally, and a failure on a runner is reproducible rather
-        # than something to diagnose by pushing again.
+      - name: The clean-clone path
+        # One make target, for the same reason `make ci-dbt` is: a failure on a
+        # runner is reproducible rather than something to diagnose by pushing
+        # again.
         run: make ci-platform
 
       - name: On failure, what the stack looked like

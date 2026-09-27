@@ -21,11 +21,10 @@ consumers.enrichment; the interface is Kafka on both sides.
 
 --- why event time, and what the watermark is actually for ---
 
-This is the first thing in the project that cannot be done correctly in
-processing time.
+Processing time is not correct here.
 
 Vehicles go through tunnels and dead zones and then report a burst of stale
-positions -- the proposal flagged it in section 5, and Phase 1 measured gaps
+positions -- the proposal flagged it in section 5, and the feed shows gaps
 up to 65s between archived payloads across 24 hours. If the detector windows
 on arrival time, a bus that was quiet for two minutes and then dumps six
 positions looks like six vehicles in one window, all bunched with each other.
@@ -81,11 +80,11 @@ log = logging.getLogger("bunching")
 BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_INTERNAL", "redpanda:9092")
 
 # WHERE THIS RUN READS AND WRITES, resolved once at startup. Every topic, group
-# and gate below comes from here rather than from the constants, so a Phase 6
-# replay cannot half-apply: reading the replay topic while writing the live one
-# is the failure this indirection exists to make impossible. With no replay
-# variables set, run_settings returns exactly the live wiring, which is the case
-# that must not change (tests/test_replay_contract.py pins both).
+# and gate below comes from here rather than from the constants, so a replay
+# cannot half-apply: reading the replay topic while writing the live one is the
+# failure this indirection exists to make impossible. With no replay variables
+# set, run_settings returns exactly the live wiring, which is the case that must
+# not change (tests/test_replay_contract.py pins both).
 SETTINGS = run_settings(os.environ)
 log.info("run %s: %s -> %s (group %s, bounded=%s, gate=%s)",
          SETTINGS.job_name, SETTINGS.source_topic, SETTINGS.sink_topic,
@@ -151,10 +150,11 @@ def build_env() -> StreamExecutionEnvironment:
 def watermark_strategy() -> WatermarkStrategy:
     """Bounded out-of-orderness on event time.
 
-    `allowed_lateness_s` (120s) is sized from measurement, not taste: Phase 1
-    saw a 65s maximum inter-payload gap, and stale bursts after a tunnel run
-    to minutes. Too tight and real positions get dropped; too loose and every
-    window waits on a straggler that may never come.
+    `allowed_lateness_s` is sized from measurement, not taste: stale bursts
+    after a tunnel run to minutes, and the event-time skew of reading several
+    partitions through one watermark dominates it (CONFIG.allowed_lateness_s
+    carries the distribution). Too tight and real positions get dropped; too
+    loose and every window waits on a straggler that may never come.
 
     The timestamp assigner reads `position_timestamp` -- the GPS fix time --
     which is the whole point. See the module docstring.
@@ -182,26 +182,23 @@ def watermark_strategy() -> WatermarkStrategy:
     looks like when no record has a real timestamp at all.
 
     So the assigner has to go after the last Python operator, which means
-    giving up per-split watermarking. That cost is permanent, and an earlier
-    version of this docstring got its size badly wrong.
+    giving up per-split watermarking. That cost is permanent.
 
-    It claimed the 23.4% late-drop rate seen on replay was a catch-up
-    artifact that would "collapse to the within-partition 38s" once the job
-    was tailing the live topic. Measured over an evening of steady state:
+    Measured over an evening of steady state, the late-drop rate is not a
+    catch-up artifact:
 
         649,949 records into the window
         193,364 dropped as late                     29.75%
 
-    Worse than replay, not better. The reasoning was wrong about the cause:
-    three partitions do not advance in lockstep just because the job has
+    Three partitions do not advance in lockstep just because the job has
     caught up, because the enrichment consumer fills them in bursts. The
     disorder is still not in the DATA -- within any single partition the
     same records never exceed 111s -- but the interleaving the job sees is
     real and permanent, so the bound has to cover it.
 
     CONFIG.allowed_lateness_s carries the distribution it was sized from.
-    The lesson worth keeping: a watermark bound has to be measured where the
-    watermark is computed, not where the data is produced.
+    A watermark bound has to be measured where the watermark is computed,
+    not where the data is produced.
     """
     return (
         WatermarkStrategy
@@ -214,12 +211,11 @@ def kafka_source() -> KafkaSource:
     """Source over enriched.vehicle_positions.
 
     COMMITTED OFFSETS, falling back to earliest only on a genuinely new group.
-    This docstring described that behaviour for a while before the code did:
-    the call was `.earliest()`, which IGNORES the group's committed offsets, so
-    every boot replayed the topic's whole 7-day retention into alerts.bunching.
-    Measured: four replays in a single day. The warehouse's upsert collapsed the
-    duplicates that reached it, but the topic kept every one of them, and each
-    boot paid for a full replay.
+    The call is deliberately not `.earliest()`, which IGNORES the group's
+    committed offsets: every boot would replay the topic's whole 7-day
+    retention into alerts.bunching (measured: four replays in a single day).
+    The warehouse's upsert collapses the duplicates that reach it, but the
+    topic keeps every one of them, and each boot pays for a full replay.
 
     The restart trade is unchanged and still deliberate: a group with no commits
     starts at earliest, and the per-pair window state refills within minutes, so
@@ -227,12 +223,11 @@ def kafka_source() -> KafkaSource:
     docker/flink-submit.sh, which explains why checkpoint restore is left manual.
 
     BYTES, not SimpleStringSchema. The topic carries Confluent-framed
-    protobuf; it held JSON only during the Phase 2 placeholder era, and an
-    earlier version of this file was written against that. SimpleStringSchema
-    does not fail on protobuf -- Java's `new String(bytes, charset)`
-    substitutes U+FFFD for anything undecodable -- so the wrong deserializer
-    produces a healthy job emitting garbage. decode.py turns the bytes into a
-    dict; see its docstring for why it does not use ProtobufDeserializer.
+    protobuf. SimpleStringSchema does not fail on protobuf -- Java's
+    `new String(bytes, charset)` substitutes U+FFFD for anything undecodable
+    -- so the wrong deserializer produces a healthy job emitting garbage.
+    decode.py turns the bytes into a dict; see its docstring for why it does
+    not use ProtobufDeserializer.
     """
     builder = (
         KafkaSource.builder()
@@ -244,7 +239,7 @@ def kafka_source() -> KafkaSource:
                 KafkaOffsetResetStrategy.EARLIEST))
         # Offsets are committed only for the live job, which resumes from them.
         # A replay has nothing to resume, and its group would be one more
-        # abandoned group in `rpk group list` (the Phase 5 lag-check finding).
+        # abandoned group in `rpk group list` (the lag-check finding).
         .set_property("commit.offsets.on.checkpoint",
                       "true" if SETTINGS.commit_offsets else "false")
         .set_value_only_deserializer(ByteArraySchema())
@@ -256,13 +251,12 @@ def kafka_source() -> KafkaSource:
     # windows close. The live job must never finish, so it stays
     # CONTINUOUS_UNBOUNDED and nothing is set for it.
     #
-    # This was `set_bounded(SETTINGS.bounded)` until 2026-09-26, which raised
-    # AttributeError on `_j_initializer` for BOTH runs. The live job passed
-    # False, so a JobManager restart, `make resume` or a reboot would have
-    # resubmitted this code and stopped bunching alerts. The contract suite
-    # cannot catch it: PyFlink is not in the venv the tests run in, so nothing
-    # there ever builds a source. `make bunching-source-check` builds both in
-    # the image that runs them.
+    # Passing a bool here raises AttributeError on `_j_initializer`, and the
+    # live job passing False would stop bunching alerts on the next JobManager
+    # restart, `make resume` or reboot. The contract suite cannot catch it:
+    # PyFlink is not in the venv the tests run in, so nothing there ever builds
+    # a source. `make bunching-source-check` builds both in the image that runs
+    # them.
     if SETTINGS.bounded:
         builder = builder.set_bounded(KafkaOffsetsInitializer.latest())
     return builder.build()
@@ -275,8 +269,8 @@ def kafka_sink() -> KafkaSink:
     compacted view could keep the latest state per route if one is ever
     wanted. `make topics` owns the topic's config; this only writes to it.
 
-    BYTES, not SimpleStringSchema, since 4B. The records carry Confluent
-    framing now (consumers/framing.py) so the JDBC sink can read them, and a
+    BYTES, not SimpleStringSchema. The records carry Confluent framing
+    (consumers/framing.py) so the JDBC sink can read them, and a
     framed record is bytes rather than text: the first five are a magic byte and
     a schema id, which Java's String(bytes, charset) would replace with U+FFFD.
     The same trap the SOURCE docstring describes, pointing the other way.

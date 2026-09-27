@@ -1,6 +1,6 @@
 """Hourly dbt: source freshness, then build.
 
-WHY DockerOperator (the parcel project's reasoning, which still holds):
+WHY DockerOperator:
 Airflow and dbt pin overlapping libraries differently, so they never share an
 interpreter. This DAG decides WHAT runs and WHEN; the transit-dbt image
 (docker/Dockerfile.dbt) owns HOW. Airflow could be swapped for cron without
@@ -44,7 +44,7 @@ def dbt(task_id: str, command: str) -> DockerOperator:
             "DBT_PROFILES_DIR": "/dbt",
             "DBT_HOST": "warehouse",
             "DBT_PORT": "5432",
-            # dbt_transform, not the superuser (build step 5C). It reads raw.* and
+            # dbt_transform, not the superuser. It reads raw.* and
             # static.*, owns staging.* and marts.*, and cannot drop a landing
             # table. The names match dbt/profiles.yml and the Makefile's DBT_RUN,
             # because all three start the same container.

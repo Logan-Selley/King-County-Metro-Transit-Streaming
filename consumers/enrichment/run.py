@@ -50,8 +50,7 @@ from producer.publish import TopicPublisher
 log = logging.getLogger("enrichment")
 
 # The live defaults. settings_from_args uses these when --source, --target, --dlq
-# or --group is absent, which is how the live path keeps running exactly what it
-# ran before Phase 6C.
+# or --group is absent, so a run that names none of them is the live consumer.
 SOURCE_TOPIC = "raw.vehicle_positions"
 TARGET_TOPIC = "enriched.vehicle_positions"
 DLQ_TOPIC = "dlq.vehicle_positions"
@@ -88,8 +87,8 @@ def _handle_signal(signum, _frame) -> None:
 def dsn() -> str:
     """The warehouse connection, as the enrichment role rather than the superuser.
 
-    Its own role since build step 5C: it reads static.* and nothing else, and
-    never reads raw.* from Postgres at all, because its source is the raw topic.
+    That role reads static.* and nothing else, and never reads raw.* from
+    Postgres at all, because its source is the raw topic.
     """
     return (
         f"host={os.environ.get('WAREHOUSE_HOST', 'localhost')} "
@@ -100,9 +99,9 @@ def dsn() -> str:
     )
 
 
-# --- how a run is wired: live, or a Phase 6 replay ----------------------------
+# --- how a run is wired: live, or a replay ------------------------------------
 #
-# Phase 6 replays archived payloads through this same consumer, so the four
+# A replay runs archived payloads through this same consumer, so the four
 # names it reads and writes and the group it commits under have to be
 # overridable. The defaults are the live ones, and a run may not mix: reading
 # the replay topic while writing the live enriched topic would push replayed
@@ -149,14 +148,14 @@ def _cli() -> argparse.ArgumentParser:
     ap.add_argument("--status", action="store_true", help="show version + schema state, exit")
     ap.add_argument("--dry-run", action="store_true", help="enrich but publish nothing")
     ap.add_argument("--schema-version", type=int, choices=(1, 2), default=1,
-                    help="1 = static join, 2 = + spatial (Phase 2D)")
+                    help="1 = static join, 2 = + spatial")
     ap.add_argument("--from-beginning", action="store_true",
                     help="start at the earliest offset if the group has none")
     ap.add_argument("--batch", type=int, default=500, help="records per commit")
     ap.add_argument("--report-every", type=float, default=60.0)
     ap.add_argument("-v", "--verbose", action="store_true")
-    # Phase 6. Defaults are the live wiring, so a run that names none of these
-    # is byte-for-byte the consumer Phases 2-5 ran.
+    # Replay wiring. Defaults are the live wiring, so a run that names none of
+    # these is the live consumer.
     ap.add_argument("--source", default=SOURCE_TOPIC)
     ap.add_argument("--target", default=TARGET_TOPIC)
     ap.add_argument("--dlq", default=DLQ_TOPIC)

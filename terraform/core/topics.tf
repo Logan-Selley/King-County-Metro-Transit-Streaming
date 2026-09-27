@@ -1,13 +1,11 @@
-# Topics. Build step 5B. All twelve, each with the reason for its numbers
+# Topics. All twelve, each with the reason for its numbers
 # next to them; the contract is in tests/test_platform_contract.py.
 #
-# WHY TERRAFORM OWNS THESE NOW. `make topics` ran `rpk topic create`, which is
-# a no-op on a topic that already exists and does not apply config either.
-# The Makefile had to grow a second block of `rpk topic alter-config` calls
-# after 4B, because the re-framing migration recreated two topics and they
-# silently lost their 30-day retention. Nothing reported the drift. A plan
-# does: measured on a throwaway topic, a retention changed behind
-# Terraform's back showed up as `~ "retention.ms" = "60000" -> "7200000"`.
+# WHY TERRAFORM OWNS THESE. `rpk topic create` is a no-op on a topic that
+# already exists and applies no config either, and a topic recreated by a
+# migration silently loses its retention. Nothing reports that drift; a plan
+# does: measured on a throwaway topic, a retention changed behind Terraform's
+# back showed up as `~ "retention.ms" = "60000" -> "7200000"`.
 #
 # THE ONE THING TO KNOW BEFORE EDITING A PARTITION COUNT. Measured, plan only,
 # against the real raw.vehicle_positions:
@@ -32,8 +30,8 @@
 # --- worked example ---------------------------------------------------------
 
 import {
-  # See the adopt_existing variable. Every topic that exists on this machine
-  # already needs one of these; on a clean stack none of them runs.
+  # See the adopt_existing variable. Every topic that already exists needs one
+  # of these; on a clean stack none of them runs.
   for_each = var.adopt_existing ? toset(["raw.vehicle_positions"]) : toset([])
   to       = kafka_topic.raw_vehicle_positions
   id       = each.value
@@ -64,8 +62,7 @@ resource "kafka_topic" "raw_vehicle_positions" {
 # --- the other eleven ---------------------------------------------------------
 #
 # Same shape as the example for each: an import block gated on adopt_existing,
-# then the resource with the reason for its numbers sitting next to them. Those
-# reasons used to live in the Makefile's `make topics`; this file replaces it.
+# then the resource with the reason for its numbers sitting next to them.
 #
 # PARTITION COUNTS ARE NOT THROUGHPUT-DRIVEN. At these volumes one partition
 # would keep up. They exist so consumer-group rebalancing and per-key ordering
@@ -169,10 +166,9 @@ import {
 resource "kafka_topic" "alerts_bunching" {
   name = "alerts.bunching"
 
-  # The detector's output, and the 4B lesson lives here: this topic's retention
-  # was silently lost once when a migration recreated it, because `rpk topic
-  # create` is a no-op on an existing topic and applies no config. A plan would
-  # have shown it.
+  # The detector's output. A migration that recreates this topic loses its
+  # retention silently, because `rpk topic create` is a no-op on an existing
+  # topic and applies no config; a plan is what shows it.
   #
   # One partition, keyed by route: alerts for one route stay ordered, and there
   # are a few thousand of them a day.
@@ -200,8 +196,8 @@ import {
 resource "kafka_topic" "analytics_prediction_accuracy" {
   name = "analytics.prediction_accuracy"
 
-  # Phase 3F's output: one record per (prediction, observed arrival) pair, ~1.3M
-  # of them from a day of the live stack. Three partitions because the analysis
+  # The prediction-accuracy output: one record per (prediction, observed
+  # arrival) pair, ~1.3M of them from a day of the live stack. Three partitions because the analysis
   # groups by lead-time bucket and route rather than reading in order, so per-key
   # ordering buys nothing here and the consumer's parallelism can use all three.
   partitions         = 3

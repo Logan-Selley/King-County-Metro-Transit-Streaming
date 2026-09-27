@@ -9,14 +9,13 @@ ValueState round-trip and the TTL, which are the parts that need a cluster.
     make prediction
     make flink-ui            # http://localhost:8086
 
-accuracy.py holds the measurement and its 48-case spec runs in CI; this file
-holds only what needs a cluster. Every trap in the wiring here had already
-been paid for by the bunching job, and the list below is that debt.
+accuracy.py holds the measurement and its spec runs in CI; this file holds
+only what needs a cluster. The wiring traps below are inherited from
+consumers/bunching/job.py.
 
 --- what this inherits from bunching, unchanged ---
 
-Four things were learned the hard way in consumers/bunching/job.py and are
-applied here without rediscovering them:
+Four things consumers/bunching/job.py pinned down are applied here too:
 
   1. BYTES from Kafka, never SimpleStringSchema on the protobuf topic. Java's
      String(bytes, charset) substitutes U+FFFD rather than failing, so the
@@ -34,8 +33,8 @@ applied here without rediscovering them:
   4. --pyFiles /opt/jobs on submit, or `from consumers...` fails with
      ModuleNotFoundError despite the code being mounted.
 
-The new problem here is (3) applied to TWO topics with DIFFERENT partition
-counts. See build_pipeline.
+The additional problem here is (3) applied to TWO topics with DIFFERENT
+partition counts. See build_pipeline.
 """
 
 from __future__ import annotations
@@ -204,7 +203,7 @@ def kafka_sink() -> KafkaSink:
     conflict that put this job in its own image in the first place. The schema
     this one carries is a registered JSON Schema, so nothing about that changes.
 
-    BYTES since 4B, with Confluent framing in front of the JSON
+    BYTES, with Confluent framing in front of the JSON
     (consumers/framing.py) so the JDBC sink can read it.
     """
     return (

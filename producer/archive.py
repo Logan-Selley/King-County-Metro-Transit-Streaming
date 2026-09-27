@@ -5,14 +5,13 @@ ordering is the whole point and it is easy to get backwards.
 
 Store decoded records and you have a log of what your current decoder
 believed. Store raw bytes and you can re-run a *changed* decoder over real
-history -- which is the Phase 6 replay demo, and the difference between "I ran
-Kafka" and "I designed around Kafka". Every bug you fix in decode.py is
+history, which is what the replay reads. Every bug you fix in decode.py is
 retroactively fixable against the archive; none of them are if you archive
 after decoding.
 
 It is also the insurance policy. The Terms of Use explicitly reserve King
 County's right to modify or discontinue access without notice. If the feed
-disappears mid-project, the archive is the project.
+disappears, the archive is the only copy of the history.
 """
 
 from __future__ import annotations
@@ -61,7 +60,7 @@ class RawArchive:
         self.bucket = bucket or os.environ.get("RAW_BUCKET", "transit-raw")
         self._client = Minio(
             endpoint or os.environ.get("MINIO_ENDPOINT", "localhost:9000"),
-            # archive_writer's credentials (build step 5C), not the MinIO root.
+            # archive_writer's credentials, not the MinIO root.
             # Its policy allows ListBucket on the bucket and PutObject under
             # raw/, so the producer cannot read an object back, let alone touch
             # flink-checkpoints/.
@@ -171,8 +170,8 @@ class RawArchive:
     def iter_keys(self, spec: FeedSpec, prefix: str = ""):
         """List archived objects for a feed, oldest first.
 
-        This is the read side of the replay demo: Phase 6 walks these keys and
-        feeds the bytes back through a changed decoder. `prefix` narrows to a
+        This is the read side of the replay: it walks these keys and feeds
+        the bytes back through a changed decoder. `prefix` narrows to a
         time range, e.g. "2026/09/04/08".
         """
         full = f"{spec.archive_prefix}/{prefix}" if prefix else spec.archive_prefix

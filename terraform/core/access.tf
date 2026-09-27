@@ -1,4 +1,4 @@
-# Least privilege. Build step 5C. The executable half is
+# Least privilege. The executable half is
 # tests/test_privileges_contract.py, which logs in as each role against the
 # running warehouse and checks what it can and cannot do.
 #
@@ -178,11 +178,11 @@ resource "postgresql_role" "airflow_ops" {
 #
 # AND A RACE WHEN REFACTORING THESE. Destroying a broad grant REVOKES its
 # privileges, and Terraform sees no dependency between that destroy and the
-# narrower creates replacing it, so the two can run in either order. Measured while
-# splitting "all tables in static" into one resource per table: nine tables got
-# their privileges and `static.stops` did not, because its create landed before the
-# old grant's revoke. A second apply converged, and the end state is stable. On a
-# fresh stack this cannot happen, because everything is a create.
+# narrower creates replacing it, so the two can run in either order. Measured:
+# nine tables got their privileges and `static.stops` did not, because its create
+# landed before the old grant's revoke. A second apply converged, and the end
+# state is stable. On a fresh stack this cannot happen, because everything is a
+# create.
 
 resource "postgresql_grant" "connect_sink_usage" {
   database    = var.warehouse_db
@@ -342,8 +342,7 @@ resource "postgresql_grant" "airflow_ops_marts" {
 # USAGE on raw, and this one is easy to miss: EXECUTE on a function in a schema is
 # unusable without USAGE on that schema, because resolving `raw.ensure_partition`
 # is itself a schema privilege. Without this the functions are granted and every
-# call fails with "permission denied for schema raw", which is what the first run
-# of tests/test_privileges_contract.py reported for all three airflow_ops tests.
+# call fails with "permission denied for schema raw".
 # airflow_ops still gets no table privilege in raw: USAGE lets it name objects
 # there, not read them.
 resource "postgresql_grant" "airflow_ops_raw_usage" {

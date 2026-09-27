@@ -1,5 +1,5 @@
 -- ============================================================================
--- 4B: the two Flink output topics
+-- The two Flink output topics
 -- ============================================================================
 -- raw.bunching_alerts     one row per bunched pair per event-time window
 -- raw.prediction_accuracy one row per (prediction, observed arrival) pair
@@ -10,8 +10,8 @@
 -- (consumers/framing.py, connect/*.json). The table shape is this project's
 -- decision either way, which is why `auto.create=false` on both connectors.
 --
--- THE PRIMARY KEYS ARE THE IDEMPOTENCY GUARANTEE, the same design as Phase 0
--- and the enriched sink. Delivery is at-least-once and a connector restart
+-- THE PRIMARY KEYS ARE THE IDEMPOTENCY GUARANTEE, the same design as
+-- the enriched sink. Delivery is at-least-once and a connector restart
 -- replays from its last committed offset, so both connectors run
 -- insert.mode=upsert on a natural key and a replayed record overwrites itself.
 -- Postgres requires the partition key inside any unique constraint, which is
@@ -96,8 +96,8 @@ CREATE TABLE IF NOT EXISTS raw.prediction_accuracy_default
 -- writes anything, for the reason 03-sink.sql spells out: once the DEFAULT
 -- partition holds rows for a day, Postgres refuses to create that day's
 -- partition, and a connector's first run backfills from the start of the
--- topic. These two have a week of history to backfill because step 4B
--- re-framed records that were already there, so the window matches the
+-- topic. These two have a week of history to backfill because both topics
+-- already held a week of records, so the window matches the
 -- topic's retention rather than starting at today.
 --
 -- Ongoing, transit_partitions creates the next two days daily.

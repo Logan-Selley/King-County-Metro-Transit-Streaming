@@ -1,4 +1,4 @@
-# The core root: topics, the MinIO bucket, and (5C) the least-privilege roles. Everything the rest of the stack needs to exist
+# The core root: topics, the MinIO bucket, and the least-privilege roles. Everything the rest of the stack needs to exist
 # before it starts. ADR 0009 has the scope and what was left out of it.
 #
 # PINNED EXACTLY, not `~>`. Terraform's own version matches the image the
@@ -10,7 +10,7 @@
 #
 # 1.15 IS NOT JUST "LATEST". Two features this root depends on are recent:
 # ephemeral variables (1.10), which keep the admin passwords out of the plan
-# and state, and write-only arguments (1.11), which let 5C set role passwords
+# and state, and write-only arguments (1.11), which let role passwords be set
 # without Terraform ever storing them. Measured on the prototype: a role
 # created with password_wo logged in with its password, and a grep of the
 # state file found the password zero times.
@@ -41,7 +41,7 @@ terraform {
   # machine, and this stack has one of each. It also has an awkward
   # bootstrap: the obvious remote backend here is MinIO, which is one of the
   # things this root creates. Local state holds no credentials (the
-  # variables that carry them are ephemeral, and 5C's passwords are
+  # variables that carry them are ephemeral, and the role passwords are
   # write-only), so the file is no more sensitive than the topic list.
   backend "local" {}
 }

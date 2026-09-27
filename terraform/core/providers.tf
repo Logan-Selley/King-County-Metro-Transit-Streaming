@@ -1,8 +1,8 @@
 # Every endpoint is a COMPOSE SERVICE NAME, because Terraform runs in its own
 # container on transit-stream_default (see the Makefile's TF variable), the
 # same way dbt and the Flink submitter do. localhost would be the Terraform
-# container itself. This is the fourth time the project has met that trap:
-# BOOTSTRAP in the Flink jobs, DBT_HOST, and the submitter's -m flag.
+# container itself, the same trap as BOOTSTRAP in the Flink jobs, DBT_HOST,
+# and the submitter's -m flag.
 
 provider "kafka" {
   bootstrap_servers = [var.kafka_bootstrap]

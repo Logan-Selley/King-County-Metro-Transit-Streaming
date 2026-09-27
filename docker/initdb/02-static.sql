@@ -67,9 +67,8 @@ CREATE INDEX IF NOT EXISTS idx_feed_version_ready
 -- `CREATE TABLE IF NOT EXISTS` is a no-op when the table exists -- it does NOT
 -- reconcile columns. So a column added to the definition above never reaches
 -- a warehouse that already ran this file, and `make migrate` reports success
--- while changing nothing. That is a silent failure, and it bit exactly once:
--- feed_version/feed_start_date/feed_end_date were added to the CREATE above
--- and did not appear in a running database.
+-- while changing nothing: a silent failure. feed_version, feed_start_date and
+-- feed_end_date are in that position until the ALTER below runs.
 --
 -- Every column added after a table's first release needs a line here as well
 -- as in the CREATE. ADD COLUMN IF NOT EXISTS is idempotent, so this stays

@@ -1,9 +1,9 @@
-# The MinIO bucket. Build step 5B.
+# The MinIO bucket.
 #
-# WHY TERRAFORM OWNS IT. docker-compose.yml's one-shot `minio-init` service ran
-# `mc mb --ignore-existing`, which is the same shape as `rpk topic create`:
-# creates if absent, says nothing about configuration. The bucket has
-# configuration worth managing now (the lifecycle below), and one owner for it.
+# WHY TERRAFORM OWNS IT. `mc mb --ignore-existing` creates a bucket if absent
+# and says nothing about configuration, which is the same shape as `rpk topic
+# create`. The bucket has configuration worth managing (the lifecycle below),
+# and one owner for it.
 
 import {
   for_each = var.adopt_existing ? toset([var.raw_bucket]) : toset([])
@@ -26,7 +26,7 @@ resource "minio_s3_bucket" "raw" {
   }
 }
 
-# Abandoned checkpoint directories expire. Build step 5B.
+# Abandoned checkpoint directories expire.
 #
 # THE PROBLEM, measured 2026-09-24: flink-checkpoints/ held 272 MiB across SIX
 # job-id directories while exactly two jobs were running. The other four were

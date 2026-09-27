@@ -1,13 +1,9 @@
 """Phase 6 contract: the replay, specified before it was written.
 
-The executable spec for build steps 6B (re-ingest), 6C (isolation and the gate
-override) and 6D/6E (comparison). Nothing here needs the stack: the archive is a
-fake reader over the committed feed fixtures, the broker is a recording
-publisher, and the comparison runs on synthetic rows shaped like the real ones.
-
-The scaffolding that was given (parse_key, guard_topics, the replay namespace)
-and the implementation written against this spec both run here, and none of it
-needs the stack.
+The executable spec for 6B (re-ingest), 6C (isolation and the gate override) and
+6D/6E (comparison). Nothing here needs the stack: the archive is a fake reader
+over the committed feed fixtures, the broker is a recording publisher, and the
+comparison runs on synthetic rows shaped like the real ones.
 
 Three facts these tests encode were MEASURED, not assumed, on 2026-09-25:
 
@@ -110,7 +106,7 @@ def vp_payload() -> bytes:
 
 
 # =============================================================================
-# 6B. Key parsing and the namespace guard
+# Key parsing and the namespace guard
 # =============================================================================
 
 class TestParseKey:
@@ -143,7 +139,7 @@ class TestGuard:
 
 
 # =============================================================================
-# 6B. yours: FeedSpec.dlq_topic, and process_feed using it
+# FeedSpec.dlq_topic, and process_feed using it
 # =============================================================================
 
 class TestDlqTopic:
@@ -170,7 +166,7 @@ class TestDlqTopic:
 
 
 # =============================================================================
-# 6B. yours: replay_spec
+# replay_spec
 # =============================================================================
 
 class TestReplaySpec:
@@ -188,7 +184,7 @@ class TestReplaySpec:
 
 
 # =============================================================================
-# 6B. yours: ArchiveFetcher
+# ArchiveFetcher
 # =============================================================================
 
 class TestArchiveFetcher:
@@ -234,10 +230,10 @@ class TestArchiveFetcher:
         assert f.exhausted
 
     def test_other_feeds_in_the_window_are_not_replayed(self):
-        """Added in review, 2026-09-26. The live archive holds all three feeds
-        in every hour, and a fetcher that queued them all never reported
-        exhausted for a vehicle-positions replay: its next fetch popped an
-        empty queue. Every real replay would have crashed at the end."""
+        """The live archive holds all three feeds in every hour, and a fetcher
+        that queued them all never reported exhausted for a vehicle-positions
+        replay: its next fetch popped an empty queue. Every real replay would
+        have crashed at the end."""
         objs = self.archive() | {
             key_at(utc(2026, 9, 24, 12, 0, 10), "tu", feed="trip_updates"): b"t",
             key_at(utc(2026, 9, 24, 12, 0, 20), "sa", feed="service_alerts"): b"s",
@@ -268,7 +264,7 @@ class TestArchiveFetcher:
 
 
 # =============================================================================
-# 6B. yours: run_replay
+# run_replay
 # =============================================================================
 
 class TestRunReplay:
@@ -301,7 +297,7 @@ class TestRunReplay:
         assert stats.suppressed >= stats.published > 0
 
     def test_other_feeds_in_the_archive_do_not_stop_the_replay(self):
-        """The crash the review found, end to end: IndexError before the fix."""
+        """The other-feeds crash, end to end: an IndexError on the empty queue."""
         objs = self.objects() | {
             key_at(utc(2026, 9, 24, 12, 0, 10), "tu", feed="trip_updates"): b"t"}
         stats = run_replay(replay_spec(VP),
@@ -320,7 +316,7 @@ class TestRunReplay:
 
 
 # =============================================================================
-# 6C. yours: the detector's wiring, and the gate as a parameter
+# The detector's wiring, and the gate as a parameter
 # =============================================================================
 
 class TestRunSettings:
@@ -421,7 +417,7 @@ class TestGateParameter:
 
 
 # =============================================================================
-# 6C. yours: the enrichment consumer's wiring
+# The enrichment consumer's wiring
 # =============================================================================
 
 class TestEnrichmentSettings:
@@ -470,7 +466,7 @@ class TestReplayMatchesLiveEnrichment:
 
 
 # =============================================================================
-# 6D/6E. yours: the comparison
+# The comparison
 # =============================================================================
 
 class TestNormalize:

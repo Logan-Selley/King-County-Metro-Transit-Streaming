@@ -3,8 +3,7 @@
     make test
     pytest tests/test_sink_framing.py -m contract
 
-Build step 4B. The two Flink output topics are schemaless JSON, and the JDBC
-sink rejects those ("requires records with a non-null Struct value and non-null
+The two Flink output topics are schemaless JSON, and the JDBC sink rejects those ("requires records with a non-null Struct value and non-null
 Struct schema"), so the jobs write Confluent framing and the schemas live in
 schemas/json/. ADR 0008 holds the decision.
 
@@ -36,8 +35,7 @@ SCHEMAS = Path(__file__).resolve().parents[1] / "schemas" / "json"
 #
 # INTEGER epoch seconds, matching what the job now emits: the window end is
 # int(context.window().end / 1000) and parse_record keeps int64 as an int. A
-# float fixture would let a FLOAT64 regression through the type check below,
-# which is the check that exists because that regression happened.
+# float fixture would let a FLOAT64 regression through the type check below.
 WINDOW_END = 1_758_400_000
 LAT, LON = 47.6970, -122.3450
 
@@ -53,7 +51,7 @@ def parsed_position(vehicle_id: str, dist: float) -> dict:
     alert payload: the detector drops anything before stop 4, because buses
     leaving a terminal on a dispatch schedule are a dispatching artifact and not
     bunching a rider would notice. Leaves the field out and this fixture
-    silently stops alerting, which is exactly how it failed the first time.
+    silently stops alerting.
     """
     return {
         "vehicle_id": vehicle_id,
@@ -104,11 +102,10 @@ class TestFraming:
 def assert_types_match(payload: dict, doc: dict) -> None:
     """Every value's Python type has to satisfy the schema's declared type.
 
-    Matching KEYS is not enough, which this test learned the expensive way: the
-    first version of the alert schema declared window_end as `number`, the job
-    emitted a float, and the TimestampConverter refused the record as FLOAT64
-    having written nothing. A schema that says `integer` and a payload that
-    carries `1.0` are two different Connect types.
+    Matching KEYS is not enough: a schema that declares window_end as `number`
+    accepts a float, and the TimestampConverter then refuses the record as
+    FLOAT64 having written nothing. A schema that says `integer` and a payload
+    that carries `1.0` are two different Connect types.
     """
     for field, value in payload.items():
         declared = doc["properties"][field]["type"]

@@ -1,1 +1,1 @@
-"""Static GTFS and spatial reference loading (Phase 2)."""
+"""Static GTFS and spatial reference loading."""

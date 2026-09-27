@@ -4,15 +4,12 @@ Marked `contract`, and skips when no registry is reachable.
 
     make contract-schema
 
-These exist because ADR 0005 originally asserted that removing or renumbering
-an identity field "fails at registration", and that was wrong -- an Avro
-intuition applied to protobuf. Avro resolves by field NAME, protobuf resolves
-by field NUMBER and skips unknowns, so removal and renumbering are
-wire-compatible.
+Avro resolves by field NAME, but protobuf resolves by field NUMBER and skips
+unknowns, so removing or renumbering an identity field is wire-compatible
+rather than a registration failure. ADR 0005's revision is why these exist.
 
-Writing the corrected rule into a doc is not enough. A doc cannot fail. These
-assert the behaviour against the live registry so the correction cannot drift
-back into the comfortable-but-wrong version.
+Writing the rule into a doc is not enough. A doc cannot fail. These assert the
+behaviour against the live registry so it cannot drift.
 """
 
 from __future__ import annotations

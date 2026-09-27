@@ -1,24 +1,13 @@
-"""Executable specification for the producer stubs.
+"""Executable specification for the producer.
 
-These FAIL until you implement the stubs, and that is the point -- they are
-the contract, not an afterthought. Implement until green.
-
-They are marked `contract` and excluded from `make test` and from CI, so a
-half-finished producer does not turn the build red. Run them with:
+Marked `contract`, so excluded from `make test` and from CI. Run them with:
 
     make contract                    # all of them
     make contract K=dedupe           # just the dedupe ones
     .venv/bin/pytest tests/test_producer_contract.py -m contract -v
 
 Nothing here needs a broker, a warehouse, or the network. Fetch is tested
-against a stub session; decode against the committed fixtures.
-
-Order of attack -- each builds on the last:
-
-    1. dedupe    pure logic, no I/O, fastest feedback
-    2. decode    against real captured payloads
-    3. fetch     conditional GET state machine
-    4. run       process_feed, verified end to end with `--dry-run --once`
+against a fake session; decode against the committed fixtures.
 """
 
 from __future__ import annotations
@@ -181,7 +170,7 @@ class TestDecodeVehiclePositions:
 
     def test_decodes_every_entity(self, records):
         # The fixture holds 280 vehicles; allow a couple dropped for a
-        # missing timestamp if that is the choice you made, but not more.
+        # missing timestamp, but not more.
         assert 278 <= len(records) <= 280
 
     def test_returns_the_record_type(self, records):
@@ -195,8 +184,8 @@ class TestDecodeVehiclePositions:
     def test_current_status_applies_the_declared_default(self, records):
         """Absent must decode to IN_TRANSIT_TO, and it must be the MAJORITY.
 
-        If you presence-checked instead of reading the accessor, this fails
-        with roughly 27% IN_TRANSIT_TO instead of 73%.
+        A presence check instead of reading the accessor fails this with
+        roughly 27% IN_TRANSIT_TO instead of 73%.
         """
         statuses = [r.current_status for r in records]
         assert set(statuses) <= {"IN_TRANSIT_TO", "STOPPED_AT", "INCOMING_AT"}
@@ -485,7 +474,7 @@ class TestTransientFailureRetry:
         assert "POST" not in retry.allowed_methods
 
     def test_an_injected_session_keeps_its_own_semantics(self, spec):
-        # The stub sessions the rest of this file uses are not real sessions,
+        # The fake sessions the rest of this file uses are not real sessions,
         # so injecting one must leave single-attempt behaviour untouched.
         session = FakeSession([FakeResponse(200, b"x", {"ETag": '"abc"'})])
         fetcher = ConditionalFetcher(session=session)

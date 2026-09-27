@@ -1,9 +1,9 @@
 # dbt, in its own image. Never in the project venv and never in Airflow's.
 #
 # pyproject.toml explains the venv half: dbt-core drags in a resolver
-# constraint set that has nothing to do with ingest. The Airflow half is the
-# parcel project's lesson, reused rather than relearned: Airflow and dbt pin
-# overlapping libraries differently, so Airflow runs this image as a sibling
+# constraint set that has nothing to do with ingest. The Airflow half:
+# Airflow and dbt pin overlapping libraries differently, so Airflow runs this
+# image as a sibling
 # container (DockerOperator) instead of importing dbt.
 #
 # Pinned exactly. dbt-postgres 1.11.0 is the newest adapter as of

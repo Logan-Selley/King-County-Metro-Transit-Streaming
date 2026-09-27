@@ -1,1 +1,1 @@
-"""Enrichment consumer: raw positions + static GTFS -> enriched (Phase 2)."""
+"""Enrichment consumer: raw positions + static GTFS -> enriched."""

@@ -3,19 +3,18 @@
     python -m consumers.reframe_topic alerts.bunching --dry-run
     python -m consumers.reframe_topic alerts.bunching
 
-WHY THIS EXISTS. 4B changed the two Flink jobs from bare JSON to Confluent
-framing (consumers/framing.py) so the sink could read them at all. Every record
-written before that change has no magic byte, and a Confluent deserializer
-rejects those outright, so a connector registered with
-`consumer.override.auto.offset.reset=earliest` -- what the enriched connector
-uses, and what a replay needs -- would die on the first one.
+WHY THIS EXISTS. The two Flink jobs emit Confluent-framed records
+(consumers/framing.py) so the sink can read them. Every record written before
+framing has no magic byte, and a Confluent deserializer rejects those outright,
+so a connector registered with `consumer.override.auto.offset.reset=earliest` --
+what the enriched connector uses, and what a replay needs -- would die on the
+first one.
 
-The alternative was `latest`, which reads nothing historical. That was rejected
-on the numbers: `analytics.prediction_accuracy` already held about 900,000
-records from an overnight run of the prediction job, and the phase's exit
-criterion is the error curve drawn FROM THE WAREHOUSE. Re-deriving them means
-replaying 47M trip updates through the join; re-framing them is a read, five
-bytes each, and a write.
+Re-pointing the connector at `latest` would read nothing historical. That is
+rejected on the numbers: `analytics.prediction_accuracy` holds about 900,000
+records from an overnight run of the prediction job, and the error curve is
+drawn FROM THE WAREHOUSE. Re-deriving them means replaying 47M trip updates
+through the join; re-framing them is a read, five bytes each, and a write.
 
 DESTRUCTIVE, SO IT DUMPS FIRST. Flink's output cannot be regenerated cheaply,
 and a crash between "delete the topic" and "finish republishing" would lose the
@@ -120,12 +119,11 @@ def topic_config(topic: str) -> dict:
 def reframe(value: bytes, sid: int) -> bytes:
     """Frame a payload, or re-frame it if it carries a different schema id.
 
-    Two cases, and both happened here. Bare JSON, with no magic byte, is what
-    the jobs wrote before 4B. A record that IS framed but with an OLDER id is
-    what the topics held the moment the schemas gained integer epoch fields and
-    the registry issued new ids: the id has to match the payload's shape, so
-    carrying the old one forward would hand the connector a schema describing
-    different types.
+    Two cases. Bare JSON has no magic byte. A record that IS framed but with an
+    OLDER id is one whose shape changed when the schemas gained integer epoch
+    fields and the registry issued new ids: the id has to match the payload's
+    shape, so carrying the old one forward would hand the connector a schema
+    describing different types.
 
     The bare-JSON test is unambiguous. JSON always starts with '{' (0x7B), '[',
     '"', a digit, or one of `tfn-`; a Confluent frame always starts with 0x00.
@@ -142,11 +140,11 @@ def reframe(value: bytes, sid: int) -> bytes:
 
 
 # The epoch fields the connector converts to timestamps, per topic. They have
-# to be INTEGERS, which is why the schemas declare `integer`: the first version
-# said `number`, the jobs emitted floats, and the conversion died on
+# to be INTEGERS, which is why the schemas declare `integer`: with floats the
+# conversion dies on
 #     Schema Schema{FLOAT64} does not correspond to a known timestamp type format
-# having written nothing. Fixing the schema alone would leave every record
-# already in the topic invalid against it, so the migration fixes the values.
+# having written nothing. Records already in the topic were written as floats,
+# so the migration fixes the values, not only the schema.
 TIMESTAMP_FIELDS = {
     "alerts.bunching": ("window_end",),
     "analytics.prediction_accuracy": ("issued_at", "predicted_arrival", "observed_at"),
@@ -174,11 +172,11 @@ def inner(payload: bytes) -> bytes:
 
     Not a fixed five-byte strip, because not every record in these topics is
     cleanly framed. Measured: 1,218 records in alerts.bunching carry a valid
-    frame, then 16 bytes of binary, then the frame and the JSON again, and the
-    live job wrote a pickle protocol 5 wrapper (80 05 95 ...) around every
-    record until framing.frame was changed to return a bytearray. A migration
-    that assumes a clean header either crashes (the first attempt did, on byte
-    0x80) or, worse, re-frames the junk.
+    frame, then 16 bytes of binary, then the frame and the JSON again; the job
+    emitted a pickle protocol 5 wrapper (80 05 95 ...) around every record
+    before framing.frame was changed to return a bytearray. A migration that
+    assumes a clean header either crashes (on byte 0x80) or, worse, re-frames
+    the junk.
 
     Returns exactly the JSON object's bytes: leading junk dropped, trailing
     bytes dropped.
@@ -226,6 +224,7 @@ def coerce_epochs(payload: bytes, fields) -> bytes:
 
 
 def dump(records, path: Path) -> None:
+    """Write the drained (key, value) pairs to `path`, one base64 JSON object per line."""
     with path.open("w") as fh:
         for key, value in records:
             fh.write(json.dumps({
@@ -235,6 +234,7 @@ def dump(records, path: Path) -> None:
 
 
 def load(path: Path):
+    """Read back a dump written by dump(): the framed records, ready to republish."""
     out = []
     for line in path.read_text().splitlines():
         row = json.loads(line)

@@ -1,9 +1,9 @@
 """Exception types and DLQ reason codes.
 
 Small on purpose. It exists so that `reason` strings written to dlq.* and to
-raw.dlq are a closed set rather than ad-hoc prose -- the Phase 4 Airflow task
-reports DLQ volume *by reason*, and that report is worthless if the same
-failure is spelled three ways.
+raw.dlq are a closed set rather than ad-hoc prose -- the Airflow DLQ task
+reports volume *by reason*, and that report is worthless if the same failure
+is spelled three ways.
 """
 
 from __future__ import annotations

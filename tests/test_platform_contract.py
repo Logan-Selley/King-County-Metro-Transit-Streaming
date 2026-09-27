@@ -1,7 +1,7 @@
 """Phase 5B/5C contract: what terraform/ must declare, checked statically.
 
-The executable spec for build steps 5B (topics, bucket) and the static half of
-5C (no credential in any .tf). Nothing here needs the stack: it parses the HCL
+The executable spec for 5B (topics, bucket) and the static half of 5C (no
+credential in any .tf). Nothing here needs the stack: it parses the HCL
 with python-hcl2 and compares it against values MEASURED on the live stack on
 2026-09-24, against the Flink jobs' parallelism, and against the Makefile and
 compose file. That is why it can run in CI, where there is no broker.
@@ -9,9 +9,6 @@ compose file. That is why it can run in CI, where there is no broker.
 What it cannot check is that the declarations match the LIVE objects. That is
 `make tf-drift`, which exits 0 only when a plan against the running stack is
 empty, and it is the exit criterion terraform/core/topics.tf states.
-
-Marked `wip` until 5B is implemented: most of these fail against the scaffold
-by design, the way the Phase 3 and 4 specs did before their implementations.
 """
 
 from __future__ import annotations
@@ -263,8 +260,8 @@ class TestTopics:
         assert not missing, f"used by the code, not declared: {missing}"
 
     def test_make_no_longer_creates_topics(self):
-        """Two places that set topic config is how 4B lost two topics' 30-day
-        retention without anything noticing."""
+        """Two places that set topic config is how a topic loses its retention
+        without anything noticing."""
         assert "rpk topic create" not in (ROOT / "Makefile").read_text()
 
 
@@ -362,7 +359,7 @@ class TestCredentials:
 # =============================================================================
 
 class TestReplayNamespace:
-    """terraform/core/replay.tf, the namespace the replay actually runs in (6A).
+    """terraform/core/replay.tf, the namespace the replay actually runs in.
 
     The rules are about isolation and fidelity, the two things that make a
     replay worth believing: nothing in the namespace can be a live name, and

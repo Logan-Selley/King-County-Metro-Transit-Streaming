@@ -7,16 +7,14 @@ lives here, where the project venv can import it and
 tests/test_bunching_contract.py can run against it with no cluster at all.
 Dicts in, alerts out.
 
-That split is the same one that made Phases 1 and 2 testable: enrich.py holds
-the logic, run.py holds the Kafka loop, and the contract suite only ever
-touches the first. Before this file existed, all four detector stubs sat
-inside job.py behind a module-scope `import pyflink`, so no test in the
-project could reach them.
+That split is the same one enrich.py and run.py use: enrich.py holds the
+logic, run.py holds the Kafka loop, and the contract suite only ever touches
+the first.
 
 --- the two gates, and why neither is optional ---
 
-Both were found by measuring the live topic rather than by reasoning about it,
-and both produce confident false alerts if skipped.
+Both are measured against the live topic, and each produces confident false
+alerts if skipped.
 
 1. INCOMPARABLE SHAPES. A (route_id, direction_id) pair does not imply one
    geometry. Measured on the loaded feed: 101 of 280 pairs have more than one
@@ -162,9 +160,7 @@ def parse_record(rec: dict) -> dict | None:
 
     Takes a DICT, not a JSON string. decode.decode() has already turned the
     topic's protobuf bytes into a dict by the time this runs, so the only job
-    here is narrowing. An earlier version of this signature took `str` and
-    called json.loads, which was correct while the enriched topic carried
-    JSON during the Phase 2 placeholder era and wrong the moment it did not.
+    here is narrowing.
 
     Narrows 29 decoded keys to the 10 the detector uses. Dropping the rest
     early matters more here than in the enrichment consumer, because
@@ -222,10 +218,9 @@ def assign_route_key(rec: dict) -> str:
     and a tuple crossing the Python/JVM boundary without an explicit type is
     where PyFlink produces a pickled blob instead of an error.
 
-    Note this is the re-keying that ADR 0002 predicted would be necessary:
-    the topic is partitioned by vehicle_id for per-vehicle ordering, so
-    route-level analysis has to shuffle. That cost was accepted knowingly and
-    this is where it lands.
+    The topic is partitioned by vehicle_id for per-vehicle ordering
+    (ADR 0002), so route-level analysis has to shuffle. That shuffle is the
+    price of grouping by route rather than by vehicle.
     """
     return f"{rec['route_id']}:{rec['direction_id']}"
 
@@ -237,8 +232,6 @@ def detect_in_window(
     min_stop_sequence: int = MIN_STOP_SEQUENCE,
 ) -> list[dict]:
     """Find bunched pairs among one route-direction's positions in one window.
-
-    The core of Phase 3's first deliverable.
 
     Given every position for one (route, direction) inside a 60s event-time
     window, emit an alert dict per bunched PAIR. `window_end_s` is the
@@ -263,10 +256,10 @@ def detect_in_window(
         docstring. Two buses at the terminal are a layover, and the stop
         sequence is what catches it on routes whose terminal is not at the
         shape's origin. The gate is a PARAMETER, defaulting to
-        MIN_STOP_SEQUENCE, because Phase 6's replay runs this same function
-        twice with the gate on (a baseline that must reproduce the live output)
-        and off (the variant). A copy of this function with the gate removed
-        would not be the live logic under test.
+        MIN_STOP_SEQUENCE, because a replay runs this same function twice with
+        the gate on (a baseline that must reproduce the live output) and off
+        (the variant). A copy of this function with the gate removed would not
+        be the live logic under test.
 
       * Sorted by shape_dist_traveled, CONSECUTIVE pairs only. All-pairs is
         O(n^2) and wrong besides: three buses in a row are two bunched pairs,
@@ -299,8 +292,8 @@ def detect_in_window(
         if window_end_s - rec["position_timestamp"] <= CONFIG.max_position_age_s
         and rec["shape_dist_traveled"] >= MIN_PROGRESS_FT
         # Absent stop sequence fails the gate rather than passing it. The
-        # field is 99.6% populated (Phase 0), so the rare miss is cheaper
-        # than admitting a vehicle whose progress cannot be checked.
+        # field is 99.6% populated, so the rare miss is cheaper than admitting
+        # a vehicle whose progress cannot be checked.
         and (rec.get("current_stop_sequence") or 0) >= min_stop_sequence
     ]
     sorted_records = sorted(usable_record, key=lambda x: x["shape_dist_traveled"])
@@ -342,7 +335,7 @@ class BunchingState:
     They live here rather than in job.py because they are detection logic, not
     wiring, and this is the module the contract suite can import. Expressed
     inside a KeyedProcessFunction the cooldown is reachable only through a
-    running cluster, which is how the original four stubs went untested.
+    running cluster.
 
     A gap resets the run. A pair that separates produces NO records, so the
     reset cannot come from observation -- it is inferred from the window

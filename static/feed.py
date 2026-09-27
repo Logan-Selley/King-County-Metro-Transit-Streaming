@@ -152,12 +152,10 @@ GTFS_TABLES: tuple[GtfsTable, ...] = (
     ),
     GtfsTable(
         "trips.txt", "trips",
-        # block_id is here, 100% populated across all 31,688 trips -- and it
-        # survived the 2026-09-14 service change that DELETED block_trip.txt,
-        # which is the strongest possible argument for having sourced it from
-        # trips.txt. That is
-        # what makes ADR 0003's deferral of block_id moot -- it arrives from
-        # the static join at no payload cost, rather than requiring the
+        # block_id is here, 100% populated across all 31,688 trips, and it
+        # survived the 2026-09-14 service change that DELETED block_trip.txt.
+        # That is what makes ADR 0003's deferral of block_id moot: it arrives
+        # from the static join at no payload cost, rather than requiring the
         # enhanced JSON positions feed at 7.1x. See the revision note on 0003.
         ("route_id", "service_id", "trip_id", "trip_headsign", "direction_id",
          "block_id", "shape_id"),
@@ -214,9 +212,9 @@ UNUSED_FILES = (
     "networks.txt", "route_networks.txt",
 )
 
-# --- A SERVICE CHANGE HAPPENED MID-PROJECT, 2026-09-14 ---
+# --- A SERVICE CHANGE, 2026-09-14 ---
 #
-# The feed this project was scoped against (2026-08-29, ETag 682c87c4c237dd1:0,
+# The feed in place before the change (2026-08-29, ETag 682c87c4c237dd1:0,
 # 12 members) was replaced by FAL26-161.1 (2026-09-14, ETag 1895a7c83f44dd1:0,
 # 18 members). The structure changed, not just the data:
 #
@@ -225,7 +223,7 @@ UNUSED_FILES = (
 #   REMOVED  block.txt and block_trip.txt, the two non-standard Metro
 #            extensions
 #
-# Two things this proves, neither of which was a hypothetical before:
+# Two properties of the loader this confirms:
 #
 #   1. Pinning a loader to an exact file list is fragile. The manifest names
 #      what it NEEDS and ignores the rest, so six new files and two removed
@@ -314,13 +312,12 @@ SOURCE = StaticSource()
 #     against the 2026-08-29 feed, two weeks stale   97.4%
 #     against FAL26-161.1 on the day it landed      100.0%
 #
-# CORRECTED: an earlier version of this comment called 2.6% a normal-operation
-# baseline. It is not. The miss rate measures the AGE OF THE STATIC LOAD --
-# those were trips scheduled under a version newer than the one held. A live
-# enrichment run against a same-day load logged a 100.0% join rate over 1,204
-# records with zero DLQ.
+# 2.6% is not a normal-operation baseline. The miss rate measures the AGE OF
+# THE STATIC LOAD -- those were trips scheduled under a version newer than the
+# one held. A live enrichment run against a same-day load logged a 100.0% join
+# rate over 1,204 records with zero DLQ.
 #
 # So there is no baseline to tolerate. Near zero is healthy; a climb means the
 # static load is ageing and a service change is approaching. Treating 2.6% as
-# expected would have silently absorbed exactly the signal this is for.
+# expected would silently absorb exactly the signal this is for.
 EXPECTED_TRIP_JOIN_RATE = 1.0

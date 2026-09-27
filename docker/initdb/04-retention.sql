@@ -1,8 +1,8 @@
 -- ============================================================================
 -- partition retention
 -- ============================================================================
--- Build step 4E. The other half of partition maintenance, and the half that
--- loses data, which is why it waited for a decision instead of a default.
+-- The other half of partition maintenance, and the half that
+-- loses data.
 --
 -- WHY 90 DAYS. Measured 2026-09-24 on the loaded warehouse: the sink grows
 -- ~730 MB/day (20260921 746 MB, 20260922 717 MB), so 90 days is ~65 GB against

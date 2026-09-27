@@ -1,4 +1,4 @@
-"""Register the enriched schema against the registry. The deploy step.
+"""Register the enriched schema against the registry.
 
     python -m consumers.enrichment.register            # register
     python -m consumers.enrichment.register --check    # test compatibility, do not write

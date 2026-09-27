@@ -5,7 +5,7 @@
   SHAPE: lead_bucket, bucket_order, predictions, median_abs_error_s,
   p90_abs_error_s, mean_error_s.
 
-  The answer is already known from Phase 3 (findings, "Phase 3 close-out"):
+  The answer is already known (findings, "Phase 3 close-out"):
   median |error| rises 43s -> 199s from 0-2m to 45-60m, and the mean is positive
   everywhere, meaning buses arrive EARLIER than the sign said. This mart
   reproduces that from the warehouse instead of from the job's stdout.
@@ -43,8 +43,8 @@
   hi = ceil(r). In a histogram sorted by value, with `upto` the running count,
   the value at 0-based position k is the one whose [upto - count, upto) range
   contains k. Same arithmetic in float8 as the aggregate uses, so the result
-  matches it exactly, which the before/after comparison checked on the live
-  warehouse (see the incremental change's notes).
+  matches it exactly, which a before/after comparison checked on the live
+  warehouse.
 #}
 with hist as (
 

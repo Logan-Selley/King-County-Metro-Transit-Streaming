@@ -8,16 +8,16 @@
 -- positions from 03:xx on the 24th (the start of the service day) AND from 03:xx
 -- on the 25th, from late trips still carrying start_date 20260924. Measured on
 -- 2026-09-26: key (09-24, 5) held 187 positions on the 25th and 35,441 on the
--- 24th. Two earlier versions of this test fell into that gap:
---   * The first excluded the two newest keys by key order, which left the
+-- 24th. Three ways of judging settledness that cut through a key:
+--   * Excluding the two newest keys by key order leaves the
 --     still-filling hour in: a 1,500-row gap on a scheduled run.
---   * The second chose settled positions by `position_at < now() - 2h`. A key
+--   * Judging settled positions by `position_at < now() - 2h` lets a key
 --     whose morning half was settled and whose next-day half was still arriving
---     counted as settled, with the mart holding both halves and staging only
---     the old one. That failed the 13:15 UTC run on 2026-09-26 (06:15 local,
---     when late owl trips are running), both attempts.
---   A 48-hour window by position_at then cut keys at the OTHER edge the same
---   way, and failed the 20:15 run on three keys of 09-24.
+--     count as settled, with the mart holding both halves and staging only
+--     the old one. That fails the 13:15 UTC run (06:15 local, when late owl
+--     trips are running).
+--   * A 48-hour window by position_at cuts keys at the OTHER edge the same
+--     way, failing the 20:15 run on three keys of 09-24.
 --
 -- So each key is judged whole. SETTLED means the key's NEWEST countable
 -- position is more than two hours old: the mart is a table and staging a view

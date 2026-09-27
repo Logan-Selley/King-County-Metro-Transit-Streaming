@@ -1,5 +1,5 @@
-# Every value from the environment, none committed. The credentials are now
-# role-specific rather than the superuser's: since build step 5C, dbt logs in as
+# Every value from the environment, none committed. The credentials are
+# role-specific rather than the superuser's: dbt logs in as
 # `dbt_transform`, which reads raw.* and static.* and OWNS staging.* and marts.*.
 # That ownership is the point: `create or replace` needs it, and the role that has
 # it can still not drop a landing table.

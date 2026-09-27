@@ -6,7 +6,7 @@
     python -m static.run --neighborhoods   # reload the spatial layer only
     python -m static.run --retire 3        # retire a superseded version
 
-Airflow wraps this with a DockerOperator in Phase 4
+Airflow wraps this with a DockerOperator
 (airflow/dags/transit_static_refresh.py); it never imports the package, the
 same separation the producer has. The image is docker/Dockerfile.pipeline,
 which the producer and the enrichment consumer also run from.
@@ -18,8 +18,8 @@ EXIT CODES, because that DAG depends on them:
     99  --load found the ETag unchanged, so there was nothing to do
 
 99 exists so the DAG can show an unchanged day as SKIPPED rather than as a
-green run that did nothing. Both cases used to exit 0, which meant the
-scheduler could not tell a real load from a no-op.
+green run that did nothing. Exiting 0 for both would leave the scheduler
+unable to tell a real load from a no-op.
 
 Deliberately NOT scheduled here. This is the batch side of the streaming/batch
 boundary: the static feed changes on service-change dates, and a cron that
@@ -56,8 +56,8 @@ EXIT_UNCHANGED = 99
 def dsn() -> str:
     """The warehouse connection, as static_loader rather than the superuser.
 
-    Its own role since build step 5C: it writes static.* and reads nothing else,
-    so a bad load cannot reach raw.*. The variable names match what
+    Its own role: it writes static.* and reads nothing else, so a bad load
+    cannot reach raw.*. The variable names match what
     airflow/dags/transit_static_refresh.py forwards.
     """
     return (

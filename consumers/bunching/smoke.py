@@ -2,8 +2,7 @@
 
     make flink-smoke
 
-The Phase 3 analogue of tests/smoke_roundtrip.py. It reads a bounded slice of
-enriched.vehicle_positions, counts what it got, and exits.
+Reads a bounded slice of enriched.vehicle_positions, decodes it, and exits.
 
 --- what this is actually testing ---
 
@@ -25,12 +24,11 @@ look like Python errors and are not:
      wrong does not error; the job starts, assigns no partitions, and waits
      forever looking healthy.
 
-  4. Records cross the Python/JVM boundary intact AND decode. This one was
-     added late, and the reason is the point: the first version mapped every
-     record to the constant 1. It passed for a week while the real job's
-     deserializer was wrong for the topic's format, because a count proves
-     arrival and says nothing about content. A smoke test that cannot fail
-     for the reason you are worried about is decoration.
+  4. Records cross the Python/JVM boundary intact AND decode. A count proves
+     arrival and says nothing about content: mapping every record to a
+     constant passes while the job's deserializer is wrong for the topic's
+     format. A smoke test that cannot fail for the reason you are worried
+     about is decoration.
 
 A bounded source on purpose: `set_bounded(latest())` makes this terminate
 instead of streaming forever, so it is usable as a check rather than something
@@ -55,9 +53,8 @@ TOPIC = "enriched.vehicle_positions"
 def _probe(raw: bytes) -> str:
     """One record -> a line saying whether it decoded, and to what.
 
-    The assertion this job exists to make, now that there IS a decode path.
-    An earlier version mapped every record to the constant 1, which proved
-    bytes arrived and nothing else -- and it kept passing while the job's
+    The assertion this job exists to make. Bytes arriving is not enough:
+    mapping every record to a constant would pass while the job's
     deserializer was wrong for the topic's format. A count is not a decode.
     """
     rec = decode(raw)

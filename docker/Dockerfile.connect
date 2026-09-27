@@ -1,7 +1,6 @@
 # Kafka Connect with the JDBC sink, and a protobuf runtime that can run it.
 #
-# Two changes to the Confluent image, and the second one took three attempts
-# to find, so it is written out in full.
+# Two changes to the Confluent image, and the second is written out in full.
 #
 # 1. THE JDBC SINK IS NOT IN THE IMAGE. cp-kafka-connect ships the converters
 #    and no connectors. kafka-connect-jdbc 10.8.0 bundles the Postgres driver
@@ -28,11 +27,10 @@
 #    generated against it. The fix is the same direction, too -- upgrade the
 #    runtime, which serves older generated code fine.
 #
-#    The FIRST attempt copied 3.25.4 into /etc/kafka-connect/jars, which sits
-#    at the front of the classpath and is the image's documented place for
-#    extra jars. The build succeeded and the error did not change, because
-#    the base image declares that path a VOLUME, and Docker silently discards
-#    build-time writes to a declared volume. The directory was empty at
+#    /etc/kafka-connect/jars sits at the front of the classpath and is the
+#    image's documented place for extra jars. The base image declares that
+#    path a VOLUME, and Docker silently discards build-time writes to a
+#    declared volume, so a jar copied there leaves the directory empty at
 #    runtime. Checked with:
 #
 #       docker image inspect confluentinc/cp-kafka-connect:7.7.1 \

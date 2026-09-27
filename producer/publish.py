@@ -1,13 +1,12 @@
 """Kafka production.
 
-Records are published as JSON initially. That is a deliberate Phase 1 choice,
-not the end state: Phase 2 registers protobuf schemas against the Schema
-Registry and swaps the serializer, and doing that swap against a topic that
-already has history is precisely the schema-evolution exercise the project
-exists to demonstrate. Starting with protobuf would skip the migration.
+Records are published as JSON; a protobuf serializer registered against the
+Schema Registry replaces it. Swapping the serializer against a topic that
+already has history is a schema-evolution migration, not a fresh start, so
+beginning with protobuf would skip it.
 
-Keys are always plain UTF-8 strings, and stay that way after the Phase 2 swap
--- Kafka partitioning hashes the key bytes, so changing key serialization
+Keys are always plain UTF-8 strings, and stay that way after the serializer
+swap -- Kafka partitioning hashes the key bytes, so changing key serialization
 would reshuffle every existing key to a different partition and break the
 per-vehicle ordering guarantee for the whole history.
 """
@@ -37,9 +36,8 @@ def _json_default(value):
 def serialize(record) -> bytes:
     """Record -> JSON bytes.
 
-    Phase 2 replaces the body of this function with a ProtobufSerializer and
-    a registered schema. It is a separate function for exactly that reason --
-    the swap should touch one place.
+    The protobuf serializer swap replaces this body, which is why it is a
+    separate function: the change should touch one place.
     """
     payload = asdict(record) if is_dataclass(record) else dict(record)
     return json.dumps(payload, default=_json_default, separators=(",", ":")).encode()

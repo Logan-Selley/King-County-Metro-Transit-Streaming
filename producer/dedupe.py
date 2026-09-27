@@ -48,9 +48,7 @@ log = logging.getLogger("producer.dedupe")
 # working all night and silently stopping at the morning peak would look like
 # a volume spike rather than a cache problem.
 #
-# WHAT THE 24-HOUR RUN ACTUALLY SHOWED (2026-09-05, findings.md §8), because
-# the first version of this comment got the reason right and the mechanism
-# wrong:
+# WHAT A SERVICE DAY SHOWS (2026-09-05, findings.md §8):
 #
 #   * Concurrency is NOT the binding constraint. Peak was ~27,800 stop
 #     predictions per poll, against a projection of ~91,000 -- the trip

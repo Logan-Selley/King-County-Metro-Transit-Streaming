@@ -6,8 +6,8 @@ things come out of that, in increasing order of importance:
 
   1. Bandwidth. Real but boring -- these payloads are small.
   2. Politeness toward an unauthenticated public agency endpoint.
-  3. A clean staleness signal. This is the one that matters. Phase 0 measured
-     the publish period at a tight 20.0s (findings.md §2), so an ETag that has
+  3. A clean staleness signal. This is the one that matters. The publish
+     period measures a tight 20.0s (findings.md §2), so an ETag that has
      not moved in, say, five minutes during peak service is unambiguous
      evidence that something upstream is broken. That belongs in the feed
      health mart. Most people poll blind and cannot tell a stalled feed from a
@@ -39,14 +39,12 @@ log = logging.getLogger("producer.fetch")
 # aborting early just turns a slow tick into a missed one.
 TIMEOUT_S = 45
 
-# Phase 1's exit criterion is 24 hours of uninterrupted collection. The first
-# 24-hour run finished with 75 failures, and every one of them was transient:
-# 36 DNS resolution failures for s3.amazonaws.com and the rest S3 closing a
-# pooled keep-alive connection mid-response
-# ('Connection aborted.', RemoteDisconnected(...)). Neither is a dead feed,
-# and neither should be counted as a missed poll. At a 10s interval a single
-# blip costs nothing, so the fetch is retried where the failure actually
-# happens, at the transport layer.
+# A 24-hour collection window logs two transient faults: DNS resolution
+# failures for s3.amazonaws.com, and S3 closing a pooled keep-alive connection
+# mid-response ('Connection aborted.', RemoteDisconnected(...)). Neither is a
+# dead feed, and neither should be counted as a missed poll. At a 10s interval
+# a single blip costs nothing, so the fetch is retried where the failure
+# actually happens, at the transport layer.
 #
 # The retry lives on the adapter rather than in fetch() for two reasons: it is
 # the layer that can see a DNS or connect failure, and a session-level policy
@@ -57,7 +55,7 @@ RETRY_BACKOFF_S = 1.5
 
 
 def build_session() -> requests.Session:
-    """A session that survives the transient S3 faults the 24h run logged."""
+    """A session with transport-level retries for the transient S3 faults."""
     session = requests.Session()
     session.headers["User-Agent"] = USER_AGENT
     retry = Retry(
@@ -195,8 +193,8 @@ class ConditionalFetcher:
         except requests.RequestException as exc:
             state.errors += 1
             # No feed-name prefix here: run.py's handler logs "[%s] %s" with
-            # spec.name, so embedding it produced "[trip_updates]
-            # [trip_updates] fetch failed" for the whole 24h run.
+            # spec.name, so embedding it would print "[trip_updates]
+            # [trip_updates] fetch failed" on every line.
             raise FeedError(f"fetch failed: {exc}") from exc
         fetched_at = datetime.now(timezone.utc)
         elapsed_ms = int((monotonic() - started) * 1000)

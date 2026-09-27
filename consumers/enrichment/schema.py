@@ -79,7 +79,7 @@ def build_serializer(
     That is the correct failure: it means the deploy skipped a step.
 
     `subject` pins the registry subject instead of deriving it from the topic,
-    which is what Phase 6's replay needs: it writes records of EXACTLY the live
+    which is what a replay needs: it writes records of EXACTLY the live
     schema into replay.enriched.vehicle_positions, so it must frame them with
     the live `enriched.vehicle_positions-value` id. Deriving it from the topic
     would look up a subject nobody registered, and auto-registration is off, so

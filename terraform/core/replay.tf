@@ -23,7 +23,7 @@
 # are not replayed. The prediction join is deliberately not replayed at all:
 # its state TTL is processing time (consumers/prediction/job.py), so a replay
 # running days of data through in minutes would expire nothing and match
-# nothing like the live run. That is a finding for the write-up, not a gap.
+# nothing like the live run. That is a scope decision, not a gap.
 #
 # 7-DAY RETENTION, the raw topics' own window: long enough to rerun a comparison
 # the next day, short enough that a forgotten replay ages out by itself.
@@ -88,9 +88,8 @@ resource "minio_iam_policy" "archive_reader" {
         Condition = { StringLike = { "s3:prefix" = ["raw/*", "raw/"] } }
       },
       {
-        # A SEPARATE STATEMENT, measured 2026-09-25: MinIO rejects s3:prefix on
-        # this action, and the first version of this policy put both actions in
-        # the statement above, so the apply failed with
+        # A SEPARATE STATEMENT: MinIO rejects s3:prefix on this action, so a
+        # single statement carrying both actions fails the apply with
         #   unable to create policy (archive-reader): unsupported condition keys
         #   '[s3:prefix]' used for action 's3:GetBucketLocation'
         # Getting the region is bucket-wide and not prefix-scoped anyway.

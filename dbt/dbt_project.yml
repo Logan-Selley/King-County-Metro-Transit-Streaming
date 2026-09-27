@@ -1,6 +1,6 @@
-# transit-stream analytics layer (Phase 4).
+# transit-stream analytics layer.
 #
-# Layers follow the schemas 01-schema.sql created in Phase 0:
+# Layers follow the schemas 01-schema.sql defines:
 #   raw      what the Connect sink lands, never edited by dbt
 #   staging  one view per source: types, units, names; no business logic
 #   marts    tables built for a question, the only thing a chart reads
@@ -29,7 +29,7 @@ models:
     # schema, not a schema of their own, because dbt_transform can CREATE only
     # inside the two schemas it owns (checked: has_database_privilege(...,
     # 'CREATE') is false), and granting it CREATE on the database to make one
-    # more schema would widen the role 5C narrowed.
+    # more schema would widen a role that is deliberately narrow.
     intermediate:
       +materialized: incremental
       +schema: marts

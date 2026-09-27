@@ -15,8 +15,7 @@ the question access.tf 3a-3c actually asks.
 
 Needs the running warehouse on localhost:$WAREHOUSE_PORT and .env. Skips the
 module when the warehouse does not answer, like the schema-compatibility suite,
-so CI (which has no stack) reports it as skipped rather than passed. Marked
-`wip` until 5C lands.
+so CI (which has no stack) reports it as skipped rather than passed.
 """
 
 from __future__ import annotations
@@ -84,10 +83,9 @@ class Session:
         EVERY ATTEMPT ROLLS BACK, success or failure, and that is not
         bookkeeping. The session is module-scoped, so a change one test makes is
         visible to the next test sharing the transaction. TestDbtTransform drops
-        marts.mart_feed_health, which it may do now that 5C gave it ownership, and
+        marts.mart_feed_health, which it may do because it owns that table, and
         TestAirflowOps could then not read a table that no longer existed inside
-        that same transaction. The suite failed on correct code and would have
-        passed on broken code, because before 5C the drop was denied.
+        that same transaction.
 
         Every assertion here asks whether a statement succeeded, so no effect is
         ever needed and rolling back is strictly more correct. It resets the role
@@ -339,7 +337,7 @@ def test_role_logs_in_with_its_env_password(admin, role):
 
 
 # Static: no client config still logs in as the superuser (access.tf, 5).
-# These need no warehouse, but live here with the rest of 5C.
+# These need no warehouse, but live here with the rest.
 
 def test_connectors_do_not_log_in_as_the_superuser():
     for f in (ROOT / "connect").glob("*.json"):

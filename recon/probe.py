@@ -1,11 +1,10 @@
-"""Phase 0 reconnaissance against the King County Metro GTFS-RT feeds.
+"""Reconnaissance against the King County Metro GTFS-RT feeds.
 
-The proposal's Phase 0 asks four questions, and this answers all four with
-measurements rather than assumptions:
+Four questions, each answered with measurements rather than assumptions:
 
   1. How big is each feed, and how many entities does it carry?
   2. What does "enhanced" JSON carry that the basic protobuf does not?
-  3. What is the *actual* refresh cadence? (proposal guesses 15-30s)
+  3. What is the *actual* refresh cadence?
   4. Which optional spec fields does Metro actually populate?
 
 (4) is the one that is easy to skip and expensive to get wrong. Every field in
@@ -39,11 +38,10 @@ from google.transit import gtfs_realtime_pb2 as rt
 
 S3 = "https://s3.amazonaws.com/kcm-alerts-realtime-prod"
 
-# The proposal states each feed is served as basic protobuf, basic JSON, and
-# enhanced JSON. The basic JSON mirrors 403; only the enhanced ones exist.
-# So the "diff basic vs enhanced JSON" step in Phase 0 is not possible as
-# written; the real comparison is basic PB against enhanced JSON, which is
-# what compare_shapes() does.
+# Each feed is described as served as basic protobuf, basic JSON, and enhanced
+# JSON. The basic JSON mirrors 403; only the enhanced ones exist. So the
+# comparison is basic PB against enhanced JSON, which is what compare_shapes()
+# does.
 FEEDS = {
     "vehicle_positions": {
         "pb": f"{S3}/vehiclepositions.pb",
@@ -154,9 +152,9 @@ def census_feed(body: bytes) -> dict:
         "entities": n,
         "header": {
             "version": msg.header.gtfs_realtime_version,
-            # FULL_DATASET(0) vs DIFFERENTIAL(1). The proposal asserts these
-            # are full snapshots; this is where that gets confirmed rather
-            # than assumed, because it is the entire basis of the dedup design.
+            # FULL_DATASET(0) vs DIFFERENTIAL(1). The dedup design rests on
+            # these being full snapshots; this is where that is confirmed
+            # rather than assumed.
             "incrementality": rt.FeedHeader.Incrementality.Name(
                 msg.header.incrementality
             ),
@@ -265,9 +263,8 @@ def cmd_snapshot(args) -> int:
             entry["shape_diff"] = compare_shapes(census, enh["body"])
             entry["json_inflation_x"] = round(enh["bytes"] / pb["bytes"], 1)
 
-        # Archive the raw payloads. Phase 1 builds the real MinIO archive; for
-        # now these are what makes the recon numbers reproducible, and they are
-        # a fixture source for the decoder tests.
+        # Archive the raw payloads: they make the recon numbers reproducible
+        # and are a fixture source for the decoder tests.
         (OUT / f"{name}.pb").write_bytes(pb["body"])
         if enh.get("status") == 200:
             (OUT / f"{name}_enhanced.json").write_bytes(enh["body"])
@@ -287,7 +284,7 @@ def cmd_snapshot(args) -> int:
         print(f"  bytes/entity  {pb['bytes'] // max(census['entities'], 1):,}")
 
     # The static feed is HEAD-only here; a 10 MB zip is not worth pulling to
-    # learn its Last-Modified, which is the only thing Phase 0 needs from it.
+    # learn its Last-Modified, which is the only thing recon needs from it.
     try:
         r = requests.head(STATIC_ZIP, headers={"User-Agent": UA}, timeout=30)
         result["static"] = {

@@ -7,14 +7,13 @@
 -- two are comparable only where the mart has stopped moving. Measured over the
 -- whole of staging: 4,511 expected minutes against 4,510 in the mart, one
 -- minute of positions having arrived between building the mart and running this
--- test. That gap was always reachable; adding the 4B marts made the build slow
--- enough to hit it on every run.
+-- test. That gap was always reachable; a slower build made it hit on every run.
 --
--- COUNTED INSIDE THE SPAN, not over the whole mart, since the mart became
--- incremental (2026-09-26). It now keeps minutes whose positions have aged
--- out of the raw table's 90-day retention, so a total row count would exceed
--- the span staging can still see. Counting mart minutes between the span's
--- first and last minute asks exactly the original question.
+-- COUNTED INSIDE THE SPAN, not over the whole mart: the mart is incremental
+-- and keeps minutes whose positions have aged out of the raw table's 90-day
+-- retention, so a total row count would exceed the span staging can still see.
+-- Counting mart minutes between the span's first and last minute asks exactly
+-- the original question.
 --
 -- WINDOWED IN THE HOURLY RUN (var recent_hours; macros/recent_window.sql):
 -- the span is measured over recent positions only. Unset, it is the full

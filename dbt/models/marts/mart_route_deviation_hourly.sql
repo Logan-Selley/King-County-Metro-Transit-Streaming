@@ -5,8 +5,8 @@
   opens two rows for one route when a route changes id across a service
   change, which the grain test then fails on.
 
-  The question it answers: which routes run late, and when? Phase 2 measured
-  a network-wide median of +105s; this breaks that number down to where it
+  The question it answers: which routes run late, and when? The network-wide
+  median deviation is +105s; this breaks that number down to where it
   comes from.
 
   SHAPE (enforced by the contract in _marts.yml):

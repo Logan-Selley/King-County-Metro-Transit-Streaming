@@ -8,9 +8,9 @@
 # WHY THIS EXISTS. There is no JobManager HA, so a restarted JobManager logs
 # "Successfully recovered 0 persisted job graphs" and the job is simply gone.
 # docker-compose.yml records that decision (HA is more machinery than a
-# single-node laptop stack is worth) and the consequence: before this script,
-# a restart meant the detector was silently absent until somebody noticed the
-# alert topic had stopped.
+# single-node laptop stack is worth) and the consequence: without
+# re-submission, a restart leaves the detector silently absent until somebody
+# notices the alert topic has stopped.
 #
 # IDEMPOTENT BY JOB NAME. `flink list -r` already reports what is running, so
 # a re-run on a machine where the jobs survived does nothing. Without that
@@ -18,8 +18,8 @@
 #
 # RESUMING FROM A RETAINED CHECKPOINT IS STILL MANUAL, deliberately. Each job
 # keeps its checkpoints across a cancellation (RETAIN_ON_CANCELLATION, set in
-# consumers/checkpointing.py; until 2026-09-25 it sat in the JobManager's
-# config, where it had no effect on submitted jobs), so the option exists:
+# consumers/checkpointing.py; in the JobManager's config it has no effect on
+# submitted jobs), so the option exists:
 #
 #     flink run -s s3://transit-raw/flink-checkpoints/<job-id>/chk-N \
 #       --pyFiles /opt/jobs -py /opt/jobs/consumers/bunching/job.py
@@ -98,14 +98,12 @@ submit() {
 
 submit consumers/bunching/job.py bunching-detector
 
-# ON BY DEFAULT, and it used to be the opposite for a reason that was wrong.
-# The gate existed because "the prediction join reads raw.trip_updates from
-# earliest, which is ~47M records, so auto-submitting would kick that replay off
-# on every boot". It does not: that source starts at latest(), a change made
-# during the Phase 3 close-out, so a fresh submission begins at the end of the
-# topic and costs nothing to replay.
+# ON BY DEFAULT. A gate would only be needed if the prediction join read
+# raw.trip_updates from earliest (~47M records), which would replay the topic
+# on every boot. It does not: that source starts at latest(), so a fresh
+# submission begins at the end of the topic and costs nothing to replay.
 #
-# What leaving it off cost is measured rather than argued. After a crash at
+# Measured: after a crash at
 # 13:11 Pacific only the detector came back; the prediction job stayed absent
 # for hours and nothing said so, because sources.yml carried no freshness check
 # on its output table. It has one now, so the next absence fails a task at

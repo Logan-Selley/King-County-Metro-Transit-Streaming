@@ -1,10 +1,10 @@
--- Phase 4: the table Kafka Connect sinks enriched.vehicle_positions into.
+-- The table Kafka Connect sinks enriched.vehicle_positions into.
 --
 -- Idempotent, like the other initdb files: `make migrate` re-applies all of
 -- them to a running warehouse, so every statement is IF NOT EXISTS.
 --
 -- WHY A NEW TABLE rather than raw.vehicle_positions from 01-schema.sql:
--- that table was designed in Phase 0 for a sink off raw.vehicle_positions,
+-- that table was built for a sink off raw.vehicle_positions,
 -- and that topic is schemaless JSON (ADR 0005 kept raw topics unregistered).
 -- The JDBC sink cannot write a record without a schema -- measured, it fails
 -- on the first record with "requires records with a non-null Struct value

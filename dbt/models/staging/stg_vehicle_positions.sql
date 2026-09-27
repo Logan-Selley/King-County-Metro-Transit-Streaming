@@ -3,11 +3,10 @@
   worked example the other staging models follow.
 
   Staging does units, types and names, and nothing a question-specific mart
-  would disagree about. Three decisions in here are not cosmetic, and each
-  one is a bug this project already paid for once:
+  would disagree about. Three decisions in here are not cosmetic:
 
-  1. LOCAL TIME IS AMERICA/LOS_ANGELES, converted once, here. Phase 2's
-     service-date anchor used UTC midnight and was seven hours wrong on every
+  1. LOCAL TIME IS AMERICA/LOS_ANGELES, converted once, here. Anchoring a
+     service date on UTC midnight is seven hours wrong on every
      record, not just across DST (findings, Phase 2). Every mart that says
      "hour of day" means Seattle's hour, and it gets it from this column
      instead of re-deriving it with a timezone literal of its own.

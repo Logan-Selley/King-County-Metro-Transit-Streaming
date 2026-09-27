@@ -1,4 +1,4 @@
-"""Daily static GTFS refresh. Build step 4D.
+"""Daily static GTFS refresh.
 
 Reload static GTFS when Metro publishes a new zip. `make static-load`
 (static/run.py --load) already skips when the ETag is unchanged; what this adds
@@ -14,18 +14,17 @@ to check: Airflow's image carries neither psycopg nor shapely.
 WHY DockerOperator. The loader needs psycopg and shapely, which Airflow's
 environment must not carry. That is the same separation the dbt DAG has, and
 the reason docker/Dockerfile.pipeline exists. Airflow decides WHAT runs and
-WHEN; the image owns HOW. (static/run.py's docstring used to claim a
-BashOperator, which would have needed the project venv inside Airflow.)
+WHEN; the image owns HOW.
 
 NO MOUNTS, unlike transit_dbt's tasks. That DAG mounts the dbt project because
 the project is its input; this image bakes the code in, so a task is one
 container and nothing else.
 
-ONE THING THIS DOES NOT DO, and it matters more now that the enrichment
-consumer runs as a supervised container: the enrichment pins the static
-version AT STARTUP, so loading a new version while it is running leaves it
-joining against the old one. static/run.py prints a reminder to that effect.
-Restarting it is a deliberate manual step for now:
+ONE THING THIS DOES NOT DO, and it matters because the enrichment consumer
+runs as a supervised container: the enrichment pins the static version AT
+STARTUP, so loading a new version while it is running leaves it joining against
+the old one. static/run.py prints a reminder to that effect. Restarting it is a
+deliberate manual step:
 
     docker compose -f docker-compose.yml --profile stream restart enrichment
 
@@ -62,7 +61,7 @@ UNCHANGED_EXIT_CODE = 99
 ENV = {
     "WAREHOUSE_HOST": "warehouse",
     "WAREHOUSE_PORT": "5432",
-    # static_loader, not the superuser (build step 5C): it writes static.* and
+    # static_loader, not the superuser: it writes static.* and
     # reads nothing else, so a bad load cannot reach raw.*.
     "STATIC_LOADER_USER": "static_loader",
     "STATIC_LOADER_PASSWORD": os.environ["STATIC_LOADER_PASSWORD"],

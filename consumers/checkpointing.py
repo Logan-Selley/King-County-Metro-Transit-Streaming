@@ -1,12 +1,11 @@
 """Checkpoint settings for every Flink job, set in the job rather than the cluster.
 
-WHY IN THE JOB. docker-compose.yml's FLINK_PROPERTIES for the JobManager carried
-`execution.checkpointing.externalized-checkpoint-retention:
-RETAIN_ON_CANCELLATION`, and flink-submit.sh and the docs relied on it for
-hand-resuming a cancelled job. It was never in effect. A job's checkpoint
-settings are assembled by the CLIENT that submits it (from its own config and
-the job's code) and fixed in the job graph; the JobManager's properties do not
-reach them. Measured on 2026-09-25 through the REST API, for both running jobs:
+WHY IN THE JOB. A job's checkpoint settings are assembled by the CLIENT that
+submits it (from its own config and the job's code) and fixed in the job graph;
+the JobManager's properties do not reach them. So docker-compose.yml's
+FLINK_PROPERTIES for the JobManager, which flink-submit.sh relied on for
+hand-resuming a cancelled job, cannot set them. Measured on 2026-09-25 through
+the REST API, for both running jobs:
 
     externalization: {'enabled': False, 'delete_on_cancellation': True}
     tolerable_failed_checkpoints: 0

@@ -1,8 +1,8 @@
 """Regression tests for the GTFS-RT wire semantics the pipeline depends on.
 
-These are not tests of this project's code -- there is barely any yet. They
-assert the *findings* from Phase 0, against captured fixtures, so that the
-assumptions the schema was designed around are checked rather than remembered.
+These are not tests of this project's code. They assert the *findings* from
+Phase 0, against captured fixtures, so that the assumptions the schema was
+designed around are checked rather than remembered.
 
 Every one of these corresponds to a decision in docs/findings.md or
 docker/initdb/01-schema.sql. If one fails, a design decision needs revisiting,

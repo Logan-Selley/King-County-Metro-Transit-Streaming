@@ -1,7 +1,6 @@
 """Daily partition maintenance for the sink tables.
 
-The whole DAG is one ordering rule, found while building the sink
-(docker/initdb/03-sink.sql):
+The whole DAG is one ordering rule (docker/initdb/03-sink.sql):
 
     Once the DEFAULT partition holds rows for a day, Postgres refuses to create
     that day's partition -- "updated partition constraint for default
@@ -18,8 +17,7 @@ compared against a timestamptz. That makes them UTC-midnight boundaries, which
 is correct for storage. "Which service day is this" is a staging concern
 (stg_vehicle_positions.service_date), not a partitioning one.
 
-RETENTION IS HERE NOW, decided in build step 4E rather than inherited. 90 days,
-against a measured 730 MB/day and 2.8 T free: the reasoning, the alternatives
+RETENTION IS HERE. 90 days, against a measured 730 MB/day and 2.8 T free: the reasoning, the alternatives
 and the irreversibility argument are in docker/initdb/04-retention.sql, and the
 window is RETENTION_DAYS below.
 
@@ -37,11 +35,9 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 
-# Every table the sink writes that is partitioned by day. The two Flink sinks
-# joined this list in build step 4B; before that there was one, which is why the
-# loop reads as if it were built for three. A table missing from here does not
-# fail loudly -- it silently grows a default partition and then cannot be split,
-# which is the failure 03-sink.sql's comment records.
+# Every table the sink writes that is partitioned by day. A table missing from
+# here does not fail loudly -- it silently grows a default partition and then
+# cannot be split, which is the failure 03-sink.sql's comment records.
 PARTITIONED = [
     "raw.enriched_vehicle_positions",
     "raw.bunching_alerts",

@@ -39,8 +39,6 @@ from consumers.prediction.accuracy import (
 )
 from consumers.prediction.config import CONFIG
 
-# Promoted out of `wip` on 2026-09-22: accuracy.py is implemented and all 48
-# cases pass, so CI enforces them on every push alongside the Phase 1-3 specs.
 pytestmark = pytest.mark.contract
 
 
@@ -51,9 +49,8 @@ ARRIVAL_S = 1790058326.0
 
 # THE TWO STREAMS DISAGREE ON THIS FIELD AND THE FIXTURES MUST TOO.
 # Verified on the live topics: raw.trip_updates publishes ISO, enriched
-# publishes GTFS. An earlier version of this file used the ISO form on both
-# sides, which made test_same_trip_and_stop_share_a_key compare two identical
-# strings and pass while the real join would have matched nothing.
+# publishes GTFS. Were both sides the ISO form, the join would compare two
+# identical strings and match nothing on real data.
 SERVICE_DATE_ISO = "2026-09-22"    # raw.trip_updates
 SERVICE_DATE_GTFS = "20260922"     # enriched.vehicle_positions
 

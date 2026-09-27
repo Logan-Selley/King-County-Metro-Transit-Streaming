@@ -6,14 +6,13 @@
 -- alternative, and it deletes the data.
 --
 -- Deliberately minimal. This establishes the shape the Kafka Connect sink
--- writes into and nothing else; every derived table is a dbt model in Phase 4,
+-- writes into and nothing else; every derived table is a dbt model,
 -- and putting analytical logic here would split the transformation layer
 -- across two tools that disagree about who owns it.
 --
--- 4F CANCELLED THREE OF THE TABLES BELOW. raw.vehicle_positions,
--- raw.trip_updates and raw.service_alerts are still defined here because this
--- file is the record of what Phase 0 designed, but 06-drop-unsunk-raw.sql drops
--- them during the same `make migrate`. The raw topics stayed schemaless
+-- THREE OF THE TABLES BELOW ARE DROPPED. raw.vehicle_positions,
+-- raw.trip_updates and raw.service_alerts are still defined here, but
+-- 06-drop-unsunk-raw.sql drops them during the same `make migrate`. The raw topics stayed schemaless
 -- (ADR 0005), the JDBC sink cannot fill a table from a schemaless topic, and
 -- the Flink jobs read those topics directly. On a fresh database the three
 -- exist for the length of one migrate run and then are gone.
@@ -21,8 +20,8 @@
 CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- raw      lands exactly what the sink writes, no transformation
--- staging  dbt's cleaned/conformed layer (Phase 4)
--- marts    the six analytical outputs in the proposal (Phase 4)
+-- staging  dbt's cleaned/conformed layer
+-- marts    the six analytical outputs in the proposal
 CREATE SCHEMA IF NOT EXISTS raw;
 CREATE SCHEMA IF NOT EXISTS staging;
 CREATE SCHEMA IF NOT EXISTS marts;
@@ -37,7 +36,7 @@ CREATE SCHEMA IF NOT EXISTS marts;
 -- Retention is the point: an unbounded event table is, per the proposal, how
 -- these projects quietly die, and DROP PARTITION is O(1) where DELETE on a
 -- 50M-row table is a vacuum problem. Airflow's partition-maintenance task
--- (Phase 4) creates tomorrow's partition and drops expired ones.
+-- creates tomorrow's partition and drops expired ones.
 --
 -- The PRIMARY KEY is (vehicle_id, position_timestamp) and that is the entire
 -- delivery-semantics design in one constraint. The GTFS-RT feeds are
@@ -61,7 +60,7 @@ CREATE TABLE IF NOT EXISTS raw.vehicle_positions (
     latitude             double precision NOT NULL,
     longitude            double precision NOT NULL,
 
-    -- Nullable ON PURPOSE, and this is a Phase 0 finding rather than caution:
+    -- Nullable ON PURPOSE, and this is a measured finding rather than caution:
     -- bearing is populated on 2.1% of entities and speed on 1.8%. They are
     -- effectively absent. Anything needing heading or speed must derive it
     -- from consecutive positions; see docs/findings.md.
@@ -96,7 +95,7 @@ CREATE TABLE IF NOT EXISTS raw.vehicle_positions (
 -- A default partition catches anything outside the explicitly created ranges
 -- so an ingest never fails on a missing partition at midnight. It is a safety
 -- net, not a destination: rows landing here mean partition maintenance did not
--- run, and the Phase 4 DLQ report counts them for exactly that reason.
+-- run, and the DLQ report counts them for exactly that reason.
 CREATE TABLE IF NOT EXISTS raw.vehicle_positions_default
     PARTITION OF raw.vehicle_positions DEFAULT;
 
@@ -110,7 +109,7 @@ CREATE INDEX IF NOT EXISTS idx_vp_trip
 -- raw.trip_updates
 -- ============================================================================
 -- One row per (trip, stop) prediction per poll -- NOT one row per trip. The
--- Phase 0 measurement is ~30 stop_time_updates per trip across 612 trips,
+-- measurement is ~30 stop_time_updates per trip across 612 trips,
 -- i.e. ~18,600 rows per poll against 280 for the positions feed. This table
 -- is roughly 66x the row rate of the one above and its retention has to be
 -- set accordingly.
@@ -202,13 +201,13 @@ CREATE INDEX IF NOT EXISTS idx_dlq_time_reason
 -- ============================================================================
 -- partition maintenance
 -- ============================================================================
--- Called by the Airflow DAG in Phase 4. Kept here rather than in dbt because
+-- Called by the Airflow DAG. Kept here rather than in dbt because
 -- dbt models describe SELECTs, and creating a partition is DDL that has to
 -- happen before the rows arrive, not as part of transforming them.
 --
 -- SECURITY DEFINER, because the body is DDL the CALLER cannot do itself:
 -- CREATE TABLE ... PARTITION OF requires ownership of the parent, and the whole
--- point of this function is that airflow_ops owns nothing in raw (build step 5C).
+-- point of this function is that airflow_ops owns nothing in raw.
 -- EXECUTE is revoked from PUBLIC below and granted to airflow_ops by
 -- terraform/core/access.tf, because a grant describes a ROLE rather than a table.
 --

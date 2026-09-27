@@ -2,7 +2,7 @@
 
 {#
   The two claims the error curve exists to support, asserted instead of
-  eyeballed. Phase 3 found them in the job's output; if the warehouse cannot
+  eyeballed. The job's output shows them; if the warehouse cannot
   reproduce them, either the sink or the mart is wrong, and both are worse than
   a failing build.
 
@@ -19,8 +19,7 @@
   negative lead time -- predictions restating an arrival that already happened
   -- so its mean error is negative by construction: measured, -283s against +11s
   for 0-2m. Including it would assert that the sign is optimistic about
-  predictions of the past, which is a category error rather than a finding, and
-  the first version of this test failed on exactly that.
+  predictions of the past, which is a category error rather than a finding.
 
   An empty mart FAILS this on purpose. NULL endpoints would otherwise satisfy
   "not greater than" and pass vacuously, which is how a broken pipe looks like a

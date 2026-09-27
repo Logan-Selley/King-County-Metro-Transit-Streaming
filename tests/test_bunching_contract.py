@@ -8,8 +8,7 @@ the implementation it tests.
 
 NO CLUSTER, no broker, no warehouse, no pyflink. Everything here imports
 consumers.bunching.detect, which is why that module exists separately from
-job.py -- a detector reachable only through a Flink submit has no test path,
-and the four stubs sat behind `import pyflink` until this suite needed them.
+job.py -- a detector reachable only through a Flink submit has no test path.
 
 --- what these fixtures encode ---
 
@@ -53,9 +52,6 @@ def record() -> dict:
         pytest.skip(f"no descriptor at {DESCRIPTOR_PATH} -- run `make schema-gen`")
     return decode((pathlib.Path(__file__).parent / "fixtures" / FIXTURE).read_bytes())
 
-# Promoted out of `wip` on 2026-09-21: detect.py is implemented and all of
-# these pass, so CI enforces them on every push alongside the Phase 1 and
-# Phase 2 specs.
 pytestmark = pytest.mark.contract
 
 
@@ -118,14 +114,14 @@ class TestImportIsolation:
     image has a deliberately narrow subset (ADR 0006), so an import that is
     fine here can still kill the job.
 
-    That is not hypothetical. `detect.py` briefly carried an unused
-    `from consumers.enrichment.enrich import schedule_deviation`, which
-    reaches `reference.py` and then `import psycopg`:
+    A stray import is not hypothetical: `from consumers.enrichment.enrich
+    import schedule_deviation` reaches `reference.py` and then `import psycopg`,
+    which the image lacks:
 
         ModuleNotFoundError: No module named 'psycopg'
 
-    Every contract test passed. The job would have died at submit, and the
-    traceback names psycopg rather than the import that pulled it in.
+    The contract tests would all still pass; the job would die at submit, and
+    the traceback names psycopg rather than the import that pulled it in.
     """
 
     FORBIDDEN = ("consumers.enrichment", "producer", "static", "pyflink",
@@ -241,10 +237,8 @@ class TestParseRecord:
     """parse_record takes a DICT, not a JSON string.
 
     decode.decode() has already turned the topic's protobuf into a dict by
-    the time this runs. The signature was `str` while the enriched topic
-    carried JSON during the Phase 2 placeholder era; it carries
-    Confluent-framed protobuf now, and the decode tests below cover that
-    boundary.
+    the time this runs, so the signature is a dict. The decode tests below
+    cover the bytes/dict boundary.
     """
 
     def decoded(self, **overrides) -> dict:
@@ -333,7 +327,7 @@ class TestStripFraming:
         assert strip_framing(b"\x00\x00\x00\x00\x03\x01\x00" + payload) == payload
 
     def test_rejects_json(self):
-        """What the topic briefly carried. `{` is 0x7b, not a valid magic."""
+        """A JSON record has `{` (0x7b) where the magic byte belongs."""
         with pytest.raises(ValueError):
             strip_framing(b'{"vehicle_id": "1234"}')
 

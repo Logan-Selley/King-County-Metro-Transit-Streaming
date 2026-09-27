@@ -4,8 +4,7 @@ Declarative on purpose, and the same shape as ingest/manifest.py in the parcel
 project: frozen dataclasses with derived properties, so that every consumer of
 this config reads the same bytes and there is no second copy to drift.
 
-Everything here is settled by Phase 0 measurement or an ADR. Nothing in this
-file is a guess:
+Everything here is settled by a measurement or an ADR, never a guess:
 
   poll intervals   docs/findings.md §2 -- measured 20.0s / 20.0s / 60.0s
                    publish periods, polled at half that (see below)
@@ -77,7 +76,7 @@ class FeedSpec:
     # 0%. See the header comment in dedupe.py for the measurement.
     dedupe_maxsize: int = 60_000
     # Where this feed's rejects go. None means `dlq.<name>`, the live
-    # convention. Phase 6's replay sets `replay.dlq.<name>`, because a replay's
+    # convention. The replay sets `replay.dlq.<name>`, because a replay's
     # rejects landing in the LIVE dlq would be counted by transit_health's
     # dlq_report as if the live feed had produced them.
     dlq: str | None = None
@@ -115,10 +114,9 @@ FEEDS: dict[str, FeedSpec] = {
         entity_field="vehicle",
         key_field="vehicle_id",
         # Identity is vehicle_id, so cardinality is the fleet: 280 at the
-        # evening trough and 423 at the measured daytime peak -- the proposal's
-        # "high hundreds to low thousands" was high. Occupancy over 24h peaked
-        # at 835 (the day's distinct vehicles, not the concurrent fleet), so
-        # 20k has ample headroom and costs a few MB.
+        # evening trough and 423 at the measured daytime peak. Occupancy over
+        # 24h peaked at 835 (the day's distinct vehicles, not the concurrent
+        # fleet), so 20k has ample headroom and costs a few MB.
         dedupe_maxsize=20_000,
     ),
     "trip_updates": FeedSpec(
@@ -136,15 +134,15 @@ FEEDS: dict[str, FeedSpec] = {
         # cardinality is stop predictions, not trips: 18,623 at the evening
         # trough, ~27,800 at the measured daytime peak.
         #
-        # 300k is ~10x that concurrent peak, and the 24-hour run showed why
-        # the headroom is spent on something other than concurrency --
-        # occupancy climbs monotonically with CUMULATIVE identities over a
-        # service day (23k -> 300k, pinned at the ceiling from hour 21).
-        # Eviction at that point is discarding trips that ended hours ago,
-        # and suppression held at 78-85%. See dedupe.py's header.
+        # 300k is ~10x that concurrent peak, and the headroom goes to
+        # something other than concurrency: occupancy climbs monotonically
+        # with CUMULATIVE identities over a service day (23k -> 300k, pinned
+        # at the ceiling from hour 21). Eviction at that point is discarding
+        # trips that ended hours ago, and suppression holds at 78-85%. See
+        # dedupe.py's header.
         #
-        # This is the number the old shared 60k default got wrong: fine all
-        # night, thrashing from the morning peak onward.
+        # A shared 60k default is fine all night and thrashes from the morning
+        # peak onward.
         dedupe_maxsize=300_000,
     ),
     "service_alerts": FeedSpec(

@@ -1,10 +1,8 @@
 """Prediction-accuracy logic, with no Flink in it.
 
-Everything in here is implemented; tests/test_prediction_contract.py is the
-spec, and all 48 cases pass. The three helpers most callers lean on are
-lead_bucket, epoch_s and service_day -- three rather than the original two,
-because the two topics publish start_date in different formats. See
-service_day.
+tests/test_prediction_contract.py is the spec. The three helpers most callers
+lean on are lead_bucket, epoch_s and service_day, three because the two topics
+publish start_date in different formats. See service_day.
 
 Same split as consumers/bunching/detect.py, for the same reason: `job.py`
 holds the Flink wiring and imports these, so everything that can be wrong
@@ -83,7 +81,7 @@ def epoch_s(value) -> float | None:
     where decode.to_dict() keeps int64 an int. Normalising in one place is
     what stops the join comparing a string to a float and silently matching
     nothing -- the same class of bug as the ISO-vs-GTFS date mismatch that
-    made `schedule_deviation` return None for every record in Phase 2.
+    makes `schedule_deviation` return None for every record.
 
     Returns None rather than raising. A record whose time cannot be read is
     dropped by the caller, not allowed to kill a TaskManager slot.
@@ -92,11 +90,11 @@ def epoch_s(value) -> float | None:
     `datetime.fromisoformat` accepts basic ISO-8601, so a GTFS service date
     like "20260922" parses happily as 2026-09-22T00:00:00 instead of
     failing. Both formats are live in this project: `start_date` is GTFS
-    "YYYYMMDD" in some paths and ISO "YYYY-MM-DD" in others, which is the
-    exact mismatch that made Phase 2's `schedule_deviation` return None for
-    every record. Here it would be worse than None: midnight of the service
-    day is a plausible-looking timestamp, so a date fed in by mistake would
-    produce errors of several hours and look like a timezone bug.
+    "YYYYMMDD" in some paths and ISO "YYYY-MM-DD" in others, the exact
+    mismatch that makes `schedule_deviation` return None for every record.
+    Here it would be worse than None: midnight of the service day is a
+    plausible-looking timestamp, so a date fed in by mistake would produce
+    errors of several hours and look like a timezone bug.
     """
     if value is None:
         return None
@@ -133,7 +131,7 @@ def service_day(value) -> str | None:
     `2026-09-22:675379571:11140` against `20260922:675379571:11140`, no key
     would ever match, every prediction would sit in state until its TTL
     expired, and the job would run clean with an empty sink. The same shape
-    as Phase 2's `schedule_deviation` returning None for every record.
+    as `schedule_deviation` returning None for every record.
 
     NOT imported from consumers.enrichment. That module reaches `psycopg`,
     which the Flink image does not have, and TestImportIsolation fails the
@@ -208,9 +206,9 @@ def parse_observation(rec: dict) -> dict | None:
     23.1% of positions are STOPPED_AT, and 100% of those carry both stop_id
     and current_stop_sequence.
 
-    Careful with absence here. Phase 0's most expensive finding was that an
-    ABSENT current_status means IN_TRANSIT_TO rather than unknown, because
-    the proto2 field carries `[default = IN_TRANSIT_TO]`. decode.to_dict()
+    Careful with absence here. An ABSENT current_status means IN_TRANSIT_TO
+    rather than unknown, because the proto2 field carries
+    `[default = IN_TRANSIT_TO]`. decode.to_dict()
     reads through the attribute accessor so the default is already applied,
     and a missing value is therefore genuinely missing rather than
     IN_TRANSIT_TO. Test the value, not presence.
@@ -253,8 +251,8 @@ def join_key(rec: dict) -> str:
     tomorrow with the same id. Keying on (trip_id, stop_id) alone lets a
     prediction issued today match an observation from tomorrow's run of the
     same trip, which would produce an error of roughly 24 hours and look like
-    a unit bug rather than a join bug. Phase 2's `service_date_origin` exists
-    for the same reason.
+    a unit bug rather than a join bug. `service_date_origin` exists for the
+    same reason.
 
     NORMALISE THROUGH service_day() HERE, not in the parsers. The two topics
     publish this field in different formats (ISO vs GTFS -- see that
@@ -344,9 +342,7 @@ class PredictionBuffer:
 
     This is the join. It lives here rather than in job.py because it is the
     measurement's logic, not Flink's, and because state reachable only
-    through a running cluster is state that never gets tested -- the lesson
-    from bunching, where four stubs sat behind `import pyflink` until
-    detect.py was split out.
+    through a running cluster is state that never gets tested.
 
     Immutable in the same style as BunchingState: the methods return a new
     buffer rather than mutating, so a caller that dies between the decision

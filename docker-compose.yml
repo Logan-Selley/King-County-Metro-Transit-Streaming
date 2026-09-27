@@ -10,10 +10,10 @@
 #    never a named volume. Named volumes live under /var/lib/docker on the
 #    root filesystem, which is a 293G partition sitting at 96% with ~15G free.
 #    This stack's whole purpose is to accumulate event data continuously; a
-#    24-hour Phase 1 collection run pointed at /var/lib/docker would fill the
+#    24-hour collection run pointed at /var/lib/docker would fill the
 #    root partition and take the desktop down with it. /mnt/F is 3.6T of ext4.
 #
-# CORRECTION, 2026-09-20: the 96% figure above is HISTORICAL. The root
+# The 96% figure above is HISTORICAL. The root
 # filesystem is now a different device (/dev/sdc2, 639G) with 414G free at
 # 36%. The bind mounts stay, because a stack that accumulates event data
 # continuously still does not belong on the OS partition and /mnt/F has 2.8T
@@ -35,8 +35,8 @@
 #    them mnemonic while guaranteeing no clash with a default-configured
 #    Kafka or Schema Registry a tutorial might have you start.
 
-# 3. EVERY SERVICE IS MEMORY-CAPPED, and this one is new. It is the reason the
-#    machine used to come back rebooted.
+# 3. EVERY SERVICE IS MEMORY-CAPPED. Without a limit, a runaway takes the
+#    whole host rather than being killed inside its own cgroup.
 #
 #    Nothing here had a limit, so any runaway -- Redpanda's cache, the
 #    TaskManager, Connect during a replay -- could take the whole host instead
@@ -67,8 +67,8 @@ services:
   # and a Kafka-API-compatible wire protocol so every client library is unchanged.
   #
   # It also ships a Schema Registry ON THE SAME BINARY (port 8081 internally).
-  # That removes an entire Confluent container from this file. Phase 2 registers
-  # protobuf schemas against it with the ordinary confluent-kafka client -- the
+  # That removes an entire Confluent container from this file. Protobuf schemas
+  # are registered against it with the ordinary confluent-kafka client -- the
   # registry API is compatible, so this is a deployment simplification and not
   # a capability compromise.
   redpanda:
@@ -121,7 +121,7 @@ services:
       start_period: 15s
 
   # --- broker UI ------------------------------------------------------------
-  # Not decoration. Phase 1's exit criterion is 24 hours of uninterrupted
+  # Not decoration. The exit criterion is 24 hours of uninterrupted
   # collection, and the thing that makes that verifiable at a glance is a
   # consumer-lag and partition view. Reading it out of `rpk` works but is a
   # worse feedback loop when the question is "did anything stall overnight".
@@ -151,8 +151,7 @@ services:
       - "${CONSOLE_PORT:-8085}:8080"
 
   # --- serving layer --------------------------------------------------------
-  # Same image as the parcel project deliberately: the container patterns,
-  # the initdb convention, and the shm_size lesson all transfer, and there is
+  # Same image as the parcel project deliberately: there is
   # no reason for two projects on one machine to debug two Postgres versions.
   warehouse:
     image: postgis/postgis:16-3.4
@@ -186,13 +185,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      # 180s because the probe above now waits for init honestly, and a first
+      # 180s because the probe above waits for init honestly, and a first
       # init runs initdb, creates postgis and applies all of docker/initdb/.
-      # The old 10s only ever worked because the socket probe reported healthy
+      # A 10s budget only works because the socket probe reports healthy
       # DURING init. A passing check inside the start period marks the service
       # healthy at once, so this costs nothing when init is fast; it only stops
-      # `up --wait` giving up on a slow first start (rehearsed: a cold start on
-      # a busy disk went past the old ~60s budget and failed the platform job).
+      # `up --wait` giving up on a slow first start (measured: a cold start on
+      # a busy disk exceeded a ~60s budget and failed the platform job).
       start_period: 180s
 
   # --- raw archive ----------------------------------------------------------
@@ -205,10 +204,6 @@ services:
     # NOT minio/minio. That repository no longer exists on Docker Hub (its tags
     # API answers "object not found", a pull answers "repository does not exist
     # or may require 'docker login'"), and quay.io/minio/minio requires auth.
-    # Found by rehearsing the `platform` CI job on an empty daemon on
-    # 2026-09-25: this machine had kept working only because it pulled the old
-    # image weeks earlier, so the clean-clone path was broken and nothing here
-    # could see it.
     #
     # Chainguard's build from source, signed and maintained. Its free tier
     # publishes only `latest`, so this pins the DIGEST: reproducible, and if the
@@ -252,16 +247,15 @@ services:
       retries: 10
       start_period: 10s
 
-  # Bucket creation MOVED TO TERRAFORM, build step 5B. terraform/core/storage.tf
+  # Bucket creation lives in Terraform: terraform/core/storage.tf
   # owns transit-raw, including its lifecycle rule for abandoned checkpoints.
   #
-  # WHY IT MOVED. This was a one-shot bucket create with an ignore-if-exists
-  # flag: create if absent, say nothing about configuration. Same shape as the
-  # topic-create calls that used to be in the Makefile, and it went for the same
-  # reason. The bucket grew configuration worth managing (an expiry on
-  # flink-checkpoints/), and there should be one owner for it.
+  # A one-shot bucket create with an ignore-if-exists
+  # flag creates if absent and says nothing about configuration, but
+  # the bucket grew configuration worth managing (an expiry on
+  # flink-checkpoints/), so it has one owner.
   #
-  # The bootstrap sequence on a fresh machine is now `make up` then
+  # The bootstrap sequence on a fresh machine is `make up` then
   # `make platform`, which is what CI's platform job proves on every push.
   # tests/test_platform_contract.py fails while a bucket-create call appears in
   # this file -- a blunt substring check, so this comment cannot quote it
@@ -273,8 +267,8 @@ services:
   # alive afterwards, because a profile governs STARTING, not restarting, so
   # they come back on a boot without the profile being named again.
   #
-  # WHY CONTAINERS AT ALL. Both used to be started from a terminal (`make
-  # produce`, `make enrich`), so they died with the session that started them.
+  # WHY CONTAINERS AT ALL. Started from a terminal (`make
+  # produce`, `make enrich`), they die with the session that starts them.
   # Two of the gaps in the warehouse are exactly that shape -- see the
   # 1,062-minute run in mart_feed_health -- and the mart cannot tell our
   # downtime from Metro's. Dockerfile.pipeline has the long version.
@@ -304,7 +298,7 @@ services:
       KAFKA_BOOTSTRAP: redpanda:9092
       SCHEMA_REGISTRY_URL: http://redpanda:8081
       MINIO_ENDPOINT: minio:9000
-      # archive_writer, not MINIO_ROOT_USER (build step 5C). The policy is
+      # archive_writer, not MINIO_ROOT_USER. The policy is
       # ListBucket on the bucket plus PutObject under raw/ and nothing else, so a
       # bad producer cannot read the archive back or touch flink-checkpoints/.
       MINIO_ACCESS_KEY: archive_writer
@@ -353,7 +347,7 @@ services:
       # psycopg is enrichment-only, so the database credentials are here and
       # deliberately NOT on the producer above.
       #
-      # The enrichment role, not the superuser (build step 5C): it reads static.*
+      # The enrichment role, not the superuser: it reads static.*
       # and nothing else. POSTGRES_USER and POSTGRES_PASSWORD are absent on
       # purpose, so this container cannot log in as `transit`.
       WAREHOUSE_HOST: warehouse
@@ -380,14 +374,14 @@ services:
       retries: 3
       start_period: 60s
 
-  # --- stateful processing (Phase 3) ---------------------------------------
+  # --- stateful processing -------------------------------------------------
   # BEHIND A PROFILE, like connect. `make flink-up` starts them.
   #
   #     docker compose --profile flink up -d
   #
   # Two containers because that is Flink's actual topology: the JobManager
   # coordinates and hosts the UI, TaskManagers execute. Running one combined
-  # process would hide the distinction the phase exists to demonstrate.
+  # process would hide the JobManager/TaskManager distinction.
   #
   # Job code is NOT mounted from the project venv -- ADR 0006. apache-flink
   # pins protobuf<6 through apache-beam, and the project runs protobuf 7.36.1;
@@ -421,22 +415,19 @@ services:
       # restart. The detector would then silently refill state from an empty
       # start and under-report until every vehicle reappeared.
       #
-      # CORRECTED 2026-09-22: a durable directory alone does not deliver
-      # that. Two more things are true and both bit:
+      # A durable directory alone does not deliver
+      # that. Two more things matter:
       #
       #   * Flink's default retention is NO_EXTERNALIZED_CHECKPOINTS, which
       #     DELETES a job's checkpoints when the job terminates. The bunching
       #     job completed checkpoint 1750 at 20:35:38 UTC, the JobManager took
       #     a SIGTERM 13s later, and MinIO held nothing afterwards.
-      #     RETAIN_ON_CANCELLATION keeps them.
-      #
-      #     CORRECTED AGAIN 2026-09-25: setting it HERE never worked. A job's
-      #     checkpoint settings are fixed by the client that submits it, and
-      #     the REST API showed both running jobs with externalization
-      #     disabled and 0 tolerable failures despite the retention line that
-      #     used to sit below. It is now set in the job code,
-      #     consumers/checkpointing.py, which also records the restart loop
-      #     that exposed it.
+      #     RETAIN_ON_CANCELLATION keeps them. Set HERE it has no effect: a
+      #     job's checkpoint settings are fixed by the client that submits it,
+      #     and the REST API showed both running jobs with externalization
+      #     disabled and 0 tolerable failures despite the retention line
+      #     below. It belongs in the job code,
+      #     consumers/checkpointing.py.
       #
       #   * There is no JobManager HA, so a restarted JobManager logs
       #     "Successfully recovered 0 persisted job graphs" and the job is
@@ -605,8 +596,7 @@ services:
         condition: service_healthy
     environment:
       # On by default. Both sources start at latest(), so submitting the
-      # prediction job on boot costs no replay; it was off by default on the
-      # mistaken belief that it read 47M records from earliest. Set it to 0 to
+      # prediction job on boot costs no replay. Set it to 0 to
       # run the detector alone.
       FLINK_AUTOSUBMIT_PREDICTION: ${FLINK_AUTOSUBMIT_PREDICTION:-1}
     volumes:
@@ -623,9 +613,8 @@ services:
     # re-run costs one `flink list`.
     #
     # `bash /opt/flink-submit.sh`, NOT the bare path: the script is bind-mounted
-    # from /mnt/F, an NTFS mount, where the executable bit does not survive.
-    # Executing it directly gave "Permission denied" and a restart loop --
-    # which is the restart policy doing its job on a fixable mistake. Naming
+    # from /mnt/F, an NTFS mount, where the executable bit does not survive, so
+    # executing it directly fails with "Permission denied". Naming
     # the interpreter sidesteps the file mode entirely.
     command: ["/bin/bash", "-c", "bash /opt/flink-submit.sh && exec sleep infinity"]
 
@@ -633,8 +622,8 @@ services:
   # BEHIND A PROFILE, so `docker compose up -d` does not pull it.
   #
   # cp-kafka-connect is ~1.5 GB of image layers, and image layers land on the
-  # root partition that is already at 96%. Phase 1 needs Redpanda, MinIO and
-  # the warehouse running for a 24-hour collection; it does not need Connect
+  # root partition that is already at 96%. A 24-hour collection needs Redpanda,
+  # MinIO and the warehouse; it does not need Connect
   # until there is something worth sinking. Start it explicitly:
   #
   #     docker compose --profile connect up -d
@@ -667,9 +656,9 @@ services:
     environment:
       CONNECT_BOOTSTRAP_SERVERS: redpanda:9092
       CONNECT_REST_ADVERTISED_HOST_NAME: connect
-      # THE IMAGE'S OWN HEALTHCHECK READS THIS, and leaving it unset is why
-      # `connect-status` used to report the container UNHEALTHY for its whole
-      # life while the worker and all three tasks were fine.
+      # THE IMAGE'S OWN HEALTHCHECK READS THIS: unset, the container reports
+      # UNHEALTHY for its whole life while the worker and all three tasks
+      # are fine.
       # /etc/confluent/docker/healthcheck.sh curls
       #   http://$CONNECT_REST_ADVERTISED_HOST_NAME:$CONNECT_REST_PORT/connectors
       # and without the port that url is "http://connect:/connectors": curl
@@ -694,7 +683,7 @@ services:
       # worker, so connect/*.json is committed with no credential in it and
       # the password never appears in the REST API's view of the config.
       #
-      # THE SINK'S OWN ROLE, not the superuser (build step 5C). POSTGRES_USER and
+      # THE SINK'S OWN ROLE, not the superuser. POSTGRES_USER and
       # POSTGRES_PASSWORD are deliberately NOT in this environment, so the worker
       # cannot log in as `transit` even if a config asked it to. POSTGRES_DB stays,
       # because the JDBC URL names the database and a database name is not a

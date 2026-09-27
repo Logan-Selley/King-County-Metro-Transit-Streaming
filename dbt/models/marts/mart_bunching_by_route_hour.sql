@@ -2,8 +2,8 @@
   Bunching alerts per route per direction per local hour.
 
   Answers the proposal's own example question: which segments bunch worst during
-  the PM peak. Phase 3's spot-check put 40% of alerts in 16:00-18:00 and G Line,
-  E Line and route 7 on top; this mart is what that check gets re-derived from.
+  the PM peak. A spot-check put 40% of alerts in 16:00-18:00 and G Line, E Line
+  and route 7 on top; this mart is what that check gets re-derived from.
 
   ROUTE AND DIRECTION, NOT ROUTE ALONE. A segment is one direction of one route:
   a pair of buses bunched northbound on Aurora is not evidence about the

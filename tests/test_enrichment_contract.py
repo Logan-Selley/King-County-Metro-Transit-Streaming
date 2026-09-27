@@ -64,8 +64,7 @@ class TestInterpolate:
 
 class TestServiceDateOrigin:
     """A GTFS service date begins at local midnight in the AGENCY's timezone,
-    not UTC midnight. This test previously asserted UTC and was encoding a
-    7-hour bug."""
+    not UTC midnight."""
 
     def test_origin_is_agency_local_not_utc(self):
         got = service_date_origin("20260914")
@@ -92,8 +91,8 @@ class TestServiceDateOrigin:
         serialization boundary: "20260903" off the protobuf, "2026-09-03"
         after publish.serialize() round-trips it through json.dumps.
 
-        enrich_v2 receives the ISO form. Parsing only the GTFS form returned
-        None for every record and looked exactly like "no schedule".
+        enrich_v2 receives the ISO form; parsing only the GTFS form returns
+        None for every record and looks exactly like "no schedule".
         """
         from datetime import date as _date
         expected = datetime(2026, 9, 3, 7, tzinfo=timezone.utc)
@@ -199,10 +198,9 @@ class TestFeedInfo:
 class TestStaticLoadExitCodes:
     """The loader's exit codes, and the DAG that depends on one of them.
 
-    `--load` used to exit 0 both when it loaded a new version and when the ETag
-    had not moved, so `transit_static_refresh` could not tell a real load from a
-    no-op day: an unchanged morning is now SKIPPED rather than a green run that
-    did nothing.
+    `--load` exits 0 when it loaded a new version and 99 when the ETag has not
+    moved, so `transit_static_refresh` can tell a real load from a no-op day: an
+    unchanged morning is SKIPPED rather than a green run that did nothing.
     """
 
     def test_unchanged_is_99_and_not_zero(self):

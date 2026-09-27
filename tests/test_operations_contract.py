@@ -5,9 +5,8 @@ consumer_lag task) and the task itself running green for a day. This half
 pins the things that drift silently: which services report health, and which
 consumer groups the lag check watches.
 
-5D landed 2026-09-24, so this is no longer `wip`: four services declare
-healthchecks, flink-submit waits on a healthy JobManager, and the DAG watches
-exactly the groups the pipeline runs.
+Four services declare healthchecks, flink-submit waits on a healthy JobManager,
+and the DAG watches exactly the groups the pipeline runs.
 """
 
 from __future__ import annotations
@@ -60,7 +59,7 @@ class TestHealthchecks:
             "`docker ps` shows it Up while it does nothing")
 
     def test_submitter_waits_for_a_healthy_jobmanager(self):
-        """flink-submit.sh polls the REST API itself today. With a
+        """flink-submit.sh polls the REST API itself. With a
         jobmanager healthcheck, compose can do the waiting, and the script's
         loop becomes the fallback rather than the mechanism."""
         dep = _compose()["flink-submit"]["depends_on"]["flink-jobmanager"]

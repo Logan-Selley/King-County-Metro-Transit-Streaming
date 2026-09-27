@@ -4,11 +4,10 @@
     python -m consumers.sink_schemas --check      # compatibility, no writes
     python -m consumers.sink_schemas --status     # what the registry holds
 
-This is build step 4B's deploy step, the counterpart of
-consumers/enrichment/register.py for the topics the Flink jobs write. It exists
-for the same reason: `auto.register.schemas` is off (ADR 0005), so a job whose
-schema is not registered fails at submit rather than mutating a shared subject
-as a side effect of starting.
+This is the counterpart of consumers/enrichment/register.py for the topics the
+Flink jobs write. It exists for the same reason: `auto.register.schemas` is off
+(ADR 0005), so a job whose schema is not registered fails at submit rather than
+mutating a shared subject as a side effect of starting.
 
 WHY THE FLINK TOPICS NEED SCHEMAS AT ALL, when they are plain JSON: the JDBC
 sink needs a schema for every record and rejects a schemaless one. ADR 0008

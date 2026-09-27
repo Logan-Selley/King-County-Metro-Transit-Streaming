@@ -12,8 +12,7 @@
 --
 -- WHY BRIN, NOT B-TREE. The sinks append in event-time order, so the physical
 -- order already IS the time order: pg_stats correlation 0.95-1.00 on every
--- partition the sinks wrote (09-23 reads -0.46, reloaded out of order in
--- Phase 4). A BRIN index stores one min/max per 128-page range, so it is a few
+-- partition the sinks wrote (09-23 reads -0.46, reloaded out of order). A BRIN index stores one min/max per 128-page range, so it is a few
 -- dozen pages per daily partition and costs almost nothing per insert. A b-tree
 -- would add a random-write index insert for every row, which is the one
 -- resource this disk has none of. What BRIN cannot do is answer max() from the

@@ -20,12 +20,11 @@ So the detector keys on (route_id, direction_id) and looks at gaps in
 shape_dist_traveled between consecutive vehicles. That is strictly more data
 than stop-based detection and it is available every 20 seconds per vehicle.
 
-CORRECTED 2026-09-20. An earlier version of this file claimed "a route's
-vehicles share a shape, so it stays on the safe side." Measured: 101 of 280
+A (route, direction) pair does not imply one shape. Measured: 101 of 280
 (route, direction) pairs carry more than one shape, covering 44.4% of trips,
-and 92 shape pairs start over 500 m apart. The key is unchanged and the gap
-comparison is now confirmed against straight-line distance before it can
-alert -- see ADR 0007 and consumers/bunching/detect.py.
+and 92 shape pairs start over 500 m apart. The key stays (route_id,
+direction_id), and the gap comparison is confirmed against straight-line
+distance before it can alert -- see ADR 0007 and consumers/bunching/detect.py.
 """
 
 from __future__ import annotations
@@ -38,7 +37,7 @@ SINK_TOPIC = "alerts.bunching"
 CONSUMER_GROUP = "bunching"
 
 
-# --- how a run is wired: live, or a Phase 6 replay ----------------------------
+# --- how a run is wired: live, or a replay ------------------------------------
 #
 # The live job reads the constants above. A replay runs the SAME job.py with
 # different wiring, chosen by environment variable, so the replayed detector is
@@ -87,7 +86,7 @@ class RunSettings:
     bounded: bool
     # Offsets are committed only for the live job, which resumes from them. A
     # replay has nothing to resume, and a committed group would be one more
-    # abandoned group in `rpk group list` (the Phase 5 lag-check finding).
+    # abandoned group in `rpk group list` (the lag-check finding).
     commit_offsets: bool
     min_stop_sequence: int
     job_name: str
@@ -161,7 +160,7 @@ def run_settings(env: Mapping[str, str]) -> RunSettings:
         # Bounded, so the job ends when the replayed stream does and the final
         # watermark fires the last windows. Not committing offsets, because
         # there is nothing to resume and an abandoned group is clutter (the
-        # Phase 5 lag-check finding).
+        # lag-check finding).
         bounded=True,
         commit_offsets=False,
         min_stop_sequence=_replay_gate(run, env.get(REPLAY_GATE_ENV),
@@ -254,12 +253,11 @@ class BunchingConfig:
 
     # Watermark lateness.
     #
-    # WAS 120s, sized from Phase 1's 65s maximum gap between archived
-    # payloads. That number measured the wrong thing. The gap between
-    # payloads is about the FEED; what this bound has to cover is the
-    # event-time skew the JOB sees, which is dominated by reading three Kafka
-    # partitions through one watermark (see watermark_strategy in job.py --
-    # PyFlink cannot do per-partition watermarks here).
+    # Sized from the event-time skew the JOB sees, which is dominated by
+    # reading three Kafka partitions through one watermark (see
+    # watermark_strategy in job.py -- PyFlink cannot do per-partition
+    # watermarks here). The gap between archived payloads is a property of
+    # the FEED and is not what this bound has to cover.
     #
     # Measured on 60,000 steady-state records, interleaved as the job reads
     # them:
@@ -268,14 +266,14 @@ class BunchingConfig:
     #     p75  150s     p99  297s
     #     p90  227s     max  342s
     #
-    #     bound 120s -> keeps 67.7%      <- the old value
+    #     bound 120s -> keeps 67.7%
     #     bound 240s -> keeps 93.9%
     #     bound 360s -> keeps 100.0%
     #
     # Within a single partition the same data never exceeds 111s, so the
     # disorder is an artifact of the interleaving rather than the feed.
     #
-    # 120s was silently discarding 29.75% of records as late: 193,364 of
+    # 120s silently discards 29.75% of records as late: 193,364 of
     # 649,949 over one evening, with no error anywhere. The cost of 360s is
     # that a window closes six minutes after its event time rather than two,
     # which is the honest price of the watermark placement.
@@ -312,11 +310,9 @@ CONFIG = BunchingConfig()
 #           or averages distances from different shapes
 #
 # The detector keys on (route_id, direction_id), which does NOT guarantee one
-# shape -- see the correction in the module docstring. For THIS anomaly it
-# does not need to: shape 63424 is the only shape on its (route 7994,
-# direction 1), so no pair can ever straddle the unit boundary. Measured, not
-# assumed, and it is the narrow version of the claim this comment used to
-# make about shapes in general.
+# shape, so this anomaly is handled only where it is provably safe: shape
+# 63424 is the only shape on its (route 7994, direction 1), so no pair can
+# ever straddle the unit boundary. Measured, not assumed.
 #
 # A future mart that ranks routes by distance MUST normalise first.
 # ref.locate_on_shape() already returns feed units per shape rather than

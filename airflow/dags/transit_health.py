@@ -1,4 +1,4 @@
-"""Feed-health and DLQ alerting. Build step 4D.
+"""Feed-health and DLQ alerting.
 
 This is the DAG the 2026-09-23 03:00 stall asked for. Metro's feed stopped
 changing for ~80 minutes, the producer logged stale=3998s, and nothing
@@ -368,7 +368,7 @@ with DAG(
     )
 
 
-# --- consumer_lag, and the healthchecks (5D) -----------------------------------
+# --- consumer_lag, and the healthchecks ---------------------------------------
 #
 # The third task, `consumer_lag`, fails when a production consumer group falls
 # too far behind. tests/test_operations_contract.py is the spec; `make
@@ -394,7 +394,7 @@ with DAG(
 #      connect-* 0, bunching 0, enrichment 120, prediction-accuracy-pred 1,189.
 #      The Flink groups commit offsets only when a checkpoint completes (every
 #      30s), so their "lag" includes up to 30s of records they have already
-#      processed. Measure across an evening peak before changing one.
+#      processed.
 #
 #   4. Same shape as dlq_report: a DockerOperator running rpk in the Redpanda
 #      image with the entrypoint overridden (see that task's comment for what
@@ -406,7 +406,7 @@ with DAG(
 #      offsets. So state says nothing here; lag is the only signal. A job that
 #      is gone shows up as lag that grows every hour.
 #
-# HEALTHCHECKS, the other half of 5D, are in docker-compose.yml:
+# HEALTHCHECKS are in docker-compose.yml:
 #
 #   * producer and enrichment: producer/heartbeat.py touches a file once per
 #     loop iteration and the healthcheck stats its age (`-mmin -2`). What

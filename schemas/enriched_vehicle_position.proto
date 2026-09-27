@@ -104,7 +104,7 @@ message EnrichedVehiclePosition {
   // against an earlier load legitimately have no label.
   optional string gtfs_feed_version = 43;
 
-  // --- v2, Phase 2D: the spatial pass ---------------------------------------
+  // --- v2: the spatial pass -------------------------------------------------
   // 30-39. All optional, and a null is NORMAL rather than a failure:
   //   * no shape_id on the trip                        -> no distance, no deviation
   //   * position outside the schedule's distance range -> no deviation

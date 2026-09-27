@@ -112,8 +112,7 @@ def enrich_v1(raw: dict, ref: ReferenceData) -> EnrichmentResult:
         exactly. The ProtobufSerializer maps by name and a typo becomes a
         silently-unset optional field, not an error.
 
-    Do NOT add spatial fields here. Those are v2 and adding them early
-    forfeits the evolution demonstration.
+    Do NOT add spatial fields here. Those belong to v2.
     """
     trip = ref.trip(trip_id=raw["trip_id"])
     if trip is None:
@@ -224,8 +223,8 @@ def schedule_deviation(
 
     Sanity-check against reality before trusting the output. A few minutes is
     ordinary. A 24-hour deviation means the service-date anchor is wrong; a
-    7-8 hour one means the timezone is (service_date_origin returns an instant
-    in the AGENCY's timezone, not UTC midnight -- that bug was in this file).
+    7-8 hour one means the timezone is wrong (service_date_origin returns an
+    instant in the AGENCY's timezone, not UTC midnight).
     """
     sched = ref._schedules.get(trip_id)
     if sched is None:
@@ -402,11 +401,11 @@ def service_date_origin(start_date: str | date | None) -> datetime | None:
                        decoded `date` through json.dumps -> isoformat()
         date(2026,9,3) if a caller hands over the decoded object
 
-    An earlier version parsed only the first and returned None for the
-    second -- which is what enrich_v2 actually receives. That failed
-    SILENTLY: schedule_deviation would return None for every record and look
-    exactly like "this trip has no schedule". Rejecting a valid date you
-    simply cannot spell is worse than accepting two spellings.
+    Both spellings must parse. enrich_v2 receives the ISO form, and returning
+    None for it would fail SILENTLY: schedule_deviation would return None for
+    every record and look exactly like "this trip has no schedule". Rejecting
+    a valid date that arrives in a different spelling is worse than accepting
+    two spellings.
     """
     if start_date is None:
         return None

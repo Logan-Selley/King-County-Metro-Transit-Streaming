@@ -1,6 +1,6 @@
-# 5B's variables. 5C's own variables (the per-role passwords) belong
-# in access.tf with the roles that use them, so a machine that has not reached
-# 5C is not asked for passwords it has no use for.
+# The endpoint, name and credential variables for the core root. The per-role
+# passwords live in access.tf with the roles that use them, so a machine that
+# has not created the roles is not asked for passwords it has no use for.
 #
 # WHERE VALUES COME FROM. Nothing here has a tfvars file. The Makefile reads
 # .env and hands each value to the container as TF_VAR_<name>, so .env stays

@@ -1,5 +1,5 @@
 -- ============================================================================
--- 07: schema ownership for dbt  (build step 5C)
+-- 07: schema ownership for dbt
 -- ============================================================================
 -- WHY THIS IS SQL AND NOT TERRAFORM. access.tf owns roles and grants, because
 -- those describe roles. This is a MIGRATION: it changes which role owns two
@@ -38,7 +38,7 @@
 -- directory on every run. The other guard is the role itself: during first-time
 -- initdb the postgres entrypoint runs every file in this directory before
 -- Terraform has created a single role, and an unguarded ALTER would fail there and
--- break the clean-clone path that 5E exists to prove.
+-- break the clean-clone initdb path.
 
 DO $$
 DECLARE

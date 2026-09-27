@@ -16,7 +16,7 @@
 
   3. window_at IS THE EVENT TIME, NOT THE ARRIVAL TIME. The alert is emitted
      when its window closes, so in live operation the two are seconds apart --
-     but 4B re-ingested the whole topic, which backfilled roughly a day of
+     but the topic was re-ingested once, which backfilled roughly a day of
      alerts in a few minutes. A mart grouping by ingest time would pile a day
      of history into one hour and still look plausible.
 

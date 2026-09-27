@@ -1,4 +1,4 @@
-"""Replay archived feed payloads into the replay namespace. Phase 6, step 6B.
+"""Replay archived feed payloads into the replay namespace.
 
     python -m producer.replay --feed vehicle_positions \\
         --start 2026-09-24T00:00:00Z --end 2026-09-25T00:00:00Z
@@ -7,38 +7,36 @@ Re-runs stored payloads through the SAME code the live producer runs, with the
 archive standing in for the network. `process_feed` in producer/run.py reads
 its input from `pipeline.fetcher`, so a replay is that loop with an
 ArchiveFetcher plugged in: decode, DLQ routing, value dedupe and publish are the
-live implementations, not copies of them. That is the property the whole phase
+live implementations, not copies of them. That is the property the replay
 rests on. A replay built from a second implementation of the pipeline would
 prove that the second implementation works.
 
-THE THREE PIECES OF THIS STEP: `ArchiveFetcher`, `replay_spec` and
-`run_replay`, specified in their docstrings and executed by
-tests/test_replay_contract.py. Plus two small changes outside this file, both in
-the contract suite:
+`ArchiveFetcher`, `replay_spec` and `run_replay` are specified in their
+docstrings and exercised by tests/test_replay_contract.py.
 
-  * FeedSpec gains a `dlq` field and a `dlq_topic` property
-    (`self.dlq or f"dlq.{self.name}"`), and process_feed routes both of its DLQ
-    publishes through `spec.dlq_topic`. Today they are the literal
-    f"dlq.{spec.name}", so a replay would write its rejects into the LIVE DLQ
-    topics, and transit_health's dlq_report would count them.
-  * Nothing else in the producer changes. If the replay needs a change to
-    process_feed beyond that one, the replay is no longer running the live code.
+THE DLQ TOPICS ARE NAMESPACED. FeedSpec carries a `dlq` field and a
+`dlq_topic` property (`self.dlq or f"dlq.{self.name}"`), and process_feed
+routes both of its DLQ publishes through `spec.dlq_topic`. Without that, a
+replay writes its rejects into the LIVE DLQ topics and transit_health's
+dlq_report counts them. Nothing else in process_feed may change for a replay:
+a change beyond the write target means the replay is no longer running the
+live code.
 
-THE TWO DETERMINISM TRAPS, measured by reading the code rather than guessed:
+THE TWO DETERMINISM TRAPS:
 
   * The clock. The only wall-clock read on this path is the fetcher's
     `fetched_at = datetime.now()`. The archive key carries the original fetch
     time (<epoch>-<etag>.<ext>), so the replay's fetched_at comes from the key,
     and nothing downstream of the fetcher reads the clock. (Enrichment does,
-    for `enriched_at`; see the compare step.)
+    for `enriched_at`.)
   * The dedupe cache starts empty. The live LastValueCache had seen everything
     before the window, so the replay's FIRST payload publishes every vehicle,
     where the live producer published only what had changed. Those extra
     records carry position timestamps from before the window. They are not
     wrong, they are the same records the live topic received earlier, and the
-    compare step restricts both sides to position timestamps inside the window.
-    The live producer also restarted with empty caches on every crash on 09-23,
-    so this is the same thing live already did several times.
+    comparison restricts both sides to position timestamps inside the window.
+    The live producer also restarts with empty caches after a crash, so live
+    already exhibits this behaviour.
 """
 
 from __future__ import annotations
@@ -109,7 +107,7 @@ def guard_topics(topics: list[str]) -> None:
 
 
 # =============================================================================
-# 6B: the fetcher, the spec and the driver
+# the fetcher, the spec and the driver
 # =============================================================================
 
 @dataclass(frozen=True)
@@ -131,12 +129,12 @@ class ArchiveFetcher:
     CONTRACT
       * ONLY THE FEEDS GIVEN. The archive holds
         every feed in every hour, measured: 204 vehicle_positions, 203
-        trip_updates and 60 service_alerts keys in 09-24 08:00. The first
-        implementation, told nothing about which feed it served, queued all
-        three, so a vehicle-positions replay never reached `exhausted` and
-        its next fetch popped an empty queue (IndexError). Feeds are matched
-        by NAME, because fetch is called with the replay spec, whose name is
-        the live one. fetch for a feed not given is an error.
+        trip_updates and 60 service_alerts keys in 09-24 08:00. Queuing the
+        other feeds would leave a one-feed replay's `exhausted` False
+        forever, and its next fetch would pop an empty queue (IndexError).
+        Feeds are matched by NAME, because fetch is called with the replay
+        spec, whose name is the live one. fetch for a feed not given is an
+        error.
       * BODIES ARE READ IN fetch(), ONE AT A TIME. Listing the window up front
         is fine (keys are small, and `exhausted` needs the count before the
         first fetch); downloading it up front is not: a day of trip_updates is
@@ -173,9 +171,9 @@ class ArchiveFetcher:
         # ONLY the feeds given, keyed by name, because fetch is called with the
         # REPLAY spec and its name is the live one. The archive holds every feed
         # in every hour (204 vehicle_positions, 203 trip_updates and 60
-        # service_alerts keys in 09-24 08:00), so queuing the others left
-        # `exhausted` False forever for a one-feed replay, whose next fetch then
-        # popped an empty queue.
+        # service_alerts keys in 09-24 08:00), so queuing the others would leave
+        # `exhausted` False forever for a one-feed replay, whose next fetch
+        # would pop an empty queue.
         #
         # Listed here rather than on first use because `exhausted` has to be
         # answerable before the first fetch: a window with nothing in it must
@@ -264,8 +262,7 @@ def replay_spec(spec: FeedSpec) -> FeedSpec:
 
     CONTRACT
       * topic -> REPLAY_PREFIX + spec.topic
-      * dlq_topic -> REPLAY_PREFIX + the live dlq topic (needs the FeedSpec
-        change described in the module docstring)
+      * dlq_topic -> REPLAY_PREFIX + the live dlq topic
       * EVERYTHING ELSE UNCHANGED: name (so archive_prefix still points at the
         live archive, which is the input), wire format, key field, dedupe size.
         A replay spec that differs in anything but where it writes is running

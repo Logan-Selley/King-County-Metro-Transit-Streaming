@@ -136,6 +136,7 @@ def _epoch_seconds(value):
 
 
 def _row_key(row: dict, key: tuple[str, ...]) -> tuple:
+    """One row's key values, in the key's order. The single definition of it."""
     return tuple(row.get(name) for name in key)
 
 
@@ -151,6 +152,8 @@ def _index(rows: list[dict], key: tuple[str, ...]) -> dict:
 
 @dataclass
 class KeyDiff:
+    """Keys on one side only, and how many keys the two sides share."""
+
     matched: int = 0
     live_only: list = field(default_factory=list)
     replay_only: list = field(default_factory=list)
@@ -233,6 +236,7 @@ def share_in_local_hours(alerts: list[dict], hours: range, tz: str = "America/Lo
 # =============================================================================
 
 def _epoch(dt: datetime) -> int:
+    """A datetime as epoch seconds, in UTC."""
     return int(dt.astimezone(timezone.utc).timestamp())
 
 
@@ -280,18 +284,21 @@ def _read_topic(topic: str, value_decoder) -> list:
 
 
 def load_replay_enriched(topic: str = "replay.enriched.vehicle_positions") -> list[dict]:
+    """The replay topic's records, decoded by the live consumer's own decoder."""
     from consumers.bunching.decode import decode
 
     return _read_topic(topic, decode)
 
 
 def load_replay_alerts(topic: str) -> list[dict]:
+    """The replay topic's alerts, unframed the way the sink framed them."""
     from consumers.framing import unframe
 
     return _read_topic(topic, lambda raw: json.loads(unframe(raw)[1]))
 
 
 def _warehouse():
+    """A warehouse connection as dbt_transform, the read-only role for marts."""
     import psycopg
     from dotenv import load_dotenv
 
@@ -303,6 +310,7 @@ def _warehouse():
 
 
 def _query(sql: str, params) -> list[dict]:
+    """Rows as dicts, so both sides of a comparison have the same shape."""
     with _warehouse() as conn, conn.cursor() as cur:
         cur.execute(sql, params)
         cols = [c.name for c in cur.description]
@@ -310,11 +318,13 @@ def _query(sql: str, params) -> list[dict]:
 
 
 def load_live_enriched(start: datetime, end: datetime) -> list[dict]:
+    """What the live pipeline wrote in the window, filtered by event time."""
     return _query("select * from raw.enriched_vehicle_positions "
                   "where position_timestamp >= %s and position_timestamp < %s", (start, end))
 
 
 def load_live_alerts(start: datetime, end: datetime) -> list[dict]:
+    """The live alerts whose window closed inside the window."""
     return _query("select * from raw.bunching_alerts "
                   "where window_end >= %s and window_end < %s", (start, end))
 
@@ -330,10 +340,12 @@ def in_window(rows: list[dict], ts_field: str, start: datetime, end: datetime) -
 # =============================================================================
 
 def _utc(text: str) -> datetime:
+    """An ISO 8601 instant, with Z or an offset, as an aware UTC datetime."""
     return datetime.fromisoformat(text.replace("Z", "+00:00")).astimezone(timezone.utc)
 
 
 def _report_keys(name: str, diff: KeyDiff) -> None:
+    """Print a key diff, with a few examples of each one-sided key."""
     print(f"  {name}: {diff.matched:,} matched, {len(diff.live_only):,} live only, "
           f"{len(diff.replay_only):,} replay only")
     for label, keys in (("live only", diff.live_only), ("replay only", diff.replay_only)):
@@ -342,6 +354,7 @@ def _report_keys(name: str, diff: KeyDiff) -> None:
 
 
 def fidelity(start: datetime, end: datetime) -> int:
+    """Live against the replay baseline: enriched rows, then alerts."""
     live_e = load_live_enriched(start, end)
     rep_e = in_window(load_replay_enriched(), "position_timestamp", start, end)
     print(f"enriched: {len(live_e):,} live rows, {len(rep_e):,} replay records in window")
@@ -357,6 +370,7 @@ def fidelity(start: datetime, end: datetime) -> int:
 
 
 def experiment(start: datetime, end: datetime) -> int:
+    """The gate experiment: baseline against the gate-off variant."""
     base = in_window(load_replay_alerts("replay.alerts.bunching.baseline"), "window_end", start, end)
     var = in_window(load_replay_alerts("replay.alerts.bunching.variant"), "window_end", start, end)
     b, v = alerts_by_route(base), alerts_by_route(var)
@@ -365,9 +379,8 @@ def experiment(start: datetime, end: datetime) -> int:
     for route, _ in (b + v).most_common(12):
         print(f"  {str(route):<18} {b[route]:>8}  {v[route]:>7}")
     # range(16, 19): Phase 3's "16:00-18:00" was three hourly BINS, 16:00,
-    # 17:00 and 18:00 (73 + 96 + 75 = its 244 alerts), not two hours. The first
-    # version of this report used range(16, 18) and so compared a two-bin share
-    # against Phase 3's three-bin 40%.
+    # 17:00 and 18:00 (73 + 96 + 75 = its 244 alerts), not two hours. A
+    # two-bin share would be compared against Phase 3's three-bin 40%.
     print(f"  PM peak (16:00-18:59 Pacific) share: "
           f"baseline {share_in_local_hours(base, range(16, 19)):.1%}, "
           f"variant {share_in_local_hours(var, range(16, 19)):.1%}")

@@ -15,14 +15,12 @@ requires-python = ">=3.12,<3.13"
 #
 # NOT listed here, deliberately:
 #
-#   dbt-core / dbt-postgres  Phase 4. Adding them now drags in a resolver
-#                            constraint set that has nothing to do with
-#                            ingest, and the parcel project already
-#                            demonstrated they fight Airflow in a shared
-#                            environment. They arrive when there are models
-#                            to run.
+#   dbt-core / dbt-postgres  Adding them drags in a resolver constraint set
+#                            that has nothing to do with ingest, and they
+#                            fight Airflow in a shared environment. They run
+#                            in their own image (docker/Dockerfile.dbt).
 #
-#   faust / apache-flink     Phase 3 chose PyFlink (ADR 0006), and the job
+#   faust / apache-flink     PyFlink is the choice (ADR 0006), and the job
 #                            deliberately does NOT live in this venv:
 #                            apache-flink pins protobuf<6 through apache-beam,
 #                            which would silently downgrade the protobuf the
@@ -68,28 +66,27 @@ dev = [
 
 [tool.uv]
 # No build backend: this is a workspace of services and a dbt project, not an
-# installable library. Same call as the parcel project.
+# installable library.
 package = false
 
 [tool.pytest.ini_options]
 markers = [
     "contract: executable spec, written before the implementation it tests",
-    "wip: a contract suite whose implementation is not written YET -- expected to fail",
+    "wip: a contract suite whose implementation is not written, expected to fail",
 ]
 
 # The repo root on sys.path, so `from producer import feeds` resolves.
 #
 # Not decorative. `package = false` means nothing is installed, so imports
-# depend entirely on what puts the root on the path -- and the two ways of
+# depend entirely on what puts the root on the path, and the two ways of
 # invoking pytest disagree about that:
 #
 #   python -m pytest   prepends CWD to sys.path       (what `make test` uses)
-#   pytest / uv run    does NOT                        (what CI used)
+#   pytest / uv run    does NOT                        (what CI uses)
 #
-# So `make test` passed while CI failed at COLLECTION with ModuleNotFoundError
-# on `producer` and `consumers` -- an error, not a test failure, and the two
-# contract suites never ran anywhere except through make. Setting it here
-# makes both invocations behave the same.
+# Setting it here makes both invocations resolve imports the same way; without
+# it, the console-script invocation fails at COLLECTION with ModuleNotFoundError
+# on `producer` and `consumers`, an error rather than a test failure.
 pythonpath = ["."]
 
 # Contract tests are excluded by default so a quick `make test` stays fast.

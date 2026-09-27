@@ -2,8 +2,8 @@
 #
 #     make airflow-up        # http://localhost:8088  (admin / admin)
 #
-# The shape is the parcel project's, reused on purpose rather than redesigned,
-# and its three separations carry over unchanged:
+# The shape follows the parcel project's, and its three separations carry
+# over unchanged:
 #
 #   1. Airflow never shares a Python environment with dbt. Tasks run the
 #      transit-dbt image as SIBLING containers via DockerOperator.
@@ -24,7 +24,7 @@ x-airflow-env: &airflow-env
   AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
   AIRFLOW__CORE__LOAD_EXAMPLES: "false"
   AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
-  # Pinned from .env for the parcel project's reason: airflow.cfg is not on a
+  # Pinned from .env: airflow.cfg is not on a
   # volume, so without this every recreate generates a new secret_key and
   # silently invalidates every open browser session.
   AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:?set AIRFLOW_SECRET_KEY in .env}
@@ -34,8 +34,8 @@ x-airflow-env: &airflow-env
   # because this project joins the transit network below. Not localhost:5434,
   # the host-side mapping .env carries for local tools.
   AIRFLOW_CONN_WAREHOUSE: postgresql://airflow_ops:${AIRFLOW_OPS_PASSWORD}@warehouse:5432/${POSTGRES_DB}
-  # Handed to the task containers, each its own role rather than the superuser
-  # (build step 5C). POSTGRES_USER and POSTGRES_PASSWORD are deliberately ABSENT:
+  # Handed to the task containers, each its own role rather than the superuser.
+  # POSTGRES_USER and POSTGRES_PASSWORD are deliberately ABSENT:
   # nothing this container starts should be able to log in as `transit`, and the
   # Airflow metadata database is a different postgres service with its own user,
   # defined below. POSTGRES_DB stays because it names the warehouse database in
@@ -78,9 +78,9 @@ services:
     # use -- docker 4.0.0, postgres 6.0.0, common-sql 1.21.0 (checked) -- so
     # there is no _PIP_ADDITIONAL_REQUIREMENTS installing anything at start.
     image: apache/airflow:2.10.5
-    # restart: unless-stopped and a memory cap, both added 2026-09-23. The
-    # restart policy was simply absent before, so every reboot left the batch
-    # side down until somebody ran `make airflow-up` again. The cap is the
+    # restart: unless-stopped and a memory cap. Without the restart policy,
+    # every reboot leaves the batch
+    # side down until somebody runs `make airflow-up` again. The cap is the
     # docker-compose.yml constraint 3 argument applied here: without one, a
     # runaway scheduler or webserver competes with the stream and the IDE for
     # the same 31G.
@@ -106,11 +106,10 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "${AIRFLOW_PORT:-8088}:8080"
-    # A LITERAL block (|), and every line a complete command. The parcel
-    # project's first version used a folded block, which only joins lines at
-    # equal indentation: the wrapped `users create` arguments became separate
-    # commands, `|| true` hid the failure, and standalone created an admin
-    # with a random password nobody ever saw.
+    # A LITERAL block (|), and every line a complete command: a folded block
+    # only joins lines at
+    # equal indentation, so the wrapped `users create` arguments become separate
+    # commands and `|| true` hides the failure.
     command:
       - bash
       - -c

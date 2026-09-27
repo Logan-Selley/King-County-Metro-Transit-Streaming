@@ -83,8 +83,9 @@ def begin_version(conn: psycopg.Connection, etag: str, last_modified: str | None
     The feed_info columns merge with COALESCE rather than taking EXCLUDED
     flat. Same etag means same bytes, so the label already recorded is right
     by construction -- but a parse that yields NULL must not be able to erase
-    it, and an earlier run that predates feed_info handling (NULL label) gets
-    repaired by a later one. COALESCE does both; plain EXCLUDED does neither.
+    it, and a NULL label written by a run that could not parse feed_info gets
+    repaired by a later one that can. COALESCE does both; plain EXCLUDED does
+    neither.
     """
     with conn.cursor() as cur:
         cur.execute(

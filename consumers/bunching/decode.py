@@ -1,11 +1,8 @@
 """Confluent-framed protobuf bytes -> plain dict, in both protobuf majors.
 
-`enriched.vehicle_positions` carries protobuf, not JSON. It carried JSON
-briefly during the Phase 2 placeholder era, and the Phase 3 scaffold was
-written against that: `kafka_source()` used SimpleStringSchema, parse_record
-took a `str`, and the timestamp assigner called json.loads. All three were
-stale by the time the topic was recreated. This module is the replacement
-layer.
+`enriched.vehicle_positions` carries protobuf, not JSON. This module is the
+layer that turns the topic's Confluent-framed bytes into the dicts the
+detector consumes.
 
 --- why not just import schemas/enriched_vehicle_position_pb2.py ---
 
@@ -32,10 +29,10 @@ Measured: a descriptor emitted by protoc 7.x builds a working class under
 runtime 5.29.6, explicit presence intact.
 
 Same source file, same command, so the descriptor cannot drift from the
-bindings the enrichment consumer produces with. That was the deciding
-argument over generating a second set of bindings inside the image with a
-protobuf-5 protoc, which would have added a fourth version to keep in step
-(Flink runtime, PyFlink, Kafka connector, and now protoc).
+bindings the enrichment consumer produces with. Preferred over generating a
+second set of bindings inside the image with a protobuf-5 protoc, which would
+add a fourth version to keep in step (Flink runtime, PyFlink, Kafka
+connector, and now protoc).
 
 --- why the framing is parsed here rather than by ProtobufDeserializer ---
 
@@ -62,8 +59,7 @@ from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
 # /opt/jobs/schemas for the job, and it sits in the repo for the venv and the
 # contract tests. Resolved in order rather than hardcoded to the image path,
 # because a module that only works inside the container is a module no test
-# can reach -- which is the whole failure mode consumers/bunching/detect.py
-# was split out to avoid.
+# can reach.
 _REPO_SCHEMAS = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
     "schemas",
@@ -126,9 +122,8 @@ def strip_framing(raw: bytes) -> bytes:
     general form costs four lines and means a nested message added later
     decodes instead of silently shifting every field by a byte.
 
-    Raises ValueError on anything that is not framed protobuf, including the
-    JSON this topic briefly carried, so the caller can route it rather than
-    decode garbage.
+    Raises ValueError on anything that is not framed protobuf, including JSON,
+    so the caller can route it rather than decode garbage.
     """
     if len(raw) < 6:
         raise ValueError(f"too short to be framed protobuf: {len(raw)} bytes")
@@ -197,7 +192,7 @@ def decode(raw: bytes, cls=None) -> dict | None:
     None rather than an exception. This runs inside a Flink operator, where a
     raised exception kills the TaskManager slot and restarts the job from the
     last checkpoint -- so one malformed record on a topic becomes a crash
-    loop. The caller filters Nones; counting them is Phase 4's problem.
+    loop. The caller filters Nones.
     """
     try:
         msg = (cls or message_class())()

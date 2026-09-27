@@ -7,7 +7,7 @@
 -- to a run of at least 80 minutes.
 --
 -- Conditional on that night still being in the warehouse: once partition
--- retention (build step 4E) drops it, there is nothing left to assert and the
+-- retention drops it, there is nothing left to assert and the
 -- test passes vacuously rather than failing forever.
 with night_is_loaded as (
     select 1
