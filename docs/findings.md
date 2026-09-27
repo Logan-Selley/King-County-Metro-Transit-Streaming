@@ -262,7 +262,7 @@ bears on these.
 # 8. Phase 1: the 24-hour collection run
 
 *2026-09-05 04:10 UTC to 2026-09-06 04:10 UTC. Single process,
-`python -m producer.run --duration 24h`. Log: `logs/producer-20260904-2110.log`.*
+`python -m producer.run --duration 24h`. The run's producer log was kept locally, not committed.*
 
 Phase 1's exit criterion was 24 hours of continuous uninterrupted collection
 across all three feeds. It was met, and the run corrected four numbers that
@@ -1297,10 +1297,11 @@ the live enrichment consumer and the live Flink job, into an isolated
 baseline has to reproduce what the live pipeline wrote before the variant
 means anything, so the fidelity numbers come first.
 
-The run is one Pacific service day, **09-24 00:00-24:00 PDT** (07:00Z to
-07:00Z). Ingest started 30 minutes early, so the detector's state was warm at
-the window's start, and ran 10 minutes past its end, so positions published
-late still arrived. The comparison uses exactly the day.
+The run is one calendar day, **09-24 00:00-24:00 PDT** (07:00Z to 07:00Z); a
+service day starts at 06:00, so this is midnight to midnight. Ingest started 30
+minutes early, so the detector's state was warm at the window's start, and ran
+10 minutes past its end, so positions published late still arrived. The
+comparison uses exactly the day.
 
 ```
 ingest   4,385 payloads -> 1,379,613 records      3 min
@@ -1351,7 +1352,8 @@ ten minutes, about a third of normal.
 ## The experiment: what the terminal gate does
 
 ```
-              gate on (baseline)   gate off
+                   gate on      gate off
+                  (baseline)   (variant)
 alerts               641          832
 in both                    601
 only gate off              231

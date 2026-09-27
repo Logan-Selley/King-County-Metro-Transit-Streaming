@@ -197,7 +197,7 @@ class ReferenceData:
                 SELECT t.trip_id, t.route_id, t.service_id, t.trip_headsign, t.direction_id,
                     t.block_id, t.shape_id,
                     r.route_short_name, r.route_long_name, r.route_type
-                FROM static.trips t 
+                FROM static.trips t
                 JOIN static.routes r
                 ON (r.version_id, r.route_id) = (t.version_id, t.route_id)
                 WHERE t.version_id = %s

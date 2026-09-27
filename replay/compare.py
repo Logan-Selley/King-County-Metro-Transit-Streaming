@@ -20,20 +20,30 @@ dedupe cache republishes positions from before the window (producer/replay.py
 explains why), and a comparison that did not restrict would count those as
 "replay only" when they are the same records the live topic got earlier.
 
-COLD STATE, MEASURED. An end-to-end probe on 2026-09-26 (the reference detector
-in local mode over a copy of the live 16:00-18:00 PDT slice of 09-24) matched
-137 of 150 live alerts exactly, with zero field differences on those 137. The
-other 13 live and 20 replay alerts were the SAME pairs, shifted: pair
-4375/4385 alerted live at ...7280 and ...7880, and in the replay at ...7100
-and ...7700. Both sides 600 s apart (the cooldown), the replay 180 s (three
-windows) earlier throughout. The live detector carried cooldown state from
-before the slice and the replay started cold, and a pair that keeps bunching
-stays in its shifted cooldown chain, so skipping the first 20 minutes did not
-remove it. What the measurement settled: the replay starts well before the
-compared window (the 09-24 run began at 23:30, thirty minutes early) and runs
-ten minutes past its end, so a pair's cooldown chain has converged before the
-comparison and positions published late still land. Exact-key equality on
-alerts from a cold start will not reach 100% and should not be expected to.
+THE SHIFTED ALERTS, MEASURED, AND WHAT DOES NOT EXPLAIN THEM. An end-to-end
+probe on 2026-09-26 (the reference detector in local mode over a copy of the
+live 16:00-18:00 PDT slice of 09-24) matched 137 of 150 live alerts exactly,
+with zero field differences on those 137. The other 13 live and 20 replay alerts
+were the SAME pairs, shifted: pair 4375/4385 alerted live at ...7280 and ...7880,
+and in the replay at ...7100 and ...7700. Both sides 600 s apart (the cooldown),
+the replay 180 s (three windows) earlier throughout.
+
+Two explanations were tested, and both are wrong. COLD STATE IS NOT IT: the
+full-day run warms up for thirty minutes first, and 4375/4385 shifts by the same
+180 s there, at the same timestamps as the cold probe. ARRIVAL ORDER IS NOT IT
+either: the probe copied the live topic in live's own order and still shifted.
+
+THE WORKING EXPLANATION, untested. A replay runs far faster than real time, so
+its watermark trails the data further behind and fewer records count as late.
+Live is likely to have dropped records during the 17:42 lag that the replay
+kept. That still fits the write-up's reading, that the replay's alerts are what
+the live job would have produced on an undisturbed evening, and it is a
+falsifiable claim: slow the replay toward real time and the shift should shrink.
+
+Exact-key equality on alerts will not reach 100% and should not be expected to.
+The replay still starts before the compared window and runs past its end (the
+09-24 run began at 23:30 and ended 00:10), which is about the window's edges, not
+about this shift.
 
 THE EXPERIMENT compares replay.alerts.bunching.baseline with .variant, both
 from the same replayed enriched stream, so the only difference between them is
