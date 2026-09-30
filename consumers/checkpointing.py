@@ -36,16 +36,31 @@ from __future__ import annotations
 CHECKPOINT_INTERVAL_MS = 30_000
 TOLERABLE_FAILED_CHECKPOINTS = 10
 
+# THE PREDICTION JOIN CHECKPOINTS EVERY 5 MINUTES, not 30 s. Its state is the
+# trip-update predictions waiting for their arrivals: 203 MB on 2026-09-29
+# (average 148 MB, peak 368 MB), and the hashmap backend uploads ALL of it on
+# every checkpoint. At 30 s that was MinIO writing 15.75 MB/s, nearly every
+# write the spinning disk took (91% busy), and MinIO was OOM-killed mid-upload
+# at 1.2 GB resident. The bunching detector's state is 3 MB and keeps 30 s.
+# The cost: a restore now re-reads up to 5 minutes of Kafka instead of 30 s.
+PREDICTION_CHECKPOINT_INTERVAL_MS = 300_000
 
-def configure_checkpoints(env) -> None:
+# What TOLERABLE_FAILED_CHECKPOINTS means is a span of time: about five minutes
+# of storage failing before the job gives up (see the module docstring). At a
+# longer interval the same span is fewer checkpoints.
+TOLERATED_FAILURE_SPAN_MS = TOLERABLE_FAILED_CHECKPOINTS * CHECKPOINT_INTERVAL_MS
+
+
+def configure_checkpoints(env, interval_ms: int = CHECKPOINT_INTERVAL_MS) -> None:
     """Enable checkpointing on `env` with this project's settings."""
     # Imported here so the constants above stay importable without pyflink
     # (the project venv does not carry it; ADR 0006).
     from pyflink.datastream.checkpoint_config import ExternalizedCheckpointRetention
 
-    env.enable_checkpointing(CHECKPOINT_INTERVAL_MS)
+    env.enable_checkpointing(interval_ms)
     config = env.get_checkpoint_config()
-    config.set_tolerable_checkpoint_failure_number(TOLERABLE_FAILED_CHECKPOINTS)
+    config.set_tolerable_checkpoint_failure_number(
+        max(1, TOLERATED_FAILURE_SPAN_MS // interval_ms))
     # Retained on cancellation, so a cancelled job can be resumed by hand from
     # its last checkpoint (flink-submit.sh shows how). terraform/core/storage.tf
     # expires abandoned checkpoint directories after 7 days.

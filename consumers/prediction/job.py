@@ -59,7 +59,7 @@ from pyflink.datastream.functions import KeyedCoProcessFunction
 from pyflink.datastream.state import StateTtlConfig, ValueStateDescriptor
 
 from consumers import framing
-from consumers.checkpointing import configure_checkpoints
+from consumers.checkpointing import PREDICTION_CHECKPOINT_INTERVAL_MS, configure_checkpoints
 from consumers.bunching.decode import decode
 from consumers.prediction.accuracy import (
     PredictionBuffer,
@@ -111,7 +111,9 @@ def build_env() -> StreamExecutionEnvironment:
     env = StreamExecutionEnvironment.get_execution_environment()
     # Interval, tolerated failures and retention: consumers/checkpointing.py,
     # which also records why none of them can live in the cluster config.
-    configure_checkpoints(env)
+    # Every 5 minutes, not the default 30 s: this job's state is ~200 MB and
+    # each checkpoint uploads all of it (checkpointing.py has the measurement).
+    configure_checkpoints(env, interval_ms=PREDICTION_CHECKPOINT_INTERVAL_MS)
     env.set_parallelism(6)
     return env
 
