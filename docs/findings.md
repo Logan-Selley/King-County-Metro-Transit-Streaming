@@ -1468,8 +1468,8 @@ live run did (ADR 0010).
 
 # 14. Phase 7: the findings site
 
-*The snapshot in `site/data/` covers 2026-09-24 to 09-26 Pacific, the days the
-stack had finished when it was cut. `make exports` re-cuts it from the marts.*
+*The snapshot in `site/data/` is the full study week, 2026-09-24 to 09-30
+Pacific, cut on 2026-10-02. `make exports` re-cuts it from the marts.*
 
 Everything in this write-up lives in a warehouse and a set of ADRs, which is the
 right home for it and a poor front door: the numbers only exist for a reader
@@ -1511,18 +1511,63 @@ Pacific day and hour. Three things about it are worth recording.
   (vehicle_id, position_timestamp), so one vehicle's last position before the
   window is an index probe. Counting the window's positions instead is not
   served from that index, and costs about seven times as much per alert. In the
-  lateral form, a full rebuild of all 2,718 alerts takes 148 s, and the hourly
-  incremental run, bounded by the detector's 360 s lateness bound, touches tens
-  of alerts and took 5.5 s.
+  lateral form, a full rebuild of all 2,718 alerts the mart then held takes
+  148 s, and the hourly incremental run, bounded by the detector's 360 s
+  lateness bound, touches tens of alerts and took 5.5 s.
 
 **The page is one snapshot, and it says so.** The window is 09-24 to 09-30
 Pacific, five weekdays and a weekend, starting from the first day the stack ran
 complete: 16 silent minutes on 09-24, against 843 on 09-21 while it was still
-being built. What is committed so far, over the first three days:
+being built. The week as committed:
 
-| days | positions | live share | alerts | alerts/day | in the PM peak | predictions | median abs error, 0-2m | 45-60m |
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 3 | 3,477,532 | 96.7% | 1,496 | 498.7 | 38.8% | 8,540,029 | 44 s | 204 s |
+| day (Pacific) | positions | silent minutes | longest stall | alerts |
+|---|---:|---:|---:|---:|
+| Thu 09-24 | 1,359,657 | 16 | 9 | 626 |
+| Fri 09-25 | 1,268,228 | 32 | 15 | 655 |
+| Sat 09-26 | 849,647 | 94 | 44 | 215 |
+| Sun 09-27 | 932,456 | 19 | 8 | 142 |
+| Mon 09-28 | 1,366,218 | 23 | 11 | 636 |
+| Tue 09-29 | 1,349,256 | 63 | 39 | 630 |
+| Wed 09-30 | 1,485,397 | 15 | 15 | 790 |
+| **week** | **8,610,859** | **262 of 10,080 (97.4% live)** | | **3,694** |
+
+| alerts/day | in the PM peak | weekday rate | weekend rate | predictions | median abs error, 0-2m | 45-60m |
+|---:|---:|---:|---:|---:|---:|---:|
+| 527.7 | 39.3% | 667 | 178 | 23,308,840 | 44 s | 202 s |
+
+Weekdays and weekends both peak in the 17:00 hour. G Line leads with 596
+alerts, then E Line (553) and route 7 (324), and G Line's five worst stops are
+all on Madison St between 5th and 12th Ave. Only 26% of G Line's alerts fall
+in the PM peak, against 39% overall: on Madison, buses bunch all day.
+
+**What the gaps are.** Every silent stretch over ten minutes has a cause on
+record:
+
+- **Sat 09-26, 44 minutes.** Both sinks stopped landing rows from 19:55 to
+  20:39 UTC while the disk was saturated, and Redpanda was OOM-killed in its
+  2 GB limit inside that window. A replay probe and ad hoc scans ran in the
+  same hour; the timing lines up, but causation was not proven.
+- **Tue 09-29, 39 minutes from 15:13 Pacific.** A planned outage: the
+  self-hosted DNS server was down while its host took a RAM upgrade. Every
+  feed went stale together (1,836 s and climbing), which is what losing name
+  resolution looks like.
+- **Tue 09-29, 21:35 Pacific: the host rebooted.** The journal from before it
+  was not retained, so the cause is unknown. Three minutes had no positions
+  at all (21:34-21:36), which nothing can recover: the producer was down, so
+  the archive missed them too. The bunching detector resumed from its
+  committed offsets. The prediction job starts from the newest offsets, so it
+  came back with an empty join state, and about 14,000 predictions (roughly 12
+  minutes at the usual rate) were never resolved.
+- **Every night at 03:00, 11 to 15 minutes.** 09-25, 09-26, 09-28, 09-29 and
+  09-30 all go silent in the owl hours for 11 to 15 minutes, starting at the
+  same minute each time. That is the hour and the shape of the 09-23 stall
+  this mart was built around, when Metro's upstream objects stopped changing,
+  and positions alone cannot tell that apart from silence of ours. On 09-29
+  the producer kept fetching current payloads throughout; source freshness
+  flagged it either way, and the next run passed.
+
+The prediction counts are by UTC day and grow across the week, from 2.75M on
+09-24 to 4.48M on 09-30.
 
 The prediction days are UTC, because the intermediates are keyed that way, and
 the chart says so under it; every other file is Pacific days.

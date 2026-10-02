@@ -1,20 +1,20 @@
 {
  "data": {
-  "alerts": 1496,
-  "alerts_per_day": 498.7,
-  "days": 3,
+  "alerts": 3694,
+  "alerts_per_day": 527.7,
+  "days": 7,
   "first": "2026-09-24",
-  "last": "2026-09-26",
-  "live_share": 0.967,
+  "last": "2026-09-30",
+  "live_share": 0.974,
   "located_share": 1.0,
-  "median_abs_error_long_s": 204,
+  "median_abs_error_long_s": 202,
   "median_abs_error_short_s": 44,
-  "pm_peak_share": 0.388,
-  "positions": 3477532,
-  "predictions": 8540029
+  "pm_peak_share": 0.393,
+  "positions": 8610859,
+  "predictions": 23308840
  },
  "window": {
   "first": "2026-09-24",
-  "last": "2026-09-26"
+  "last": "2026-09-30"
  }
 }

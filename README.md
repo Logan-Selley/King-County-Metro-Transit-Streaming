@@ -31,10 +31,10 @@ make og-card          # re-render the link preview from that data
 make site-preview     # http://localhost:8765
 ```
 
-The committed snapshot covers 2026-09-24 to 09-26 Pacific, the days the stack
-had finished when it was cut: **1,496 bunching alerts, 3.48M vehicle positions,
-a 96.7% live share, and 8.54M checked predictions**, with a median absolute
-prediction error of 44 s at two minutes out and 204 s at an hour. The study
+The committed snapshot is the full study week, 2026-09-24 to 09-30 Pacific:
+**8.61M vehicle positions, 3,694 bunching alerts, 23.3M checked predictions,
+and the feed live in 97.4% of minutes**, with a median absolute prediction
+error of 44 s at under two minutes out and 202 s at 45-60 minutes. The study
 window is a stated choice rather than whatever happened to be in the warehouse:
 [ADR 0011](docs/decisions/0011-the-findings-site.md) records the design, and
 [findings section 14](docs/findings.md) is the page's own write-up.
@@ -150,10 +150,12 @@ measurably misbehaving: the replay holds 1,143 enriched rows that live never
 landed, 1,138 of them in a single two-minute window. The gate experiment on top reproduces Phase 3's result on a
 second day, from archived bytes.
 
-**The page** ([findings §14](docs/findings.md)). Over the snapshot's three days:
-1,496 alerts, 38.8% of them in the PM peak, 96.7% of the minutes live, and a
-prediction error curve that still climbs. The map covers every alert, and
-`kpis.json` carries that share rather than leaving it implied.
+**The page** ([findings §14](docs/findings.md)). Over the study week: 3,694
+alerts, 39.3% of them between 16:00 and 18:59, about 667 a weekday against 178
+a weekend day, with both peaking in the 17:00 hour. G Line leads (596), then E
+Line (553) and route 7 (324), and G Line's worst stops are all on Madison St
+between 5th and 12th Ave. The map places every alert, and `kpis.json` carries
+that share rather than leaving it implied.
 
 ## Quickstart
 
@@ -322,14 +324,15 @@ rather than a footnote: if the feed disappears, the archive is the project.
   Connect, dbt, Airflow, and the findings site. Terraform manages the local
   stack's topics, bucket, connectors, and roles; there is no cloud deployment,
   and [ADR 0009](docs/decisions/0009-terraform-local-platform.md) records why.
-- **443 contract tests** across twelve suites, plus 10 wire-semantics tests, all
+- **446 contract tests** across twelve suites, plus 10 wire-semantics tests, all
   enforced in CI; each was written before the code it tests. CI is green on
   `main`.
 - **The site is a snapshot by design.** Its data is committed and re-cut by
   `make exports`, so publishing an update is a commit rather than a deploy step
   that can fail halfway, and the link preview is rendered from the same JSON.
 - **Known limits, stated rather than implied.** The gate experiment covers two
-  days, and a claim about routes in general would want a week. The prediction
+  days, so it shows the gate working rather than measuring it, and the route
+  findings rest on the one study week the snapshot holds. The prediction
   job is not replayable, because its state expires on processing time. 35 of
   31,688 trips visit the same stop twice and join their second visit against the
   first, which is left in at 0.1% of trips.

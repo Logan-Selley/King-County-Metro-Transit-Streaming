@@ -2,70 +2,70 @@
  "data": [
   {
    "lead_bucket": "past",
-   "mean_error_s": -341,
-   "median_abs_error_s": 176,
-   "p90_abs_error_s": 990,
-   "predictions": 943
+   "mean_error_s": -330,
+   "median_abs_error_s": 169,
+   "p90_abs_error_s": 798,
+   "predictions": 4294
   },
   {
    "lead_bucket": "0-2m",
-   "mean_error_s": 12,
+   "mean_error_s": 13,
    "median_abs_error_s": 44,
    "p90_abs_error_s": 86,
-   "predictions": 280248
+   "predictions": 753687
   },
   {
    "lead_bucket": "2-5m",
    "mean_error_s": 53,
-   "median_abs_error_s": 77,
+   "median_abs_error_s": 78,
    "p90_abs_error_s": 151,
-   "predictions": 1142945
+   "predictions": 3083897
   },
   {
    "lead_bucket": "5-10m",
    "mean_error_s": 59,
    "median_abs_error_s": 93,
-   "p90_abs_error_s": 206,
-   "predictions": 1697758
+   "p90_abs_error_s": 207,
+   "predictions": 4604928
   },
   {
    "lead_bucket": "10-15m",
-   "mean_error_s": 62,
+   "mean_error_s": 63,
    "median_abs_error_s": 107,
-   "p90_abs_error_s": 254,
-   "predictions": 1388611
+   "p90_abs_error_s": 256,
+   "predictions": 3781915
   },
   {
    "lead_bucket": "15-20m",
-   "mean_error_s": 65,
-   "median_abs_error_s": 120,
-   "p90_abs_error_s": 295,
-   "predictions": 1121737
+   "mean_error_s": 66,
+   "median_abs_error_s": 121,
+   "p90_abs_error_s": 298,
+   "predictions": 3081573
   },
   {
    "lead_bucket": "20-30m",
-   "mean_error_s": 68,
-   "median_abs_error_s": 138,
-   "p90_abs_error_s": 340,
-   "predictions": 1578577
+   "mean_error_s": 69,
+   "median_abs_error_s": 139,
+   "p90_abs_error_s": 343,
+   "predictions": 4347173
   },
   {
    "lead_bucket": "30-45m",
    "mean_error_s": 85,
-   "median_abs_error_s": 167,
-   "p90_abs_error_s": 411,
-   "predictions": 1068467
+   "median_abs_error_s": 168,
+   "p90_abs_error_s": 410,
+   "predictions": 2942262
   },
   {
    "lead_bucket": "45-60m",
    "mean_error_s": 126,
-   "median_abs_error_s": 204,
-   "p90_abs_error_s": 492,
-   "predictions": 260743
+   "median_abs_error_s": 202,
+   "p90_abs_error_s": 478,
+   "predictions": 709111
   }
  ],
  "window": {
   "first": "2026-09-24",
-  "last": "2026-09-26"
+  "last": "2026-09-30"
  }
 }

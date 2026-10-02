@@ -23,10 +23,42 @@
    "minutes": 1440,
    "positions": 849647,
    "silent_minutes": 94
+  },
+  {
+   "date": "2026-09-27",
+   "live_share": 0.9868,
+   "median_ingest_lag_s": 40,
+   "minutes": 1440,
+   "positions": 932456,
+   "silent_minutes": 19
+  },
+  {
+   "date": "2026-09-28",
+   "live_share": 0.984,
+   "median_ingest_lag_s": 43,
+   "minutes": 1440,
+   "positions": 1366218,
+   "silent_minutes": 23
+  },
+  {
+   "date": "2026-09-29",
+   "live_share": 0.9563,
+   "median_ingest_lag_s": 42,
+   "minutes": 1440,
+   "positions": 1349256,
+   "silent_minutes": 63
+  },
+  {
+   "date": "2026-09-30",
+   "live_share": 0.9896,
+   "median_ingest_lag_s": 42,
+   "minutes": 1440,
+   "positions": 1485397,
+   "silent_minutes": 15
   }
  ],
  "window": {
   "first": "2026-09-24",
-  "last": "2026-09-26"
+  "last": "2026-09-30"
  }
 }
