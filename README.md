@@ -136,11 +136,13 @@ of alerts with a healthy-looking dashboard.
 **Prediction accuracy** ([findings §11 and §12](docs/findings.md)). A two-stream
 join keyed on `trip_id` (45.8% of trip updates carry a vehicle, and those are
 the trips that have not started, which is exactly the long-lead-time half the
-analysis needs). Metro's arrival estimates run **pessimistic**: median absolute
-error rises from 45 s at under two minutes out to 196 s at 45-60m, and the mean
-error is positive in every forward bucket, so buses arrive earlier than the sign
-says. The live job reproduced the offline curve within about 10 s per bucket, and
-the warehouse mart draws the same curve again.
+analysis needs). Metro's arrival estimates run **pessimistic**: on the Phase 3
+corpus of 608,140 accuracy records the median absolute error rises from 45 s at
+under two minutes out to 196 s at 45-60m, and the mean error is positive in every
+forward bucket, so buses arrive earlier than the sign says. The study week the
+published snapshot holds puts the same pair at **44 s and 202 s** ([findings
+§14](docs/findings.md)). The live job reproduced the offline curve within about
+10 s per bucket, and the warehouse mart draws the same curve again.
 
 **Replay from the archive** ([findings §13](docs/findings.md)). One calendar day
 re-run through the live code: **1,359,657 enriched rows reproduced with every
